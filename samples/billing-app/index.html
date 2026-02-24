@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Billing App</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">Billing App</span>
+    <a href="/invoices/new">New Invoice</a>
+    <a href="/invoices/">Invoices</a>
+    <a href="/settings/">Settings</a>
+  </nav>
+  <main>
+    <h1>Welcome to Billing App</h1>
+    <p>A sample app demonstrating Agent-Native Web semantics.</p>
+    <div class="card" style="margin-top: 1rem;">
+      <p><a href="/invoices/new">Create an invoice</a> or <a href="/invoices/">view existing invoices</a>.</p>
+    </div>
+  </main>
+  <script type="module">
+    import { initNav } from '/src/nav.ts';
+    initNav();
+  </script>
+</body>
+</html>

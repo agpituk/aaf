@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — Billing App</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">Billing App</span>
+    <a href="/invoices/new">New Invoice</a>
+    <a href="/invoices/">Invoices</a>
+    <a href="/settings/">Settings</a>
+  </nav>
+  <main>
+    <h1>Workspace Settings</h1>
+    <div class="card">
+      <h2>General</h2>
+      <p style="margin-top: 0.5rem; color: #666;">Workspace settings and configuration options.</p>
+    </div>
+
+    <div class="card" style="border: 2px solid #fca5a5;">
+      <h2 style="color: #dc2626;">Danger Zone</h2>
+      <p style="margin: 0.5rem 0;">Permanently delete this workspace and all its data. This action cannot be undone.</p>
+
+      <label for="delete_confirmation">Type DELETE to confirm</label>
+      <input
+        type="text"
+        id="delete_confirmation"
+        aria-label="Type DELETE to confirm"
+        data-agent-kind="field"
+        data-agent-field="delete_confirmation_text"
+        data-agent-for-action="workspace.delete"
+      />
+
+      <button
+        id="delete-btn"
+        class="btn-danger"
+        data-agent-kind="action"
+        data-agent-action="workspace.delete"
+        data-agent-scope="workspace.delete"
+        data-agent-danger="high"
+        data-agent-confirm="required"
+      >
+        Delete Workspace
+      </button>
+
+      <div
+        id="delete-status"
+        role="status"
+        aria-live="polite"
+        data-agent-kind="status"
+        data-agent-output="workspace.delete.result"
+      ></div>
+    </div>
+  </main>
+  <script type="module">
+    import { initNav } from '/src/nav.ts';
+    import { deleteAllInvoices } from '/src/store.ts';
+    initNav();
+
+    document.getElementById('delete-btn').addEventListener('click', () => {
+      const input = document.getElementById('delete_confirmation');
+      const statusEl = document.getElementById('delete-status');
+
+      if (input.value !== 'DELETE') {
+        statusEl.textContent = 'Please type DELETE to confirm.';
+        statusEl.className = 'status error';
+        return;
+      }
+
+      if (!confirm('Are you absolutely sure you want to delete the workspace?')) {
+        return;
+      }
+
+      deleteAllInvoices();
+      statusEl.textContent = 'Workspace deleted successfully.';
+      statusEl.className = 'status success';
+      input.value = '';
+    });
+  </script>
+</body>
+</html>

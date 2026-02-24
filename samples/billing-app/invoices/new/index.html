@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Invoice — Billing App</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">Billing App</span>
+    <a href="/invoices/new">New Invoice</a>
+    <a href="/invoices/">Invoices</a>
+    <a href="/settings/">Settings</a>
+  </nav>
+  <main>
+    <h1>Create Invoice</h1>
+    <div class="card">
+      <form
+        id="invoice-form"
+        data-agent-kind="action"
+        data-agent-action="invoice.create"
+        data-agent-scope="invoices.write"
+        data-agent-danger="low"
+        data-agent-confirm="optional"
+        data-agent-idempotent="false"
+        data-agent-version="0.1"
+      >
+        <label for="customer_email">Customer Email</label>
+        <input
+          type="email"
+          id="customer_email"
+          name="email"
+          required
+          aria-label="Customer email"
+          data-agent-kind="field"
+          data-agent-field="customer_email"
+        />
+
+        <label for="amount">Amount</label>
+        <input
+          type="number"
+          id="amount"
+          name="amount"
+          min="0"
+          step="0.01"
+          required
+          aria-label="Amount"
+          data-agent-kind="field"
+          data-agent-field="amount"
+        />
+
+        <label for="currency">Currency</label>
+        <select
+          id="currency"
+          name="currency"
+          aria-label="Currency"
+          data-agent-kind="field"
+          data-agent-field="currency"
+        >
+          <option value="EUR">EUR</option>
+          <option value="USD">USD</option>
+        </select>
+
+        <label for="memo">Memo</label>
+        <textarea
+          id="memo"
+          name="memo"
+          aria-label="Memo"
+          data-agent-kind="field"
+          data-agent-field="memo"
+        ></textarea>
+
+        <button
+          type="submit"
+          class="btn-primary"
+          data-agent-kind="action"
+          data-agent-action="invoice.create.submit"
+        >
+          Create Invoice
+        </button>
+
+        <div
+          id="status"
+          role="status"
+          aria-live="polite"
+          data-agent-kind="status"
+          data-agent-output="invoice.create.status"
+        ></div>
+      </form>
+    </div>
+  </main>
+  <script type="module">
+    import { initNav } from '/src/nav.ts';
+    import { createInvoice } from '/src/store.ts';
+    initNav();
+
+    document.getElementById('invoice-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const statusEl = document.getElementById('status');
+      try {
+        const invoice = createInvoice({
+          customer_email: form.email.value,
+          amount: parseFloat(form.amount.value),
+          currency: form.currency.value,
+          memo: form.memo.value || '',
+        });
+        statusEl.textContent = `Invoice ${invoice.id} created successfully`;
+        statusEl.className = 'status success';
+        form.reset();
+      } catch (err) {
+        statusEl.textContent = `Error: ${err.message}`;
+        statusEl.className = 'status error';
+      }
+    });
+  </script>
+</body>
+</html>

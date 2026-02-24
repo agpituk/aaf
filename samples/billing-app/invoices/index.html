@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoices — Billing App</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">Billing App</span>
+    <a href="/invoices/new">New Invoice</a>
+    <a href="/invoices/">Invoices</a>
+    <a href="/settings/">Settings</a>
+  </nav>
+  <main>
+    <h1>Invoices</h1>
+    <div
+      class="card"
+      data-agent-kind="collection"
+      data-agent-action="invoice.list"
+      id="invoice-list"
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Customer</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody id="invoice-tbody"></tbody>
+      </table>
+      <div id="empty-state" class="empty" style="display:none;">No invoices yet. <a href="/invoices/new">Create one</a>.</div>
+    </div>
+  </main>
+  <script type="module">
+    import { initNav } from '/src/nav.ts';
+    import { getInvoices } from '/src/store.ts';
+    initNav();
+
+    function render() {
+      const invoices = getInvoices();
+      const tbody = document.getElementById('invoice-tbody');
+      const emptyState = document.getElementById('empty-state');
+
+      if (invoices.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      tbody.innerHTML = invoices.map((inv) => `
+        <tr data-agent-kind="item" data-agent-output="invoice">
+          <td>${inv.id}</td>
+          <td>${inv.customer_email}</td>
+          <td>${inv.amount} ${inv.currency}</td>
+          <td>${inv.status}</td>
+          <td>${new Date(inv.created_at).toLocaleDateString()}</td>
+        </tr>
+      `).join('');
+    }
+
+    render();
+  </script>
+</body>
+</html>

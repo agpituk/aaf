@@ -1,0 +1,102 @@
+{
+  "version": "0.1",
+  "site": {
+    "name": "Example Billing",
+    "origin": "http://localhost:5173"
+  },
+  "actions": {
+    "invoice.create": {
+      "title": "Create invoice",
+      "scope": "invoices.write",
+      "risk": "low",
+      "confirmation": "optional",
+      "idempotent": false,
+      "inputSchema": {
+        "type": "object",
+        "required": ["customer_email", "amount", "currency"],
+        "properties": {
+          "customer_email": { "type": "string", "format": "email" },
+          "amount": { "type": "number", "minimum": 0 },
+          "currency": { "type": "string", "enum": ["EUR", "USD"] },
+          "memo": { "type": "string" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["invoice_id", "status"],
+        "properties": {
+          "invoice_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["draft", "sent"] }
+        }
+      },
+      "ui": {
+        "page": "/invoices/new",
+        "rootActionSelector": "[data-agent-action='invoice.create']"
+      }
+    },
+    "invoice.list": {
+      "title": "List invoices",
+      "scope": "invoices.read",
+      "risk": "none",
+      "confirmation": "never",
+      "idempotent": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["invoices"],
+        "properties": {
+          "invoices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "customer_email": { "type": "string" },
+                "amount": { "type": "number" },
+                "currency": { "type": "string" },
+                "status": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "ui": {
+        "page": "/invoices/",
+        "rootActionSelector": "[data-agent-action='invoice.list']"
+      }
+    },
+    "workspace.delete": {
+      "title": "Delete workspace",
+      "scope": "workspace.delete",
+      "risk": "high",
+      "confirmation": "required",
+      "idempotent": false,
+      "inputSchema": {
+        "type": "object",
+        "required": ["delete_confirmation_text"],
+        "properties": {
+          "delete_confirmation_text": { "type": "string", "const": "DELETE" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["deleted"],
+        "properties": {
+          "deleted": { "type": "boolean" }
+        }
+      },
+      "ui": {
+        "page": "/settings/",
+        "rootActionSelector": "[data-agent-action='workspace.delete']"
+      }
+    }
+  },
+  "errors": {
+    "UNAUTHORIZED": { "message": "User is not authorized for this action" },
+    "VALIDATION_ERROR": { "message": "Input validation failed" },
+    "CONFIRMATION_REQUIRED": { "message": "Action requires explicit confirmation" }
+  }
+}
