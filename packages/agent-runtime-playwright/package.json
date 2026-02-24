@@ -1,0 +1,17 @@
+{
+  "name": "@agent-native-web/runtime-playwright",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@agent-native-web/runtime-core": "*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0"
+  }
+}
