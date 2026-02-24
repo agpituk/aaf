@@ -1,0 +1,25 @@
+{
+  "version": "0.1",
+  "site": { "name": "Test", "origin": "https://test.com" },
+  "actions": {
+    "invoice.create": {
+      "title": "Create invoice",
+      "scope": "invoices.write",
+      "risk": "low",
+      "confirmation": "optional",
+      "idempotent": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "customer_email": { "type": "string" },
+          "amount": { "type": "number" },
+          "nonexistent_field": { "type": "string" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

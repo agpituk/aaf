@@ -1,0 +1,18 @@
+<form
+  data-agent-kind="action"
+  data-agent-action="invoice.create"
+  data-agent-scope="invoices.write"
+  data-agent-danger="low"
+  data-agent-confirm="optional"
+  data-agent-idempotent="false"
+>
+  <input data-agent-kind="field" data-agent-field="customer_email" />
+  <input data-agent-kind="field" data-agent-field="amount" />
+  <select data-agent-kind="field" data-agent-field="currency">
+    <option value="EUR">EUR</option>
+    <option value="USD">USD</option>
+  </select>
+  <textarea data-agent-kind="field" data-agent-field="memo"></textarea>
+  <button data-agent-kind="action" data-agent-action="invoice.create.submit">Create</button>
+  <div data-agent-kind="status" data-agent-output="invoice.create.status"></div>
+</form>
