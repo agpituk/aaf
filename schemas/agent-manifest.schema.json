@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agent-native-web.dev/schemas/agent-manifest.schema.json",
+  "title": "Agent Manifest",
+  "description": "Agent-Native Web capability manifest defining site actions, schemas, and policies.",
+  "type": "object",
+  "required": ["version", "site", "actions"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Manifest version identifier.",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "site": {
+      "$ref": "#/definitions/Site"
+    },
+    "actions": {
+      "type": "object",
+      "description": "Map of action identifiers to action definitions.",
+      "additionalProperties": {
+        "$ref": "#/definitions/Action"
+      },
+      "minProperties": 1
+    },
+    "errors": {
+      "type": "object",
+      "description": "Map of error codes to error definitions.",
+      "additionalProperties": {
+        "$ref": "#/definitions/ErrorDef"
+      }
+    }
+  },
+  "definitions": {
+    "Site": {
+      "type": "object",
+      "required": ["name", "origin"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable site name."
+        },
+        "origin": {
+          "type": "string",
+          "format": "uri",
+          "description": "Site origin URL."
+        }
+      }
+    },
+    "Action": {
+      "type": "object",
+      "required": ["title", "scope", "risk", "confirmation", "idempotent", "inputSchema", "outputSchema"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Human-readable action title."
+        },
+        "scope": {
+          "type": "string",
+          "description": "Permission scope required for this action.",
+          "pattern": "^[a-z][a-z0-9_.]*$"
+        },
+        "risk": {
+          "type": "string",
+          "description": "Risk level for this action.",
+          "enum": ["none", "low", "high"]
+        },
+        "confirmation": {
+          "type": "string",
+          "description": "Confirmation policy.",
+          "enum": ["never", "optional", "required"]
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Whether repeated execution is safe."
+        },
+        "inputSchema": {
+          "type": "object",
+          "description": "JSON Schema for action input."
+        },
+        "outputSchema": {
+          "type": "object",
+          "description": "JSON Schema for action output."
+        },
+        "ui": {
+          "$ref": "#/definitions/ActionUI"
+        }
+      }
+    },
+    "ActionUI": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "type": "string",
+          "description": "URL path for the action page."
+        },
+        "rootActionSelector": {
+          "type": "string",
+          "description": "CSS selector for the root action element."
+        }
+      }
+    },
+    "ErrorDef": {
+      "type": "object",
+      "required": ["message"],
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "Human-readable error message."
+        }
+      }
+    }
+  }
+}

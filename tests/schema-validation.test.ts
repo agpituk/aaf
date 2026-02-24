@@ -1,0 +1,181 @@
+import { describe, it, expect } from 'vitest';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+import schema from '../schemas/agent-manifest.schema.json';
+
+function createValidator() {
+  const ajv = new Ajv({ strict: false });
+  addFormats(ajv);
+  return ajv.compile(schema);
+}
+
+const exampleManifest = {
+  version: '0.1',
+  site: {
+    name: 'Example Billing',
+    origin: 'https://billing.example.com',
+  },
+  actions: {
+    'invoice.create': {
+      title: 'Create invoice',
+      scope: 'invoices.write',
+      risk: 'low',
+      confirmation: 'optional',
+      idempotent: false,
+      inputSchema: {
+        type: 'object',
+        required: ['customer_email', 'amount', 'currency'],
+        properties: {
+          customer_email: { type: 'string', format: 'email' },
+          amount: { type: 'number', minimum: 0 },
+          currency: { type: 'string', enum: ['EUR', 'USD'] },
+          memo: { type: 'string' },
+        },
+      },
+      outputSchema: {
+        type: 'object',
+        required: ['invoice_id', 'status'],
+        properties: {
+          invoice_id: { type: 'string' },
+          status: { type: 'string', enum: ['draft', 'sent'] },
+        },
+      },
+      ui: {
+        page: '/invoices/new',
+        rootActionSelector: "[data-agent-action='invoice.create']",
+      },
+    },
+    'workspace.delete': {
+      title: 'Delete workspace',
+      scope: 'workspace.delete',
+      risk: 'high',
+      confirmation: 'required',
+      idempotent: false,
+      inputSchema: {
+        type: 'object',
+        required: ['delete_confirmation_text'],
+        properties: {
+          delete_confirmation_text: { type: 'string', const: 'DELETE' },
+        },
+      },
+      outputSchema: {
+        type: 'object',
+        required: ['deleted'],
+        properties: {
+          deleted: { type: 'boolean' },
+        },
+      },
+    },
+  },
+  errors: {
+    UNAUTHORIZED: { message: 'User is not authorized for this action' },
+    VALIDATION_ERROR: { message: 'Input validation failed' },
+    CONFIRMATION_REQUIRED: {
+      message: 'Action requires explicit confirmation',
+    },
+  },
+};
+
+describe('Agent Manifest Schema Validation', () => {
+  it('validates the example manifest from the spec', () => {
+    const validate = createValidator();
+    const valid = validate(exampleManifest);
+    expect(valid).toBe(true);
+    expect(validate.errors).toBeNull();
+  });
+
+  it('rejects a manifest missing required version field', () => {
+    const validate = createValidator();
+    const { version, ...noVersion } = exampleManifest;
+    expect(validate(noVersion)).toBe(false);
+  });
+
+  it('rejects a manifest missing required site field', () => {
+    const validate = createValidator();
+    const { site, ...noSite } = exampleManifest;
+    expect(validate(noSite)).toBe(false);
+  });
+
+  it('rejects a manifest missing required actions field', () => {
+    const validate = createValidator();
+    const { actions, ...noActions } = exampleManifest;
+    expect(validate(noActions)).toBe(false);
+  });
+
+  it('rejects an empty actions object', () => {
+    const validate = createValidator();
+    const manifest = { ...exampleManifest, actions: {} };
+    expect(validate(manifest)).toBe(false);
+  });
+
+  it('rejects an invalid risk value', () => {
+    const validate = createValidator();
+    const manifest = {
+      ...exampleManifest,
+      actions: {
+        'test.action': {
+          ...exampleManifest.actions['invoice.create'],
+          risk: 'extreme',
+        },
+      },
+    };
+    expect(validate(manifest)).toBe(false);
+  });
+
+  it('rejects an invalid confirmation value', () => {
+    const validate = createValidator();
+    const manifest = {
+      ...exampleManifest,
+      actions: {
+        'test.action': {
+          ...exampleManifest.actions['invoice.create'],
+          confirmation: 'always',
+        },
+      },
+    };
+    expect(validate(manifest)).toBe(false);
+  });
+
+  it('rejects an invalid version format', () => {
+    const validate = createValidator();
+    const manifest = { ...exampleManifest, version: 'v1' };
+    expect(validate(manifest)).toBe(false);
+  });
+
+  it('rejects additional unknown top-level properties', () => {
+    const validate = createValidator();
+    const manifest = { ...exampleManifest, unknown_field: true };
+    expect(validate(manifest)).toBe(false);
+  });
+
+  it('rejects an action missing required fields', () => {
+    const validate = createValidator();
+    const manifest = {
+      ...exampleManifest,
+      actions: {
+        'test.action': {
+          title: 'Test',
+        },
+      },
+    };
+    expect(validate(manifest)).toBe(false);
+  });
+
+  it('accepts a manifest without optional errors field', () => {
+    const validate = createValidator();
+    const { errors, ...noErrors } = exampleManifest;
+    expect(validate(noErrors)).toBe(true);
+  });
+
+  it('accepts an action without optional ui field', () => {
+    const validate = createValidator();
+    // workspace.delete has no ui field - should be valid
+    const manifest = {
+      ...exampleManifest,
+      actions: {
+        'workspace.delete': exampleManifest.actions['workspace.delete'],
+      },
+    };
+    expect(validate(manifest)).toBe(true);
+  });
+});

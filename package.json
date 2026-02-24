@@ -1,0 +1,21 @@
+{
+  "name": "agent-native-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "samples/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "ajv": "^8.17.0",
+    "ajv-formats": "^3.0.0"
+  }
+}
