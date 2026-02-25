@@ -52,12 +52,8 @@
             <td>Local LLM planner using Ollama. Contains prompt builder, response parser, and Ollama client.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>awi-browser-extension-firefox</code></td>
-            <td>Firefox extension with Harbor LLM integration. Includes sidebar UI, content script, and DomAdapter.</td>
-          </tr>
-          <tr data-agent-kind="item">
             <td><code>awi-agent-widget</code></td>
-            <td>Embeddable agent chat widget. Uses Harbor (window.ai) or Ollama for LLM planning. Shadow DOM isolation.</td>
+            <td>Embeddable agent chat widget. Uses Ollama for LLM planning. Shadow DOM isolation.</td>
           </tr>
           <tr data-agent-kind="item">
             <td><code>awi-agent-skill</code></td>
@@ -96,7 +92,7 @@
         <p><strong>Data Chat Mode</strong> — When the page has only data-agent-kind="collection" and "item" elements with no executable actions, the widget scrapes page data and answers questions about it. Users can ask about the visible content and get answers derived from the annotated data.</p>
       </div>
       <div data-agent-kind="item">
-        <p><strong>Inspector Mode</strong> — When no LLM backend (Harbor or Ollama) is available, the widget degrades gracefully to an inspector that shows discovered actions and fields without planning capability.</p>
+        <p><strong>Inspector Mode</strong> — When Ollama is not available, the widget degrades gracefully to an inspector that shows discovered actions and fields without planning capability.</p>
       </div>
     </div>
 

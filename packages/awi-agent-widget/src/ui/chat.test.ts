@@ -77,9 +77,9 @@ describe('ChatUI', () => {
   it('updates badge text and class', () => {
     const chat = new ChatUI({ onSubmit: vi.fn() });
 
-    chat.setBadge('Harbor', true);
+    chat.setBadge('Ollama', true);
     const badge = chat.shadow.querySelector('.awi-badge') as HTMLElement;
-    expect(badge.textContent).toBe('Harbor');
+    expect(badge.textContent).toBe('Ollama');
     expect(badge.classList.contains('offline')).toBe(false);
 
     chat.setBadge('offline', false);

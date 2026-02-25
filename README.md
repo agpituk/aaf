@@ -58,36 +58,57 @@ Tool protocols (MCP, etc.) are great when a clean backend action exists. This pr
 
 This approach and tool protocols are complementary — the manifest could generate MCP tool definitions later.
 
+## Try the billing app
+
+The fastest way to see this in action is the sample billing app with its embedded agent chat widget.
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org) (v18+)
+- [Ollama](https://ollama.com) installed and running
+
+### Steps
+
+```bash
+# 1. Pull an LLM model
+ollama pull llama3.2
+
+# 2. Make sure Ollama is running (it usually starts automatically)
+ollama serve   # if not already running
+
+# 3. Install dependencies
+npm install
+
+# 4. Start the billing app
+cd samples/billing-app && npx vite
+```
+
+Open `http://localhost:5173/invoices/new` and click the chat bubble in the bottom-right corner.
+
+### Example prompts to try
+
+| Prompt | What happens |
+|--------|-------------|
+| "Create an invoice for alice@example.com for 120 EUR" | Fills the form and submits |
+| "Send a bill to bob@test.com for 50 USD" | Plans and executes `invoice.create` |
+| "Delete the workspace" (on `/settings/`) | Triggers high-risk confirmation dialog |
+
+On the invoices list page (`/invoices/`), the widget enters **data chat mode** — you can ask questions about the visible invoices like "How many invoices are there?" or "What's the total amount?"
+
+### Try the docs site
+
+There's also an interactive documentation site that is itself AWI-annotated — you can ask the chat widget questions about the spec:
+
+```bash
+cd samples/docs-site && npm run dev
+# Open http://localhost:5174
+```
+
+The docs site covers attributes, manifests, execution flow, tooling, and examples. Since every page is annotated with `data-agent-*` attributes, the widget enters data chat mode and you can ask it things like "What attributes does AWI define?" or "How does execution work?"
+
 ## What's in the repo
 
-I built out a full prototype to test whether this idea actually works:
-
-```
-packages/
-  agent-runtime-core/             Core: SemanticParser, ManifestValidator, PolicyEngine, ExecutionLogger
-  agent-runtime-playwright/       Playwright runtime (AWIAdapter for headless testing)
-  agent-lint/                     HTML + manifest conformance linter
-  agentgen/                       SDK + CLI code generator from manifests
-  awi-contracts/                  Typed planner <-> runtime contracts with selector rejection
-  awi-planner-local/              Local LLM planner (Ollama integration)
-  awi-browser-extension-firefox/  Firefox extension with Harbor LLM integration
-  awi-agent-widget/               Embeddable agent chat widget (Harbor + Ollama, shadow DOM)
-  awi-agent-skill/                Agent skill definitions
-  awi-react/                      React bindings for AWI annotations
-  awi-vue/                        Vue bindings for AWI annotations
-  awi-eslint-plugin/              ESLint plugin for AWI attribute validation
-  awi-vite-plugin/                Vite plugin for manifest injection
-  awi-cli/                        CLI for scaffolding and validation
-samples/
-  billing-app/                    Reference app with AWI annotations + agent widget
-  docs-site/                      Interactive docs site (data chat mode — you can ask it questions)
-schemas/
-  agent-manifest.schema.json      JSON Schema for manifest validation
-tests/
-  conformance/                    Conformance test fixtures
-  falsification/                  Selector vs semantic reliability benchmark
-docs/                             Proposal documents
-```
+The prototype includes a core runtime (parser, validator, policy engine, logger), a Playwright testing adapter, a conformance linter, a code generator, typed planner/runtime contracts, a local LLM planner (Ollama), an embeddable agent chat widget, framework bindings (React, Vue), and supporting tooling (ESLint plugin, Vite plugin, CLI). See [`CLAUDE.md`](CLAUDE.md) for the full monorepo layout.
 
 ## Quick start
 
@@ -95,7 +116,7 @@ docs/                             Proposal documents
 # Install dependencies
 npm install
 
-# Run the full test suite (243 tests)
+# Run the full test suite
 npm test
 
 # Start the sample billing app
@@ -110,7 +131,6 @@ cd samples/billing-app && npx vite
 npx vitest run packages/agent-runtime-core
 npx vitest run packages/awi-contracts
 npx vitest run packages/awi-planner-local
-npx vitest run packages/awi-browser-extension-firefox
 npx vitest run packages/awi-agent-widget
 
 # Falsification benchmark (selector vs semantic reliability)
@@ -142,40 +162,6 @@ npx agent-lint --html samples/billing-app/invoices/new/index.html \
 npx agentgen --manifest samples/billing-app/public/.well-known/agent-manifest.json \
              --output generated-sdk/
 ```
-
-### Load the Firefox extension
-
-1. Run `cd packages/awi-browser-extension-firefox && npx vite build`
-2. Open `about:debugging#/runtime/this-firefox`
-3. Click "Load Temporary Add-on" and select `packages/awi-browser-extension-firefox/dist/manifest.json`
-4. Start the billing app (`cd samples/billing-app && npx vite`)
-5. Navigate to `http://localhost:5173/invoices/new`
-6. Open the AWI sidebar panel and use the Inspector tab to see discovered actions
-7. (Optional) Install [Ollama](https://ollama.com) and pull a model (`ollama pull llama3.2`) to enable the Chat tab
-8. (Optional) Install [Harbor](https://github.com/nichochar/harbor) for native Firefox LLM access via `window.ai`
-
-### Try the agent widget
-
-The agent widget is an embeddable `<script>` tag that adds a floating chat panel to any AWI-annotated page. It uses [Harbor](https://github.com/nichochar/harbor) (`window.ai`) for LLM inference in Firefox, with automatic fallback to local Ollama. No extension required.
-
-```html
-<!-- Add to any AWI-annotated page -->
-<script type="module" src="/awi-agent.js"></script>
-```
-
-The billing app already includes the widget. To try it:
-
-1. Start the billing app: `cd samples/billing-app && npx vite`
-2. Open `http://localhost:5173/invoices/new`
-3. Click the chat bubble (bottom-right corner)
-4. Type: "Create an invoice for alice@example.com for 120 EUR"
-
-The widget auto-detects the LLM backend:
-- **Harbor installed** (Firefox): uses `window.ai.createTextSession()` for local LLM access
-- **Ollama running**: falls back to direct `localhost:11434` API calls
-- **No LLM**: shows inspector-only mode (lists discovered actions and fields)
-
-The widget runs entirely in a shadow DOM — no style leaks, no conflicts with the host page.
 
 ## The falsification benchmark
 
@@ -216,7 +202,7 @@ Actions declare risk and confirmation requirements. The runtime enforces them �
 
 - `danger="high"` + `confirm="required"` blocks execution unless the user explicitly confirms
 - The runtime returns `needs_confirmation` with metadata (action name, risk, scope)
-- The extension shows a confirmation dialog; only on user approval does it re-execute with `confirmed: true`
+- The widget shows a confirmation dialog; only on user approval does it re-execute with `confirmed: true`
 
 ## Execution flow
 
@@ -238,20 +224,17 @@ See [`docs/`](docs/) for the full proposal:
 |----------|-------|
 | [01 - Vision and Goals](docs/01-vision-and-goals.md) | The problem and why this approach |
 | [02 - Standard Spec](docs/02-standard-spec.md) | Proposed DOM attributes and manifest format |
-| [03 - Tooling](docs/03-tooling.md) | SDK generation, runtimes, MCP |
 | [04 - Security](docs/04-security-and-conformance.md) | Safety rules and conformance |
-| [05 - Implementation](docs/05-implementation-plan.md) | Build phases |
 | [06 - Design Principles](docs/06-design-principles.md) | Scope and principles |
 | [07 - Future](docs/07-future-and-appendices.md) | Open questions and future directions |
 
 ## Status
 
-This is a working prototype — 243 passing tests across 29 test suites. I built it to prove (or disprove) the idea, not to ship a production framework. The prototype includes:
+This is a working prototype — I built it to prove (or disprove) the idea, not to ship a production framework. The prototype includes:
 
 - Core runtime (parser, validator, policy engine, logger, arg coercion)
-- Firefox extension with Harbor LLM integration (sidebar chat, inspector, DomAdapter)
-- Agent widget — embeddable `<script>` for any AWI page with Harbor/Ollama LLM
-- Local planner (Ollama), Harbor planner (`window.ai`), prompt builder, response parser
+- Agent widget — embeddable `<script>` for any AWI page with Ollama LLM
+- Local planner (Ollama), prompt builder, response parser
 - Linter, code generator, falsification benchmark
 - Typed planner/runtime contracts with selector rejection
 - React and Vue bindings, ESLint plugin, Vite plugin

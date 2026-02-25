@@ -8,7 +8,7 @@ import {
   type ActionCatalog,
   type ExecutionResult,
 } from '@agent-native-web/runtime-core';
-import { HarborPlanner } from './harbor-planner.js';
+import { OllamaPlanner } from './ollama-planner.js';
 import { ChatUI } from './ui/chat.js';
 import { showConfirmation } from './ui/confirmation.js';
 
@@ -190,7 +190,7 @@ async function init(): Promise<void> {
   // Bail if no AWI elements on the page
   if (document.querySelectorAll('[data-agent-kind]').length === 0) return;
 
-  const planner = new HarborPlanner();
+  const planner = new OllamaPlanner();
   const parser = new SemanticParser();
   let manifest: AgentManifest | null = null;
 
@@ -207,13 +207,11 @@ async function init(): Promise<void> {
 
   // Detect backend and show badge
   const backend = await planner.detectBackend();
-  if (backend === 'harbor') {
-    chat.setBadge('Harbor', true);
-  } else if (backend === 'ollama') {
+  if (backend === 'ollama') {
     chat.setBadge('Ollama', true);
   } else {
     chat.setBadge('inspect only', false);
-    chat.addMessage('system', 'No LLM backend detected. Showing discovered actions only.');
+    chat.addMessage('system', 'No LLM backend detected. Install Ollama (https://ollama.com) and pull a model to enable chat.');
     showInspector();
     return;
   }

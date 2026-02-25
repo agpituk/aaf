@@ -10,6 +10,13 @@ A sample billing application demonstrating Agent-Native Web DOM annotations (`da
 
 All pages include the AWI agent widget (`<script type="module" src="/awi-agent.js">`), which adds a floating chat panel in the bottom-right corner.
 
+## Prerequisites
+
+- [Ollama](https://ollama.com) installed and running
+- Pull a model: `ollama pull llama3.2`
+
+Without Ollama, the widget enters inspector-only mode (shows discovered actions and fields, but no chat).
+
 ## Running
 
 ```bash
@@ -23,11 +30,9 @@ The app runs at `http://localhost:5173`.
 
 The agent widget appears as a chat bubble on every page. Click it to open the chat panel.
 
-**With Harbor (Firefox):** Uses `window.ai` for local LLM inference. The widget auto-detects Harbor and shows a "Harbor" badge.
+**With Ollama running:** The widget auto-detects Ollama at `localhost:11434` and shows an "Ollama" badge. You can chat with the page using natural language.
 
-**With Ollama:** If Harbor is unavailable but Ollama is running locally (`localhost:11434`), the widget falls back to direct Ollama API calls.
-
-**Without any LLM:** The widget enters inspector-only mode, showing discovered actions and fields on the page.
+**Without Ollama:** The widget enters inspector-only mode, showing discovered actions and fields on the page.
 
 ### Try it
 

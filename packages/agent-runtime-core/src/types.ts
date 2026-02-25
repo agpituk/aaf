@@ -129,7 +129,7 @@ export interface ExecutionResult {
 
 /**
  * Platform-agnostic adapter for AWI runtimes.
- * Implemented by PlaywrightAdapter (testing) and DomAdapter (browser extension).
+ * Implemented by PlaywrightAdapter (testing).
  */
 export interface AWIAdapter {
   /** Check if the current page has AWI semantic elements */

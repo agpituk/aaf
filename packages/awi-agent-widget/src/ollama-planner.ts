@@ -7,22 +7,11 @@ const MAX_RETRIES = 2;
 const OLLAMA_URL = 'http://localhost:11434';
 const OLLAMA_MODEL = 'llama3.2';
 
-interface HarborAISession {
-  prompt(text: string): Promise<string>;
-  destroy(): void;
-}
-
-interface HarborAI {
-  createTextSession(options?: { systemPrompt?: string }): Promise<HarborAISession>;
-}
-
 /**
- * Harbor-aware planner that uses window.ai for LLM inference.
- * Falls back to direct Ollama fetch when Harbor is unavailable.
+ * Ollama-based planner for LLM inference via local Ollama server.
+ * Falls back to inspector-only mode when Ollama is unavailable.
  */
-export class HarborPlanner {
-  private harborAvailable: boolean | null = null;
-
+export class OllamaPlanner {
   async plan(userMessage: string, catalog: ActionCatalog, pageData?: string): Promise<ParsedPlannerResult> {
     const systemPrompt = buildSystemPrompt(catalog, pageData);
     const userPrompt = buildUserPrompt(userMessage);
@@ -53,9 +42,8 @@ export class HarborPlanner {
     return this.generate(question, systemPrompt, { json: false });
   }
 
-  /** Check which LLM backend is available */
-  async detectBackend(): Promise<'harbor' | 'ollama' | 'none'> {
-    if (await this.isHarborAvailable()) return 'harbor';
+  /** Check whether Ollama is available */
+  async detectBackend(): Promise<'ollama' | 'none'> {
     if (await this.isOllamaAvailable()) return 'ollama';
     return 'none';
   }
@@ -63,22 +51,11 @@ export class HarborPlanner {
   private async generate(userPrompt: string, systemPrompt: string, opts?: { json?: boolean }): Promise<string> {
     const json = opts?.json ?? true;
 
-    if (await this.isHarborAvailable()) {
-      return this.generateWithHarbor(userPrompt, systemPrompt);
-    }
-
     if (await this.isOllamaAvailable()) {
       return this.generateWithOllama(userPrompt, systemPrompt, json);
     }
 
-    throw new Error('No LLM backend available. Install Harbor or run Ollama locally.');
-  }
-
-  private async isHarborAvailable(): Promise<boolean> {
-    if (this.harborAvailable !== null) return this.harborAvailable;
-    this.harborAvailable = typeof (globalThis as Record<string, unknown>).ai !== 'undefined'
-      && (globalThis as Record<string, unknown>).ai !== null;
-    return this.harborAvailable;
+    throw new Error('No LLM backend available. Install and run Ollama locally (https://ollama.com).');
   }
 
   private async isOllamaAvailable(): Promise<boolean> {
@@ -87,16 +64,6 @@ export class HarborPlanner {
       return res.ok;
     } catch {
       return false;
-    }
-  }
-
-  private async generateWithHarbor(userPrompt: string, systemPrompt: string): Promise<string> {
-    const ai = (globalThis as unknown as { ai: HarborAI }).ai;
-    const session = await ai.createTextSession({ systemPrompt });
-    try {
-      return await session.prompt(userPrompt);
-    } finally {
-      session.destroy();
     }
   }
 

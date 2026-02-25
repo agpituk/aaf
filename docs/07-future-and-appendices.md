@@ -91,8 +91,8 @@ At this stage we can discuss:
 
 Once MVP works, we can go bigger.
 
-- ~~Visual inspector extension for `data-agent-*`~~ (done: browser extension inspector + widget inspector mode)
-- ~~Embeddable agent widget for any AWI page~~ (done: `awi-agent-widget` with Harbor/Ollama)
+- ~~Visual inspector for `data-agent-*`~~ (done: widget inspector mode)
+- ~~Embeddable agent widget for any AWI page~~ (done: `awi-agent-widget` with Ollama)
 - Conformance badge for websites ("Agent Semantics v0.1")
 - GitHub Action to lint semantics on PRs
 - Framework plugins:
@@ -104,7 +104,7 @@ Once MVP works, we can go bigger.
   - MCP wrapper
 - Action replay tools using semantic logs
 - "Teach the agent" mode for annotating legacy websites
-- Harbor `window.agent.requestPermissions()` for scoped model access
+- Scoped model access permissions for trusted agent runtimes
 
 ---
 
