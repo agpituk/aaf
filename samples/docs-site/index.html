@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Overview — AWI Docs</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">AWI Docs</span>
+    <a href="/">Overview</a>
+    <a href="/attributes/">Attributes</a>
+    <a href="/manifest/">Manifest</a>
+    <a href="/execution/">Execution</a>
+    <a href="/tooling/">Tooling</a>
+    <a href="/examples/">Examples</a>
+  </nav>
+  <main>
+    <h1>Agent-Native Web (AWI)</h1>
+    <p class="subtitle">A proposal for making websites reliably operable by browser agents.</p>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="overview.what-is-awi">
+      <h2>What is AWI?</h2>
+      <div data-agent-kind="item">
+        <p>Websites today are built for humans and partially for assistive technologies via ARIA, but not for software agents. LLM agents can interact with websites, but they usually do it in brittle ways — guessing CSS selectors, relying on visual position, and breaking when UI labels or layouts change.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p>AWI is a proposal for a new semantic layer on the web, similar in spirit to ARIA, but focused on agent interaction. The idea: the UI remains the source of truth for humans, while the DOM exposes agent-readable semantics. A typed manifest provides stable capabilities. Tooling can auto-generate SDKs, CLIs, and browser automation wrappers.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p>This is not "replace the website with tools." The proposal is to make the website itself agent-readable. Agents would interact with the real UI through named actions and fields — never CSS selectors.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="architecture.layers">
+      <h2>Proposed Architecture (4 Layers)</h2>
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>Name</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td>1</td>
+            <td>UI Layer</td>
+            <td>Human-facing website or web app. Unchanged — the source of truth for users.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>2</td>
+            <td>Agent Semantics Layer</td>
+            <td>DOM annotations using data-agent-* attributes that describe intent, fields, action types, risk, and scopes.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>3</td>
+            <td>Agent Manifest Layer</td>
+            <td>Typed JSON schemas at /.well-known/agent-manifest.json for actions, inputs, outputs, errors, scopes, and versioning.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>4</td>
+            <td>Tooling Layer</td>
+            <td>Generated from manifest and annotations: site SDKs (TypeScript, Python), site CLIs, MCP server wrappers, browser runtime helpers, and conformance tests.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="overview.terminology">
+      <h2>Terminology</h2>
+      <table>
+        <thead>
+          <tr><th>Term</th><th>Definition</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td>Agent</td>
+            <td>Software system (LLM or otherwise) interacting with a website.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>Agent Semantics</td>
+            <td>Machine-readable metadata describing UI intent.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>Agent Action</td>
+            <td>A named operation represented in UI or manifest (e.g. invoice.create).</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>Agent Field</td>
+            <td>Logical input/output field name (e.g. customer_email).</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>Risk Level</td>
+            <td>Metadata indicating action sensitivity: none, low, or high.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>Confirmation</td>
+            <td>Whether explicit confirmation is required before execution: never, optional, or required.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>Manifest</td>
+            <td>Typed machine-readable capability description at /.well-known/agent-manifest.json.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>Generator</td>
+            <td>Tool that creates SDK/CLI/MCP wrappers from semantics and manifest.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>Agent Runtime</td>
+            <td>Browser automation layer that executes UI interactions using semantics.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+  <script type="module">
+    import { initNav } from '/src/nav.ts';
+    initNav();
+  </script>
+  <script type="module" src="/awi-agent.js"></script>
+</body>
+</html>

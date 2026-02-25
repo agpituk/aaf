@@ -1,0 +1,85 @@
+# Agent-Native Web (AWI)
+
+A proposal and prototype for making websites reliably operable by browser agents, using semantic DOM annotations (`data-agent-*`) and typed capability manifests. Agents interact with real UI through named actions and fields — never CSS selectors.
+
+## Quick Reference
+
+```bash
+npm test              # Run all unit tests (vitest)
+npm run test:watch    # Watch mode
+npm run test:e2e      # Playwright E2E tests (requires billing app running)
+npm run benchmark     # Generate falsification reliability report
+```
+
+## Architecture (4 Layers)
+
+1. **UI Layer** — Human-facing website (unchanged)
+2. **Agent Semantics Layer** — `data-agent-*` DOM attributes (kind, action, field, danger, confirm, scope)
+3. **Agent Manifest Layer** — `/.well-known/agent-manifest.json` with action schemas and policies
+4. **Tooling Layer** — Runtimes, SDKs, linters, browser extension, LLM planner
+
+## Monorepo Layout
+
+```
+packages/
+  agent-runtime-core/        # SemanticParser, ManifestValidator, PolicyEngine, ExecutionLogger
+  agent-runtime-playwright/  # PlaywrightAdapter (AWIAdapter for headless testing)
+  agent-lint/                # HTML/manifest conformance linter
+  agentgen/                  # SDK + CLI code generator from manifests
+  awi-contracts/             # PlannerRequest/RuntimeResponse types, validators, JSON schemas
+  awi-planner-local/         # Local LLM planner (Ollama client, prompt builder, response parser)
+  awi-browser-extension-firefox/  # Firefox extension with Harbor LLM integration (sidebar, content script, DomAdapter)
+  awi-agent-widget/          # Embeddable agent chat widget (Harbor + Ollama, shadow DOM)
+samples/
+  billing-app/               # Reference app with AWI annotations + widget (3 pages, 3 actions)
+schemas/
+  agent-manifest.schema.json # JSON Schema for manifest validation
+tests/
+  conformance/               # Conformance test fixtures
+  falsification/             # Selector vs semantic benchmark, safety, drift detection
+docs/                        # Spec documents (vision, standard, tooling, security)
+```
+
+## Core Concepts
+
+- **Actions**: dot-notation identifiers (`invoice.create`, `workspace.delete`). Sub-actions use extra dot (`invoice.create.submit`).
+- **Fields**: snake_case identifiers (`customer_email`, `amount`). Linked to actions via nesting or `data-agent-for-action`.
+- **Risk/Confirmation**: `danger="high"` + `confirm="required"` blocks execution without user consent. Runtime returns `needs_confirmation` status.
+- **AWIAdapter interface**: `detect() → discover() → validate() → execute()`. Implemented by `PlaywrightAdapter` (testing) and `DomAdapter` (Firefox extension).
+- **Agent Widget**: Embeddable `<script>` that adds a floating chat panel to any AWI-annotated page. Uses Harbor (`window.ai`) or Ollama for LLM planning. Shadow DOM isolation.
+- **Harbor integration**: The widget uses `window.ai.createTextSession()` from [Harbor](https://github.com/nichochar/harbor) for Firefox-native LLM access. Falls back to direct Ollama fetch when Harbor is unavailable. Inspector-only mode when no LLM backend is present.
+- **Contract rule**: Planners send semantic action names + args, NEVER selectors. Validators reject selector-like values.
+
+## Execution Flow
+
+1. **Discover** — `SemanticParser.discoverActions(root)` on DOM → `ActionCatalog`
+2. **Plan** — LLM maps user intent to `PlannerRequest { action, args }`
+3. **Validate** — `ManifestValidator.validateInput()` checks args against JSON Schema
+4. **Policy** — `PolicyEngine.checkExecution()` enforces risk/confirmation rules
+5. **Execute** — Fill fields (native value setter + events), click submit, read status
+6. **Log** — `ExecutionLogger` records semantic steps (fill, click, read_status)
+
+## Conventions
+
+- All packages use TypeScript ES modules (`"type": "module"`)
+- Package names: `@agent-native-web/*` for scoped, `agent-lint`/`agentgen` for standalone CLIs
+- Tests colocated in `src/` as `*.test.ts` (vitest)
+- AJV for JSON Schema validation (runtime-core, contracts)
+- Vite for builds (billing app, browser extension, agent widget)
+- No CSS selector references in agent contracts — semantic names only
+
+## Key Files
+
+| File | What it does |
+|------|-------------|
+| `packages/agent-runtime-core/src/types.ts` | All core type definitions including AWIAdapter |
+| `packages/agent-runtime-core/src/semantic-parser.ts` | DOM → DiscoveredAction[] (works on real DOM and jsdom) |
+| `packages/awi-contracts/src/validators.ts` | Validates planner requests, rejects selectors |
+| `packages/awi-browser-extension-firefox/src/content/dom-adapter.ts` | AWIAdapter for real browser DOM |
+| `packages/awi-browser-extension-firefox/src/content/harbor-bridge.ts` | CustomEvent bridge to Harbor's `window.ai` (crosses Firefox Xray boundary) |
+| `packages/awi-browser-extension-firefox/src/content/content-script.ts` | Orchestrates discover → plan (Harbor) → execute in content script |
+| `packages/awi-planner-local/src/planner.ts` | Ollama LLM → semantic action request |
+| `packages/awi-agent-widget/src/widget.ts` | Embeddable agent widget entry point (detects AWI, mounts UI, wires planner) |
+| `packages/awi-agent-widget/src/harbor-planner.ts` | Harbor (`window.ai`) planner with Ollama fallback |
+| `packages/awi-agent-widget/src/ui/chat.ts` | Shadow DOM floating chat panel |
+| `samples/billing-app/public/.well-known/agent-manifest.json` | Reference manifest |

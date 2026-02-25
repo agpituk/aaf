@@ -1,6 +1,7 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import type { AgentManifest, AgentAction } from './types.js';
+import { coerceArgs, type Coercion } from './coerce-args.js';
 
 export class ManifestValidator {
   private ajv: Ajv;
@@ -39,5 +40,14 @@ export class ManifestValidator {
       return { valid: false, errors };
     }
     return { valid: true, errors: [] };
+  }
+
+  coerceAndValidate(
+    action: AgentAction,
+    input: Record<string, unknown>,
+  ): { valid: boolean; errors: string[]; coerced: Record<string, unknown>; coercions: Coercion[] } {
+    const { args: coerced, coercions } = coerceArgs(input, action.inputSchema);
+    const { valid, errors } = this.validateInput(action, coerced);
+    return { valid, errors, coerced, coercions };
   }
 }

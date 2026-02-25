@@ -90,6 +90,7 @@ export class SemanticParser {
         field: f.getAttribute('data-agent-field')!,
         tagName: f.tagName.toLowerCase(),
         forAction: f.getAttribute('data-agent-for-action') ?? undefined,
+        options: this.extractOptions(f),
       });
     }
     // Fields elsewhere linked via data-agent-for-action
@@ -102,10 +103,24 @@ export class SemanticParser {
           field: fieldName,
           tagName: f.tagName.toLowerCase(),
           forAction: actionName,
+          options: this.extractOptions(f),
         });
       }
     }
     return fields;
+  }
+
+  /** Extract option values from <select> elements. */
+  private extractOptions(el: HtmlElement): string[] | undefined {
+    if (el.tagName.toLowerCase() !== 'select') return undefined;
+    const opts = el.querySelectorAll('option');
+    if (opts.length === 0) return undefined;
+    const values: string[] = [];
+    for (let i = 0; i < opts.length; i++) {
+      const val = opts[i].getAttribute('value');
+      if (val) values.push(val);
+    }
+    return values.length > 0 ? values : undefined;
   }
 
   private discoverStatuses(root: HtmlElement, actionEl: HtmlElement, _actionName: string): DiscoveredStatus[] {

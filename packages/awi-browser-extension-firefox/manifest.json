@@ -1,0 +1,41 @@
+{
+  "manifest_version": 2,
+  "name": "AWI Agent",
+  "description": "Agent-native web interaction using AWI semantics",
+  "version": "0.1.0",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "awi-firefox@agent-native-web",
+      "strict_min_version": "91.0"
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "http://localhost:11434/*",
+    "<all_urls>"
+  ],
+  "sidebar_action": {
+    "default_title": "AWI Agent",
+    "default_panel": "sidebar.html",
+    "default_icon": "icons/icon16.png"
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    "harbor-page-script.js"
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

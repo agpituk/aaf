@@ -2,6 +2,23 @@
   "name": "agent-native-web",
   "version": "0.1.0",
   "private": true,
+  "description": "A proposal and prototype for making websites reliably operable by browser agents via semantic DOM annotations and typed capability manifests.",
+  "license": "MIT",
+  "author": "Alejandro Gonzalez",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nichochar/Agent-Native-Web.git"
+  },
+  "homepage": "https://github.com/nichochar/Agent-Native-Web",
+  "keywords": [
+    "agent",
+    "browser-automation",
+    "semantic-web",
+    "llm",
+    "web-agent",
+    "dom-semantics",
+    "manifest"
+  ],
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -10,12 +27,16 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "benchmark": "npx tsx tests/falsification/generate-report.ts"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0",
     "ajv": "^8.17.0",
-    "ajv-formats": "^3.0.0"
+    "ajv-formats": "^3.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "jsdom": "^28.1.0"
   }
 }

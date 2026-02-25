@@ -1,4 +1,5 @@
 import type { ExecutionLog, LogStep } from './types.js';
+import type { Coercion } from './coerce-args.js';
 
 export class ExecutionLogger {
   private sessionId: string;
@@ -34,6 +35,12 @@ export class ExecutionLogger {
 
   policyCheck(result: string, error?: string): void {
     this.steps.push({ type: 'policy_check', result, error });
+  }
+
+  coerce(coercions: Coercion[]): void {
+    if (coercions.length > 0) {
+      this.steps.push({ type: 'coerce', coercions });
+    }
   }
 
   toLog(): ExecutionLog {

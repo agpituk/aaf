@@ -1,0 +1,385 @@
+#!/usr/bin/env npx tsx
+/**
+ * AWI CLI Agent — interact with AWI-annotated websites from the terminal.
+ *
+ * Usage:
+ *   npx tsx packages/awi-cli/src/cli.ts <url> "<command>"
+ *   npx tsx packages/awi-cli/src/cli.ts http://localhost:5177/invoices/new "create an invoice for alice@test.com for 99 EUR"
+ *
+ * Interactive mode (no command):
+ *   npx tsx packages/awi-cli/src/cli.ts http://localhost:5177
+ */
+import { chromium, type Page, type Browser } from 'playwright';
+import { LocalPlanner } from '@agent-native-web/planner-local';
+import { coerceArgs } from '@agent-native-web/runtime-core';
+import type { AgentManifest, ActionCatalog, DiscoveredAction } from '@agent-native-web/runtime-core';
+import * as readline from 'readline';
+
+// ─── Config ───────────────────────────────────────────────────────────────
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
+const HEADLESS = process.env.AWI_HEADLESS !== 'false';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+function log(label: string, msg: string) {
+  console.log(`\x1b[36m[${label}]\x1b[0m ${msg}`);
+}
+function success(msg: string) {
+  console.log(`\x1b[32m✓\x1b[0m ${msg}`);
+}
+function error(msg: string) {
+  console.error(`\x1b[31m✗\x1b[0m ${msg}`);
+}
+function dim(msg: string) {
+  console.log(`\x1b[90m  ${msg}\x1b[0m`);
+}
+
+async function fetchManifest(page: Page, baseUrl: string): Promise<AgentManifest | null> {
+  try {
+    const resp = await page.goto(`${baseUrl}/.well-known/agent-manifest.json`);
+    if (!resp || !resp.ok()) return null;
+    return await resp.json();
+  } catch {
+    return null;
+  }
+}
+
+async function navigateTo(page: Page, url: string) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-agent-kind]', { timeout: 5000 }).catch(() => {});
+}
+
+async function discoverActions(page: Page): Promise<ActionCatalog> {
+  const actions = await page.evaluate(() => {
+    const actionEls = document.querySelectorAll('[data-agent-kind="action"][data-agent-action]');
+    const results: Array<{
+      action: string;
+      kind: string;
+      danger?: string;
+      confirm?: string;
+      scope?: string;
+      idempotent?: string;
+      fields: Array<{ field: string; tagName: string; forAction?: string }>;
+      statuses: Array<{ output: string; tagName: string }>;
+      submitAction?: string;
+    }> = [];
+    const seen = new Set<string>();
+
+    actionEls.forEach((el) => {
+      const name = el.getAttribute('data-agent-action')!;
+      if (name.split('.').length > 2 || seen.has(name)) return;
+      seen.add(name);
+
+      const fields: Array<{ field: string; tagName: string; forAction?: string }> = [];
+      el.querySelectorAll('[data-agent-kind="field"]').forEach((f) => {
+        fields.push({
+          field: f.getAttribute('data-agent-field')!,
+          tagName: f.tagName.toLowerCase(),
+        });
+      });
+      document.querySelectorAll(`[data-agent-kind="field"][data-agent-for-action="${name}"]`).forEach((f) => {
+        const fieldName = f.getAttribute('data-agent-field')!;
+        if (!fields.some((x) => x.field === fieldName)) {
+          fields.push({ field: fieldName, tagName: f.tagName.toLowerCase(), forAction: name });
+        }
+      });
+
+      const statuses: Array<{ output: string; tagName: string }> = [];
+      el.querySelectorAll('[data-agent-kind="status"]').forEach((s) => {
+        statuses.push({ output: s.getAttribute('data-agent-output')!, tagName: s.tagName.toLowerCase() });
+      });
+
+      let submitAction: string | undefined;
+      el.querySelectorAll('[data-agent-kind="action"]').forEach((sub) => {
+        const subAction = sub.getAttribute('data-agent-action');
+        if (subAction && subAction.startsWith(name + '.')) submitAction = subAction;
+      });
+
+      results.push({
+        action: name,
+        kind: 'action',
+        danger: el.getAttribute('data-agent-danger') ?? undefined,
+        confirm: el.getAttribute('data-agent-confirm') ?? undefined,
+        scope: el.getAttribute('data-agent-scope') ?? undefined,
+        idempotent: el.getAttribute('data-agent-idempotent') ?? undefined,
+        fields,
+        statuses,
+        submitAction,
+      });
+    });
+    return results;
+  });
+
+  return { actions, url: page.url(), timestamp: new Date().toISOString() };
+}
+
+/** Execute an action directly on the page — fill fields, click submit, read status. */
+async function executeAction(
+  page: Page,
+  actionName: string,
+  args: Record<string, unknown>,
+  discovered: DiscoveredAction,
+): Promise<{ status: string; result?: string; error?: string }> {
+  // Fill fields
+  for (const field of discovered.fields) {
+    const value = args[field.field];
+    if (value === undefined) continue;
+
+    const selector = `[data-agent-field="${field.field}"]`;
+    const tagName = await page.evaluate(
+      (sel) => document.querySelector(sel)?.tagName.toLowerCase(),
+      selector,
+    );
+
+    if (tagName === 'select') {
+      await page.selectOption(selector, String(value));
+      log('fill', `${field.field} = "${value}" (select)`);
+    } else if (tagName === 'textarea' || tagName === 'input') {
+      await page.fill(selector, String(value));
+      log('fill', `${field.field} = "${value}"`);
+    }
+  }
+
+  // Click submit
+  const submitAction = discovered.submitAction || actionName;
+  const submitSelector = `[data-agent-action="${submitAction}"]`;
+  log('click', submitAction);
+  await page.click(submitSelector);
+
+  // Wait for status to update
+  await page.waitForTimeout(500);
+
+  // Read status
+  const statusText = await page.evaluate(() => {
+    const el = document.querySelector('[data-agent-kind="status"]');
+    return el?.textContent?.trim() || '';
+  });
+
+  if (statusText) {
+    return { status: 'completed', result: statusText };
+  }
+  return { status: 'completed' };
+}
+
+function printCatalog(catalog: ActionCatalog) {
+  console.log();
+  log('discover', `Found ${catalog.actions.length} action(s) on ${catalog.url}`);
+  for (const action of catalog.actions) {
+    const tags: string[] = [];
+    if (action.danger) tags.push(`danger:${action.danger}`);
+    if (action.confirm) tags.push(`confirm:${action.confirm}`);
+    if (action.scope) tags.push(`scope:${action.scope}`);
+    const tagStr = tags.length > 0 ? ` \x1b[90m(${tags.join(', ')})\x1b[0m` : '';
+    console.log(`  \x1b[33m${action.action}\x1b[0m${tagStr}`);
+    for (const field of action.fields) {
+      dim(`  field: ${field.field} <${field.tagName}>`);
+    }
+    if (action.submitAction) {
+      dim(`  submit: ${action.submitAction}`);
+    }
+  }
+  console.log();
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────
+async function main() {
+  const args = process.argv.slice(2);
+
+  if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
+    console.log(`
+\x1b[1mAWI CLI Agent\x1b[0m — interact with AWI-annotated websites
+
+\x1b[1mUsage:\x1b[0m
+  npx tsx packages/awi-cli/src/cli.ts <url> [command]
+
+\x1b[1mExamples:\x1b[0m
+  # One-shot: execute a single command
+  npx tsx packages/awi-cli/src/cli.ts http://localhost:5177/invoices/new/ "create invoice for alice@test.com, 99 EUR"
+
+  # Interactive REPL
+  npx tsx packages/awi-cli/src/cli.ts http://localhost:5177/invoices/new/
+
+  # Show browser window
+  AWI_HEADLESS=false npx tsx packages/awi-cli/src/cli.ts http://localhost:5177/invoices/new/
+
+\x1b[1mEnvironment:\x1b[0m
+  OLLAMA_URL     Ollama endpoint (default: http://localhost:11434)
+  OLLAMA_MODEL   Model name (default: llama3.2)
+  AWI_HEADLESS   Set to "false" to show browser window
+`);
+    process.exit(0);
+  }
+
+  const url = args[0];
+  const command = args.slice(1).join(' ') || null;
+  const baseUrl = new URL(url).origin;
+
+  // 1. Launch browser
+  log('browser', `Launching ${HEADLESS ? 'headless' : 'visible'} browser...`);
+  const browser: Browser = await chromium.launch({ headless: HEADLESS });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  try {
+    // 2. Fetch manifest
+    log('manifest', `Fetching ${baseUrl}/.well-known/agent-manifest.json`);
+    const manifest = await fetchManifest(page, baseUrl);
+    if (!manifest) {
+      error(`No agent manifest found at ${baseUrl}/.well-known/agent-manifest.json`);
+      error('Is the site running? Does it serve an AWI manifest?');
+      process.exit(1);
+    }
+    success(`Manifest loaded: ${Object.keys(manifest.actions).length} action(s) defined`);
+
+    // 3. Navigate to the target page
+    log('navigate', url);
+    await navigateTo(page, url);
+
+    // 4. Create planner
+    const planner = new LocalPlanner(OLLAMA_URL, OLLAMA_MODEL);
+
+    // 5. Detect AWI
+    const hasAwi = await page.evaluate(() => document.querySelectorAll('[data-agent-kind]').length > 0);
+    if (!hasAwi) {
+      error('No AWI annotations (data-agent-*) found on this page.');
+      process.exit(1);
+    }
+
+    // 6. Discover actions
+    let catalog = await discoverActions(page);
+    printCatalog(catalog);
+
+    if (command) {
+      // ─── One-shot mode ────────────────────────────────────────────
+      await runCommand(command, catalog, planner, manifest, page, baseUrl);
+    } else {
+      // ─── Interactive REPL ─────────────────────────────────────────
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+      const promptUser = () => {
+        rl.question('\x1b[1mawi>\x1b[0m ', async (input) => {
+          const trimmed = input.trim();
+          if (!trimmed || trimmed === 'exit' || trimmed === 'quit') {
+            rl.close();
+            return;
+          }
+
+          if (trimmed === 'scan' || trimmed === 'discover') {
+            catalog = await discoverActions(page);
+            printCatalog(catalog);
+            promptUser();
+            return;
+          }
+
+          if (trimmed.startsWith('goto ')) {
+            const newUrl = trimmed.slice(5).trim();
+            const fullUrl = newUrl.startsWith('http') ? newUrl : `${baseUrl}${newUrl}`;
+            log('navigate', fullUrl);
+            await navigateTo(page, fullUrl);
+            catalog = await discoverActions(page);
+            printCatalog(catalog);
+            promptUser();
+            return;
+          }
+
+          if (trimmed === 'help') {
+            console.log(`
+  \x1b[1mCommands:\x1b[0m
+    <natural language>  Ask the LLM to execute an action
+    scan                Re-discover actions on current page
+    goto <path>         Navigate to a different page
+    help                Show this help
+    exit                Quit
+`);
+            promptUser();
+            return;
+          }
+
+          catalog = await discoverActions(page);
+          await runCommand(trimmed, catalog, planner, manifest, page, baseUrl);
+          promptUser();
+        });
+      };
+
+      console.log('Type a command in natural language, or "help" for options.\n');
+      promptUser();
+      await new Promise<void>((resolve) => rl.on('close', resolve));
+    }
+  } finally {
+    await browser.close();
+  }
+}
+
+async function runCommand(
+  command: string,
+  catalog: ActionCatalog,
+  planner: LocalPlanner,
+  manifest: AgentManifest,
+  page: Page,
+  baseUrl: string,
+) {
+  try {
+    // 1. Plan — LLM maps natural language to action + args
+    log('plan', `Asking ${OLLAMA_MODEL} to map: "${command}"`);
+    const request = await planner.plan(command, catalog);
+    success(`Planned: \x1b[33m${request.action}\x1b[0m`);
+    dim(`args: ${JSON.stringify(request.args)}`);
+    console.log();
+
+    // 2. Navigate if action is on a different page
+    const actionDef = manifest.actions[request.action];
+    if (actionDef?.ui?.page) {
+      const currentPath = new URL(page.url()).pathname.replace(/\/$/, '');
+      const targetPath = (actionDef.ui.page as string).replace(/\/$/, '');
+      if (currentPath !== targetPath) {
+        const actionUrl = `${baseUrl}${actionDef.ui.page}`;
+        log('navigate', actionUrl);
+        await navigateTo(page, actionUrl);
+        // Re-discover after navigation
+        catalog = await discoverActions(page);
+      }
+    }
+
+    // 3. Find the discovered action
+    const discovered = catalog.actions.find((a) => a.action === request.action);
+    if (!discovered) {
+      error(`Action "${request.action}" not found on page`);
+      return;
+    }
+
+    // 4. Coerce args to match schema types, then execute
+    let coercedArgs = request.args;
+    if (actionDef?.inputSchema) {
+      const coerceResult = coerceArgs(request.args, actionDef.inputSchema);
+      coercedArgs = coerceResult.args;
+      if (coerceResult.coercions.length > 0) {
+        for (const c of coerceResult.coercions) {
+          dim(`coerce: ${c.field} ${JSON.stringify(c.from)} → ${JSON.stringify(c.to)} (${c.rule})`);
+        }
+      }
+    }
+    log('execute', `Running ${request.action}...`);
+    const result = await executeAction(page, request.action, coercedArgs, discovered);
+
+    // 5. Report
+    console.log();
+    if (result.status === 'completed') {
+      success(`Status: completed`);
+      if (result.result) {
+        success(`Result: ${result.result}`);
+      }
+    } else {
+      error(`Status: ${result.status}`);
+      if (result.error) error(`Error: ${result.error}`);
+    }
+    console.log();
+  } catch (err) {
+    error(`Failed: ${(err as Error).message}`);
+    console.log();
+  }
+}
+
+main().catch((err) => {
+  error(err.message);
+  process.exit(1);
+});

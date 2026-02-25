@@ -1,0 +1,21 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; line-height: 1.5; }
+nav { background: #1a1a1a; color: #fff; padding: 1rem 2rem; display: flex; gap: 2rem; align-items: center; }
+nav a { color: #ccc; text-decoration: none; }
+nav a:hover, nav a.active { color: #fff; }
+nav .brand { font-weight: 700; font-size: 1.1rem; color: #fff; }
+main { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+h1 { margin-bottom: 1.5rem; }
+h2 { margin-top: 2rem; margin-bottom: 0.75rem; font-size: 1.25rem; }
+p { margin-bottom: 0.75rem; }
+.subtitle { color: #666; font-size: 1.05rem; margin-bottom: 2rem; }
+.card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+.card h2 { margin-top: 0; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
+th { font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: #666; }
+pre { background: #1a1a1a; color: #e5e5e5; padding: 1rem; border-radius: 6px; overflow-x: auto; margin-bottom: 0.75rem; font-size: 0.9rem; }
+code { font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace; font-size: 0.9em; }
+p code, td code, li code { background: #e5e7eb; padding: 0.15em 0.35em; border-radius: 3px; }
+ul, ol { margin-left: 1.5rem; margin-bottom: 0.75rem; }
+li { margin-bottom: 0.25rem; }

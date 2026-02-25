@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attributes — AWI Docs</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">AWI Docs</span>
+    <a href="/">Overview</a>
+    <a href="/attributes/">Attributes</a>
+    <a href="/manifest/">Manifest</a>
+    <a href="/execution/">Execution</a>
+    <a href="/tooling/">Tooling</a>
+    <a href="/examples/">Examples</a>
+  </nav>
+  <main>
+    <h1>DOM Attributes</h1>
+    <p class="subtitle">The proposed data-agent-* attributes that make up the Agent Semantics Layer.</p>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="attributes.reference">
+      <h2>Attribute Reference</h2>
+      <table>
+        <thead>
+          <tr><th>Attribute</th><th>Purpose</th><th>Values</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td><code>data-agent-kind</code></td>
+            <td>Declares the semantic role of the element.</td>
+            <td>action, field, status, result, collection, item, dialog, step</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>data-agent-action</code></td>
+            <td>Logical action identifier using dot-notation.</td>
+            <td>e.g. invoice.create, workspace.delete, doc.export.pdf</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>data-agent-field</code></td>
+            <td>Logical field identifier using snake_case.</td>
+            <td>e.g. customer_email, amount, currency, memo</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>data-agent-danger</code></td>
+            <td>Risk level for the action. High-risk actions require confirmation.</td>
+            <td>none, low, high</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>data-agent-confirm</code></td>
+            <td>Confirmation policy. When required, runtime blocks execution without user consent.</td>
+            <td>never, optional, required</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>data-agent-scope</code></td>
+            <td>Permission hint required for the action.</td>
+            <td>e.g. invoices.write, workspace.delete, docs.export</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>data-agent-idempotent</code></td>
+            <td>Whether repeated execution is safe.</td>
+            <td>true, false</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>data-agent-output</code></td>
+            <td>Hint about result type or schema name for status elements.</td>
+            <td>e.g. invoice, invoice.create.status</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>data-agent-for-action</code></td>
+            <td>Links a field or status to an action when not nested directly inside it.</td>
+            <td>Action identifier, e.g. workspace.delete</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>data-agent-version</code></td>
+            <td>Semantics version on the container or root element.</td>
+            <td>e.g. 0.1</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="attributes.kind-values">
+      <h2>Kind Values</h2>
+      <table>
+        <thead>
+          <tr><th>Value</th><th>Description</th><th>Usage</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td><code>action</code></td>
+            <td>A named operation the agent can execute.</td>
+            <td>Forms, buttons, interactive elements that trigger operations.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>field</code></td>
+            <td>A logical input or output value.</td>
+            <td>Inputs, selects, textareas within an action.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>status</code></td>
+            <td>A live status or result display element.</td>
+            <td>Elements that show success/error after action execution.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>result</code></td>
+            <td>Structured output data from a completed action.</td>
+            <td>Elements containing return values after execution.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>collection</code></td>
+            <td>A group of items representing data on the page.</td>
+            <td>Tables, lists, card grids displaying multiple records.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>item</code></td>
+            <td>A single record within a collection.</td>
+            <td>Table rows, list items, individual cards.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>dialog</code></td>
+            <td>A modal or dialog requiring interaction.</td>
+            <td>Confirmation dialogs, modals, popups.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>step</code></td>
+            <td>A step in a multi-step workflow.</td>
+            <td>Wizard steps, form stages, onboarding flows.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="attributes.code-examples">
+      <h2>Code Examples</h2>
+      <div data-agent-kind="item">
+        <p><strong>Action with fields (invoice form)</strong> — The form is the action root. Fields are nested inside, so no <code>data-agent-for-action</code> is needed. The submit button is a sub-action.</p>
+<pre><code>&lt;form data-agent-kind="action"
+      data-agent-action="invoice.create"
+      data-agent-danger="low"
+      data-agent-confirm="optional"&gt;
+  &lt;input data-agent-kind="field"
+         data-agent-field="customer_email" /&gt;
+  &lt;input data-agent-kind="field"
+         data-agent-field="amount" /&gt;
+  &lt;button data-agent-kind="action"
+          data-agent-action="invoice.create.submit"&gt;
+    Create
+  &lt;/button&gt;
+&lt;/form&gt;</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Field linked to external action</strong> — When a field is not nested inside its action, use <code>data-agent-for-action</code> to link them.</p>
+<pre><code>&lt;input data-agent-kind="field"
+       data-agent-field="delete_confirmation_text"
+       data-agent-for-action="workspace.delete" /&gt;
+
+&lt;button data-agent-kind="action"
+        data-agent-action="workspace.delete"
+        data-agent-danger="high"
+        data-agent-confirm="required"&gt;
+  Delete Workspace
+&lt;/button&gt;</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Collection with table items</strong> — The widget scrapes <code>&lt;thead&gt;</code> headers and maps them to <code>&lt;td&gt;</code> cells in each row.</p>
+<pre><code>&lt;div data-agent-kind="collection"
+     data-agent-action="invoice.list"&gt;
+  &lt;table&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th&gt;ID&lt;/th&gt;&lt;th&gt;Customer&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr data-agent-kind="item"&gt;
+        &lt;td&gt;INV-001&lt;/td&gt;&lt;td&gt;alice@example.com&lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/div&gt;</code></pre>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="attributes.naming">
+      <h2>Naming Conventions</h2>
+      <div data-agent-kind="item">
+        <p><strong>Actions</strong> use dot-notation identifiers: <code>invoice.create</code>, <code>workspace.delete</code>. Sub-actions add extra dots: <code>invoice.create.submit</code>. Actions are verbs or verb phrases describing what the operation does.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Fields</strong> use snake_case identifiers: <code>customer_email</code>, <code>amount</code>, <code>delete_confirmation_text</code>. Fields are nouns describing the data they hold. They are linked to actions via nesting or the <code>data-agent-for-action</code> attribute.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Scopes</strong> follow the pattern <code>resource.permission</code>: <code>invoices.write</code>, <code>workspace.delete</code>, <code>docs.export</code>. They hint at the authorization required to perform an action.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Versions</strong> are semantic version strings on the root element: <code>data-agent-version="0.1"</code>. They declare which version of the AWI standard the page implements.</p>
+      </div>
+    </div>
+  </main>
+  <script type="module">
+    import { initNav } from '/src/nav.ts';
+    initNav();
+  </script>
+  <script type="module" src="/awi-agent.js"></script>
+</body>
+</html>

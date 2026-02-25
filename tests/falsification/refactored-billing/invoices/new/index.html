@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <title>New Bill — Refactored Billing</title>
+</head>
+<body>
+  <!-- Completely different layout: no nav, different nesting, different classes/IDs -->
+  <div class="app-shell">
+    <aside class="sidebar-nav">
+      <ul>
+        <li><a href="/bills/create">Create Bill</a></li>
+        <li><a href="/bills">All Bills</a></li>
+        <li><a href="/config">Config</a></li>
+      </ul>
+    </aside>
+    <section class="content-area">
+      <h2>New Bill</h2>
+      <div class="form-container shadow-lg">
+        <!-- Same data-agent-* attributes, completely different CSS classes, IDs, nesting -->
+        <form
+          class="bill-form"
+          data-agent-kind="action"
+          data-agent-action="invoice.create"
+          data-agent-scope="invoices.write"
+          data-agent-danger="low"
+          data-agent-confirm="optional"
+          data-agent-idempotent="false"
+          data-agent-version="0.1"
+        >
+          <div class="field-group">
+            <span class="label-text">Recipient</span>
+            <input
+              type="email"
+              class="form-control email-input"
+              placeholder="Enter email"
+              data-agent-kind="field"
+              data-agent-field="customer_email"
+            />
+          </div>
+
+          <div class="field-row">
+            <div class="field-group half">
+              <span class="label-text">Total</span>
+              <input
+                type="number"
+                class="form-control amount-input"
+                data-agent-kind="field"
+                data-agent-field="amount"
+              />
+            </div>
+            <div class="field-group half">
+              <span class="label-text">Unit</span>
+              <select
+                class="form-control currency-select"
+                data-agent-kind="field"
+                data-agent-field="currency"
+              >
+                <option value="EUR">Euro</option>
+                <option value="USD">Dollar</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <span class="label-text">Notes</span>
+            <textarea
+              class="form-control notes-area"
+              rows="3"
+              data-agent-kind="field"
+              data-agent-field="memo"
+            ></textarea>
+          </div>
+
+          <div class="actions-bar">
+            <button
+              type="submit"
+              class="action-btn primary-action"
+              data-agent-kind="action"
+              data-agent-action="invoice.create.submit"
+            >
+              Submit Bill
+            </button>
+          </div>
+
+          <output
+            class="result-message"
+            data-agent-kind="status"
+            data-agent-output="invoice.create.status"
+          ></output>
+        </form>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

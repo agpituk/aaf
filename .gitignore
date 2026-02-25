@@ -2,3 +2,13 @@ node_modules/
 dist/
 .claude/
 *.local.md
+.env
+.env.*
+.DS_Store
+*.log
+*.tgz
+generated-examples/
+test-results/
+playwright-report/
+coverage/
+*.tsbuildinfo

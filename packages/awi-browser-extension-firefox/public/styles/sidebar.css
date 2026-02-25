@@ -1,0 +1,256 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: #1a1a1a;
+  background: #f8f9fa;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.sidebar-header {
+  padding: 12px 16px 0;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.sidebar-header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 0;
+}
+
+.tab {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.tab:hover { color: #333; }
+.tab.active { color: #2563eb; border-bottom-color: #2563eb; font-weight: 500; }
+
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel.hidden { display: none; }
+
+/* Chat */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.msg {
+  padding: 8px 12px;
+  border-radius: 8px;
+  max-width: 90%;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.msg.user {
+  background: #2563eb;
+  color: #fff;
+  align-self: flex-end;
+  border-bottom-right-radius: 2px;
+}
+
+.msg.assistant {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  align-self: flex-start;
+  border-bottom-left-radius: 2px;
+}
+
+.msg.system {
+  background: #fef3cd;
+  border: 1px solid #ffc107;
+  align-self: center;
+  font-size: 12px;
+  text-align: center;
+}
+
+.msg.error {
+  background: #fee;
+  border: 1px solid #f44336;
+  color: #c62828;
+  align-self: center;
+  font-size: 12px;
+}
+
+.msg pre {
+  background: #f5f5f5;
+  padding: 6px 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.chat-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #e0e0e0;
+  background: #fff;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+
+.chat-input input:focus { border-color: #2563eb; }
+
+/* Buttons */
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.btn-primary { background: #2563eb; color: #fff; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-secondary { background: #e0e0e0; color: #333; }
+.btn-secondary:hover { background: #d0d0d0; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+
+/* Confirmation Dialog */
+.confirmation {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.confirmation.hidden { display: none; }
+
+.confirmation-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 300px;
+  width: 90%;
+}
+
+.confirmation-content h3 { margin-bottom: 8px; }
+.confirmation-meta { display: flex; gap: 8px; margin: 12px 0; }
+.confirmation-buttons { display: flex; gap: 8px; justify-content: flex-end; }
+
+.risk-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.risk-badge.high { background: #fee; color: #c62828; }
+.risk-badge.low { background: #fff3e0; color: #e65100; }
+.risk-badge.none { background: #e8f5e9; color: #2e7d32; }
+
+/* Inspector */
+.inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+.scan-btn {
+  margin: 12px 16px;
+}
+
+.muted { color: #999; font-style: italic; }
+
+.action-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.action-card h4 {
+  font-size: 13px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-card .fields {
+  margin-top: 8px;
+}
+
+.field-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  font-size: 12px;
+  color: #555;
+}
+
+.meta-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.meta-tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #f0f0f0;
+  color: #555;
+}

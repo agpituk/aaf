@@ -1,0 +1,9 @@
+{
+  "version": "0.1",
+  "site": {
+    "name": "AWI Docs",
+    "origin": "http://localhost:5174"
+  },
+  "actions": {},
+  "errors": {}
+}

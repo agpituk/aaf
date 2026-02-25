@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <title>Configuration — Refactored Billing</title>
+</head>
+<body>
+  <!-- Completely different layout from original settings page -->
+  <div class="app-shell">
+    <aside class="sidebar-nav">
+      <ul>
+        <li><a href="/bills/create">Create Bill</a></li>
+        <li><a href="/bills">All Bills</a></li>
+        <li><a href="/config">Config</a></li>
+      </ul>
+    </aside>
+    <section class="content-area">
+      <h2>Configuration</h2>
+
+      <div class="config-section">
+        <h3>General Settings</h3>
+        <p>Application configuration options.</p>
+      </div>
+
+      <div class="config-section danger-section">
+        <h3 class="danger-title">Destructive Operations</h3>
+        <p class="warning-text">Warning: This will permanently remove all data.</p>
+
+        <div class="confirm-input-wrapper">
+          <label class="confirm-label">Enter "DELETE" below:</label>
+          <input
+            type="text"
+            class="confirm-input"
+            data-agent-kind="field"
+            data-agent-field="delete_confirmation_text"
+            data-agent-for-action="workspace.delete"
+          />
+        </div>
+
+        <button
+          class="danger-action-btn"
+          data-agent-kind="action"
+          data-agent-action="workspace.delete"
+          data-agent-scope="workspace.delete"
+          data-agent-danger="high"
+          data-agent-confirm="required"
+        >
+          Remove All Data
+        </button>
+
+        <p
+          class="action-result"
+          data-agent-kind="status"
+          data-agent-output="workspace.delete.result"
+        ></p>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

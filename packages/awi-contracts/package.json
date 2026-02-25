@@ -1,0 +1,14 @@
+{
+  "name": "@agent-native-web/awi-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agent-native-web/runtime-core": "*",
+    "ajv": "^8.17.0"
+  }
+}

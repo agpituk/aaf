@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manifest — AWI Docs</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">AWI Docs</span>
+    <a href="/">Overview</a>
+    <a href="/attributes/">Attributes</a>
+    <a href="/manifest/">Manifest</a>
+    <a href="/execution/">Execution</a>
+    <a href="/tooling/">Tooling</a>
+    <a href="/examples/">Examples</a>
+  </nav>
+  <main>
+    <h1>Agent Manifest</h1>
+    <p class="subtitle">A proposed typed JSON contract at /.well-known/agent-manifest.json.</p>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="manifest.structure">
+      <h2>Manifest Structure</h2>
+      <table>
+        <thead>
+          <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td><code>version</code></td>
+            <td>string</td>
+            <td>Semantics version (e.g. "0.1"). Must match the data-agent-version on the page.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>site.name</code></td>
+            <td>string</td>
+            <td>Human-readable site name (e.g. "Example Billing").</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>site.origin</code></td>
+            <td>string</td>
+            <td>Origin URL of the site (e.g. "https://billing.example.com").</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>actions</code></td>
+            <td>object</td>
+            <td>Map of action identifiers to action definitions. Keys are dot-notation names like "invoice.create".</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>errors</code></td>
+            <td>object</td>
+            <td>Map of error codes to error definitions. Standard codes include UNAUTHORIZED, VALIDATION_ERROR, and CONFIRMATION_REQUIRED.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="manifest.action-fields">
+      <h2>Action Definition Fields</h2>
+      <table>
+        <thead>
+          <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td><code>title</code></td>
+            <td>string</td>
+            <td>Human-readable action name (e.g. "Create invoice").</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>scope</code></td>
+            <td>string</td>
+            <td>Required permission scope (e.g. "invoices.write").</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>risk</code></td>
+            <td>string</td>
+            <td>Risk level: "none", "low", or "high".</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>confirmation</code></td>
+            <td>string</td>
+            <td>Confirmation policy: "never", "optional", or "required".</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>idempotent</code></td>
+            <td>boolean</td>
+            <td>Whether repeated execution is safe. false for create operations, true for reads.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>inputSchema</code></td>
+            <td>JSON Schema</td>
+            <td>Schema describing the action's input fields, types, and validation rules.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>outputSchema</code></td>
+            <td>JSON Schema</td>
+            <td>Schema describing the action's return value structure.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>ui.page</code></td>
+            <td>string</td>
+            <td>URL path of the page containing this action's UI (e.g. "/invoices/new").</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>ui.rootActionSelector</code></td>
+            <td>string</td>
+            <td>Semantic selector to locate the action's root element in the DOM.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="manifest.example-json">
+      <h2>Example Manifest (Billing App)</h2>
+      <div data-agent-kind="item">
+        <p>A complete manifest for the billing app's <code>invoice.create</code> action. The <code>inputSchema</code> uses JSON Schema to validate field types and constraints before execution.</p>
+<pre><code>{
+  "version": "0.1",
+  "site": {
+    "name": "Example Billing",
+    "origin": "https://billing.example.com"
+  },
+  "actions": {
+    "invoice.create": {
+      "title": "Create invoice",
+      "scope": "invoices.write",
+      "risk": "low",
+      "confirmation": "optional",
+      "idempotent": false,
+      "inputSchema": {
+        "type": "object",
+        "required": ["customer_email", "amount", "currency"],
+        "properties": {
+          "customer_email": {
+            "type": "string", "format": "email"
+          },
+          "amount": { "type": "number", "minimum": 0 },
+          "currency": {
+            "type": "string", "enum": ["EUR", "USD"]
+          },
+          "memo": { "type": "string" }
+        }
+      }
+    }
+  }
+}</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p>A data-only site (like this docs site) can use a minimal manifest with an empty actions object. The widget will detect the collections on the page and enter data chat mode.</p>
+<pre><code>{
+  "version": "0.1",
+  "site": {
+    "name": "AWI Docs",
+    "origin": "http://localhost:5174"
+  },
+  "actions": {},
+  "errors": {}
+}</code></pre>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="manifest.risk-levels">
+      <h2>Risk Levels and Confirmation</h2>
+      <table>
+        <thead>
+          <tr><th>Risk</th><th>Confirmation</th><th>Behavior</th><th>Example</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td>none</td>
+            <td>never</td>
+            <td>Agent executes immediately with no restrictions.</td>
+            <td>Reading a list of invoices.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>low</td>
+            <td>optional</td>
+            <td>Agent can execute, but may optionally request user confirmation.</td>
+            <td>Creating an invoice (creates data but is not destructive).</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>high</td>
+            <td>required</td>
+            <td>Runtime blocks execution and returns needs_confirmation status. Agent must obtain explicit user consent before proceeding.</td>
+            <td>Deleting a workspace (irreversible, destructive operation).</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+  <script type="module">
+    import { initNav } from '/src/nav.ts';
+    initNav();
+  </script>
+  <script type="module" src="/awi-agent.js"></script>
+</body>
+</html>

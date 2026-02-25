@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Examples — AWI Docs</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">AWI Docs</span>
+    <a href="/">Overview</a>
+    <a href="/attributes/">Attributes</a>
+    <a href="/manifest/">Manifest</a>
+    <a href="/execution/">Execution</a>
+    <a href="/tooling/">Tooling</a>
+    <a href="/examples/">Examples</a>
+  </nav>
+  <main>
+    <h1>Code Examples</h1>
+    <p class="subtitle">Real code from the prototype billing app and this docs site showing the proposed annotation patterns.</p>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="examples.action-form">
+      <h2>Action Form — Invoice Create (Billing App)</h2>
+      <div data-agent-kind="item">
+        <p>A form with <code>data-agent-kind="action"</code> wraps the entire operation. Each input gets <code>kind="field"</code> with a logical name. The submit button is a sub-action. A status element reads the result. This is from the billing app's <code>/invoices/new</code> page.</p>
+      </div>
+      <div data-agent-kind="item">
+<pre><code>&lt;form
+  data-agent-kind="action"
+  data-agent-action="invoice.create"
+  data-agent-scope="invoices.write"
+  data-agent-danger="low"
+  data-agent-confirm="optional"
+  data-agent-idempotent="false"
+&gt;
+  &lt;input
+    type="email"
+    aria-label="Customer email"
+    data-agent-kind="field"
+    data-agent-field="customer_email"
+  /&gt;
+
+  &lt;input
+    type="number"
+    min="0" step="0.01"
+    aria-label="Amount"
+    data-agent-kind="field"
+    data-agent-field="amount"
+  /&gt;
+
+  &lt;select
+    aria-label="Currency"
+    data-agent-kind="field"
+    data-agent-field="currency"
+  &gt;
+    &lt;option value="EUR"&gt;EUR&lt;/option&gt;
+    &lt;option value="USD"&gt;USD&lt;/option&gt;
+  &lt;/select&gt;
+
+  &lt;textarea
+    aria-label="Memo"
+    data-agent-kind="field"
+    data-agent-field="memo"
+  &gt;&lt;/textarea&gt;
+
+  &lt;button
+    type="submit"
+    data-agent-kind="action"
+    data-agent-action="invoice.create.submit"
+  &gt;
+    Create Invoice
+  &lt;/button&gt;
+
+  &lt;div
+    role="status"
+    aria-live="polite"
+    data-agent-kind="status"
+    data-agent-output="invoice.create.status"
+  &gt;&lt;/div&gt;
+&lt;/form&gt;</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Key patterns:</strong> The form element is the action root. Fields are nested inside it, so no <code>data-agent-for-action</code> is needed. The sub-action <code>invoice.create.submit</code> follows dot-notation convention. The status element uses <code>aria-live="polite"</code> for accessibility alongside <code>data-agent-output</code> for agent semantics.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="examples.dangerous-action">
+      <h2>Dangerous Action — Workspace Delete (Billing App)</h2>
+      <div data-agent-kind="item">
+        <p>High-risk actions use <code>data-agent-danger="high"</code> and <code>data-agent-confirm="required"</code>. The runtime blocks execution and returns <code>needs_confirmation</code> until the user explicitly consents. This is from the billing app's <code>/settings/</code> page.</p>
+      </div>
+      <div data-agent-kind="item">
+<pre><code>&lt;input
+  type="text"
+  aria-label="Type DELETE to confirm"
+  data-agent-kind="field"
+  data-agent-field="delete_confirmation_text"
+  data-agent-for-action="workspace.delete"
+/&gt;
+
+&lt;button
+  data-agent-kind="action"
+  data-agent-action="workspace.delete"
+  data-agent-scope="workspace.delete"
+  data-agent-danger="high"
+  data-agent-confirm="required"
+&gt;
+  Delete Workspace
+&lt;/button&gt;
+
+&lt;div
+  role="status"
+  aria-live="polite"
+  data-agent-kind="status"
+  data-agent-output="workspace.delete.result"
+&gt;&lt;/div&gt;</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Key patterns:</strong> The confirmation input uses <code>data-agent-for-action="workspace.delete"</code> to link it to the action because the field is not nested inside the button element. The <code>danger="high"</code> + <code>confirm="required"</code> combination ensures the PolicyEngine blocks automatic execution.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="examples.collection-table">
+      <h2>Collection Table — Invoice List (Billing App)</h2>
+      <div data-agent-kind="item">
+        <p>A data table uses <code>data-agent-kind="collection"</code> on the container and <code>kind="item"</code> on each row. The <code>data-agent-action</code> on a collection serves as a label, not an executable action. This is from the billing app's <code>/invoices/</code> page.</p>
+      </div>
+      <div data-agent-kind="item">
+<pre><code>&lt;div
+  class="card"
+  data-agent-kind="collection"
+  data-agent-action="invoice.list"
+&gt;
+  &lt;table&gt;
+    &lt;thead&gt;
+      &lt;tr&gt;
+        &lt;th&gt;ID&lt;/th&gt;
+        &lt;th&gt;Customer&lt;/th&gt;
+        &lt;th&gt;Amount&lt;/th&gt;
+        &lt;th&gt;Status&lt;/th&gt;
+        &lt;th&gt;Created&lt;/th&gt;
+      &lt;/tr&gt;
+    &lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr data-agent-kind="item" data-agent-output="invoice"&gt;
+        &lt;td&gt;INV-001&lt;/td&gt;
+        &lt;td&gt;alice@example.com&lt;/td&gt;
+        &lt;td&gt;120 EUR&lt;/td&gt;
+        &lt;td&gt;draft&lt;/td&gt;
+        &lt;td&gt;2025-01-15&lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/div&gt;</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Key patterns:</strong> The <code>&lt;thead&gt;</code> headers map to <code>&lt;td&gt;</code> cells — the widget's <code>scrapePageData()</code> produces structured output like <code>"ID: INV-001, Customer: alice@example.com, Amount: 120 EUR"</code>. The <code>data-agent-output="invoice"</code> on each row hints at the item's type.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="examples.data-chat-collection">
+      <h2>Data Chat Collection — Docs Reference Table (This Site)</h2>
+      <div data-agent-kind="item">
+        <p>This docs site uses <code>kind="collection"</code> and <code>kind="item"</code> exclusively — no executable actions. The widget enters data chat mode and lets users ask questions about the page content. Here is how the attribute reference table on the <code>/attributes/</code> page is annotated.</p>
+      </div>
+      <div data-agent-kind="item">
+<pre><code>&lt;div class="card"
+  data-agent-kind="collection"
+  data-agent-action="attributes.reference"
+&gt;
+  &lt;h2&gt;Attribute Reference&lt;/h2&gt;
+  &lt;table&gt;
+    &lt;thead&gt;
+      &lt;tr&gt;
+        &lt;th&gt;Attribute&lt;/th&gt;
+        &lt;th&gt;Purpose&lt;/th&gt;
+        &lt;th&gt;Values&lt;/th&gt;
+      &lt;/tr&gt;
+    &lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr data-agent-kind="item"&gt;
+        &lt;td&gt;data-agent-kind&lt;/td&gt;
+        &lt;td&gt;Declares the semantic role&lt;/td&gt;
+        &lt;td&gt;action, field, status, ...&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;!-- more rows --&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/div&gt;</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Key patterns:</strong> The <code>data-agent-action</code> on a <code>collection</code> is a label (e.g. <code>[attributes.reference]</code>), not an executable action — <code>discoverActions()</code> ignores it because the <code>kind</code> is <code>"collection"</code>. The widget scrapes the table headers + cells to build structured text the LLM can answer questions about.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="examples.data-chat-prose">
+      <h2>Data Chat Prose — Div Items (This Site)</h2>
+      <div data-agent-kind="item">
+        <p>For conceptual content that doesn't fit a table, use <code>div</code> items inside a collection. The widget scrapes each item's <code>textContent</code> directly. Here is how the design principles on the <code>/tooling/</code> page are annotated.</p>
+      </div>
+      <div data-agent-kind="item">
+<pre><code>&lt;div class="card"
+  data-agent-kind="collection"
+  data-agent-action="tooling.design-principles"
+&gt;
+  &lt;h2&gt;Design Principles&lt;/h2&gt;
+  &lt;div data-agent-kind="item"&gt;
+    &lt;p&gt;&lt;strong&gt;UI-first, not API-only&lt;/strong&gt; —
+    The agent must interact with the website itself,
+    not just backend APIs.&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;div data-agent-kind="item"&gt;
+    &lt;p&gt;&lt;strong&gt;Semantics over selectors&lt;/strong&gt; —
+    data-agent-field="customer_email" is stable.
+    CSS selectors are brittle.&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;!-- more items --&gt;
+&lt;/div&gt;</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Key patterns:</strong> Each <code>div[data-agent-kind="item"]</code> becomes one chunk of text in the scraped output. The widget produces output like <code>[tooling.design-principles]\nUI-first, not API-only — The agent must interact with the website itself...</code>. This works well for prose, bullet lists, and explanatory content.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="examples.manifest-json">
+      <h2>Manifest JSON — Billing App</h2>
+      <div data-agent-kind="item">
+        <p>The manifest lives at <code>/.well-known/agent-manifest.json</code>. It defines action schemas, risk levels, and UI hints. Here is the billing app's manifest showing the <code>invoice.create</code> action with typed input/output schemas.</p>
+      </div>
+      <div data-agent-kind="item">
+<pre><code>{
+  "version": "0.1",
+  "site": {
+    "name": "Example Billing",
+    "origin": "https://billing.example.com"
+  },
+  "actions": {
+    "invoice.create": {
+      "title": "Create invoice",
+      "scope": "invoices.write",
+      "risk": "low",
+      "confirmation": "optional",
+      "idempotent": false,
+      "inputSchema": {
+        "type": "object",
+        "required": ["customer_email", "amount", "currency"],
+        "properties": {
+          "customer_email": { "type": "string", "format": "email" },
+          "amount": { "type": "number", "minimum": 0 },
+          "currency": { "type": "string", "enum": ["EUR", "USD"] },
+          "memo": { "type": "string" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["invoice_id", "status"],
+        "properties": {
+          "invoice_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["draft", "sent"] }
+        }
+      },
+      "ui": {
+        "page": "/invoices/new",
+        "rootActionSelector": "[data-agent-action='invoice.create']"
+      }
+    }
+  }
+}</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Key patterns:</strong> The <code>inputSchema</code> uses JSON Schema to define field types and constraints. <code>ManifestValidator</code> checks arguments against this schema before execution. The <code>ui.page</code> tells the runtime which page contains the action's form. The <code>ui.rootActionSelector</code> uses a semantic selector (<code>[data-agent-action=...]</code>), not a CSS class.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="examples.dangerous-manifest">
+      <h2>Manifest — High-Risk Action</h2>
+      <div data-agent-kind="item">
+        <p>A high-risk action in the manifest sets <code>"risk": "high"</code> and <code>"confirmation": "required"</code>. The <code>inputSchema</code> can enforce a confirmation value using JSON Schema's <code>const</code> keyword.</p>
+      </div>
+      <div data-agent-kind="item">
+<pre><code>"workspace.delete": {
+  "title": "Delete workspace",
+  "scope": "workspace.delete",
+  "risk": "high",
+  "confirmation": "required",
+  "idempotent": false,
+  "inputSchema": {
+    "type": "object",
+    "required": ["delete_confirmation_text"],
+    "properties": {
+      "delete_confirmation_text": {
+        "type": "string",
+        "const": "DELETE"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "required": ["deleted"],
+    "properties": {
+      "deleted": { "type": "boolean" }
+    }
+  }
+}</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Key patterns:</strong> The <code>"const": "DELETE"</code> constraint means validation only passes when the confirmation field is exactly "DELETE". Combined with <code>"confirmation": "required"</code>, the PolicyEngine will return <code>needs_confirmation</code> before the runtime even attempts to fill the field.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="examples.execution-log">
+      <h2>Semantic Execution Log</h2>
+      <div data-agent-kind="item">
+        <p>The <code>ExecutionLogger</code> records every step using semantic identifiers — field names and action names, never CSS selectors. This makes logs human-readable, diffable, and reproducible across UI changes.</p>
+      </div>
+      <div data-agent-kind="item">
+<pre><code>{
+  "session_id": "s_123",
+  "action": "invoice.create",
+  "mode": "ui",
+  "steps": [
+    { "type": "navigate", "url": "/invoices/new" },
+    { "type": "fill", "field": "customer_email",
+      "value": "alice@example.com" },
+    { "type": "fill", "field": "amount", "value": 120.0 },
+    { "type": "fill", "field": "currency", "value": "EUR" },
+    { "type": "click",
+      "action": "invoice.create.submit" },
+    { "type": "read_status",
+      "output": "invoice.create.status",
+      "value": "Invoice created" }
+  ]
+}</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Key patterns:</strong> Each step has a semantic <code>type</code> (fill, click, read_status) and references logical names. Compare this to raw Playwright logs that would say <code>click('[data-testid="submit-btn"]')</code> — the semantic log says <code>click action "invoice.create.submit"</code>. If the UI redesigns, the log format stays the same.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="examples.widget-setup">
+      <h2>Widget Setup — Adding AWI to Any Page</h2>
+      <div data-agent-kind="item">
+        <p>Adding the AWI widget to a page requires just one script tag. The widget auto-detects whether the page has executable actions (action mode) or only data collections (data chat mode). It bails silently if no <code>data-agent-kind</code> elements are found.</p>
+      </div>
+      <div data-agent-kind="item">
+<pre><code>&lt;!-- Step 1: Add data-agent-version to the root --&gt;
+&lt;html lang="en" data-agent-version="0.1"&gt;
+
+&lt;!-- Step 2: Annotate your content --&gt;
+&lt;div data-agent-kind="collection"
+     data-agent-action="products.catalog"&gt;
+  &lt;table&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;Price&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr data-agent-kind="item"&gt;
+        &lt;td&gt;Widget Pro&lt;/td&gt;&lt;td&gt;$49&lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/div&gt;
+
+&lt;!-- Step 3: Add the widget script --&gt;
+&lt;script type="module" src="/awi-agent.js"&gt;&lt;/script&gt;</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Step 4 (optional):</strong> Add a manifest at <code>/.well-known/agent-manifest.json</code> for typed validation. For data-chat-only pages the manifest can have an empty <code>"actions": {}</code> object. The widget works without a manifest but validation will be skipped.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="examples.vite-config">
+      <h2>Vite Configuration — Widget Alias</h2>
+      <div data-agent-kind="item">
+        <p>Both the billing app and this docs site use a Vite alias to resolve <code>/awi-agent.js</code> to the widget's TypeScript source. This lets pages reference the widget with a clean path while Vite handles the compilation.</p>
+      </div>
+      <div data-agent-kind="item">
+<pre><code>import { defineConfig } from 'vite';
+import { resolve } from 'path';
+
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        invoicesNew: resolve(__dirname, 'invoices/new/index.html'),
+        invoices: resolve(__dirname, 'invoices/index.html'),
+        settings: resolve(__dirname, 'settings/index.html'),
+      },
+    },
+  },
+  resolve: {
+    alias: {
+      '/awi-agent.js': resolve(
+        __dirname,
+        '../../packages/awi-agent-widget/src/widget.ts'
+      ),
+    },
+  },
+});</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Key patterns:</strong> The <code>rollupOptions.input</code> object lists every HTML page for multi-page builds. The <code>resolve.alias</code> maps the public script path to the widget package source. In production you would point to a built bundle instead.</p>
+      </div>
+    </div>
+  </main>
+  <script type="module">
+    import { initNav } from '/src/nav.ts';
+    initNav();
+  </script>
+  <script type="module" src="/awi-agent.js"></script>
+</body>
+</html>

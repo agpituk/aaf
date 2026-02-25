@@ -97,4 +97,45 @@ describe('ManifestValidator', () => {
     });
     expect(result.valid).toBe(false);
   });
+
+  describe('coerceAndValidate', () => {
+    it('coerces string amount and enum case, then validates successfully', () => {
+      const action = validator.getAction(testManifest, 'invoice.create');
+      const result = validator.coerceAndValidate(action, {
+        customer_email: 'alice@example.com',
+        amount: '150',
+        currency: 'eur',
+      });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.coerced.amount).toBe(150);
+      expect(result.coerced.currency).toBe('EUR');
+      expect(result.coercions.length).toBeGreaterThan(0);
+    });
+
+    it('coerces but still fails validation when value is invalid', () => {
+      const action = validator.getAction(testManifest, 'invoice.create');
+      const result = validator.coerceAndValidate(action, {
+        customer_email: 'not-an-email',
+        amount: '150',
+        currency: 'eur',
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      // Coercion still happened for amount and currency
+      expect(result.coerced.amount).toBe(150);
+      expect(result.coerced.currency).toBe('EUR');
+    });
+
+    it('returns empty coercions when no coercion needed', () => {
+      const action = validator.getAction(testManifest, 'invoice.create');
+      const result = validator.coerceAndValidate(action, {
+        customer_email: 'alice@example.com',
+        amount: 120,
+        currency: 'EUR',
+      });
+      expect(result.valid).toBe(true);
+      expect(result.coercions).toHaveLength(0);
+    });
+  });
 });

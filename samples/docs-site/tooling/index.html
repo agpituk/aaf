@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tooling — AWI Docs</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">AWI Docs</span>
+    <a href="/">Overview</a>
+    <a href="/attributes/">Attributes</a>
+    <a href="/manifest/">Manifest</a>
+    <a href="/execution/">Execution</a>
+    <a href="/tooling/">Tooling</a>
+    <a href="/examples/">Examples</a>
+  </nav>
+  <main>
+    <h1>Tooling</h1>
+    <p class="subtitle">The prototype packages, widget modes, and design principles behind this proposal.</p>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="tooling.packages">
+      <h2>Monorepo Packages</h2>
+      <table>
+        <thead>
+          <tr><th>Package</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td><code>agent-runtime-core</code></td>
+            <td>Core runtime containing SemanticParser, ManifestValidator, PolicyEngine, and ExecutionLogger.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>agent-runtime-playwright</code></td>
+            <td>PlaywrightAdapter implementing AWIAdapter for headless browser testing and automation.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>agent-lint</code></td>
+            <td>HTML and manifest conformance linter. Checks data-agent-* attributes and manifest validity.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>agentgen</code></td>
+            <td>Code generator that creates TypeScript SDKs, Python SDKs, and CLIs from agent manifests.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awi-contracts</code></td>
+            <td>Shared types for PlannerRequest and RuntimeResponse. Includes validators that reject selector-like values.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awi-planner-local</code></td>
+            <td>Local LLM planner using Ollama. Contains prompt builder, response parser, and Ollama client.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awi-browser-extension-firefox</code></td>
+            <td>Firefox extension with Harbor LLM integration. Includes sidebar UI, content script, and DomAdapter.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awi-agent-widget</code></td>
+            <td>Embeddable agent chat widget. Uses Harbor (window.ai) or Ollama for LLM planning. Shadow DOM isolation.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awi-agent-skill</code></td>
+            <td>Agent skill package for defining reusable agent capabilities.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awi-eslint-plugin</code></td>
+            <td>ESLint plugin for validating AWI annotations in JSX/TSX templates.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awi-react</code></td>
+            <td>React bindings for AWI. Components that add data-agent-* attributes declaratively.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awi-vue</code></td>
+            <td>Vue bindings for AWI. Directives and components for AWI annotations.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awi-vite-plugin</code></td>
+            <td>Vite plugin for AWI. Injects manifest and widget script during development.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awi-cli</code></td>
+            <td>CLI tool for AWI project scaffolding, manifest validation, and development workflows.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="tooling.widget-modes">
+      <h2>Widget Modes</h2>
+      <div data-agent-kind="item">
+        <p><strong>Action Mode</strong> — When the page has data-agent-kind="action" elements, the widget discovers executable actions and lets the user trigger them via natural language. The LLM planner maps user intent to action names and arguments.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Data Chat Mode</strong> — When the page has only data-agent-kind="collection" and "item" elements with no executable actions, the widget scrapes page data and answers questions about it. Users can ask about the visible content and get answers derived from the annotated data.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Inspector Mode</strong> — When no LLM backend (Harbor or Ollama) is available, the widget degrades gracefully to an inspector that shows discovered actions and fields without planning capability.</p>
+      </div>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="tooling.design-principles">
+      <h2>Design Principles</h2>
+      <div data-agent-kind="item">
+        <p><strong>UI-first, not API-only</strong> — The agent must be able to interact with the website itself, not just backend APIs. The UI is the source of truth.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Semantics over selectors</strong> — data-agent-field="customer_email" is stable and meaningful. CSS selectors like .input-primary:nth-child(2) are brittle and opaque.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Safety by default</strong> — Risk levels and confirmation policies are first-class concepts. High-risk actions are blocked until the user explicitly confirms.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Typed where it matters</strong> — The manifest provides JSON Schema validation for inputs and outputs. Generators use these schemas to create typed SDKs.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Progressive adoption</strong> — Works with data-* attributes today, no browser changes required. Sites can annotate incrementally.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Compatible with existing tools</strong> — Can generate SDKs, CLIs, and MCP wrappers. Complements OpenAPI, not replaces it.</p>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Do not break accessibility</strong> — AWI complements ARIA, it does not replace it. Semantic annotations coexist with accessibility attributes.</p>
+      </div>
+    </div>
+  </main>
+  <script type="module">
+    import { initNav } from '/src/nav.ts';
+    initNav();
+  </script>
+  <script type="module" src="/awi-agent.js"></script>
+</body>
+</html>

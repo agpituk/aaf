@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Execution — AWI Docs</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">AWI Docs</span>
+    <a href="/">Overview</a>
+    <a href="/attributes/">Attributes</a>
+    <a href="/manifest/">Manifest</a>
+    <a href="/execution/">Execution</a>
+    <a href="/tooling/">Tooling</a>
+    <a href="/examples/">Examples</a>
+  </nav>
+  <main>
+    <h1>Execution Flow</h1>
+    <p class="subtitle">How this prototype discovers, validates, and executes actions through the UI.</p>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="execution.flow-steps">
+      <h2>6-Step Execution Flow</h2>
+      <table>
+        <thead>
+          <tr><th>Step</th><th>Name</th><th>Component</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td>1</td>
+            <td>Discover</td>
+            <td>SemanticParser</td>
+            <td>Parse the DOM to find all data-agent-kind elements. SemanticParser.discoverActions(root) returns an ActionCatalog of available actions, fields, and collections.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>2</td>
+            <td>Plan</td>
+            <td>LLM Planner</td>
+            <td>Map user intent to a PlannerRequest containing an action name and arguments. The planner sends semantic names, never CSS selectors.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>3</td>
+            <td>Validate</td>
+            <td>ManifestValidator</td>
+            <td>Check action arguments against the JSON Schema defined in the manifest's inputSchema. Rejects invalid types, missing required fields, and selector-like values.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>4</td>
+            <td>Policy</td>
+            <td>PolicyEngine</td>
+            <td>Enforce risk and confirmation rules. If danger is "high" and confirm is "required", execution is blocked and needs_confirmation status is returned.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>5</td>
+            <td>Execute</td>
+            <td>ActionExecutor</td>
+            <td>Fill fields using the native value setter and dispatch input/change events. Click the submit action. Read status elements for results.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td>6</td>
+            <td>Log</td>
+            <td>ExecutionLogger</td>
+            <td>Record semantic steps: fill (field + value), click (action name), read_status (output). Logs use semantic identifiers, not CSS selectors.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="execution.adapter-interface">
+      <h2>AWIAdapter Interface</h2>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Signature</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td><code>detect()</code></td>
+            <td>detect(url) → boolean</td>
+            <td>Check if a page has AWI semantics by looking for data-agent-version on the root element.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>discover()</code></td>
+            <td>discover() → DiscoveredAction[]</td>
+            <td>Parse the DOM and return all discovered actions with their fields, risk levels, and scopes.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>validate()</code></td>
+            <td>validate(action, args) → ValidationResult</td>
+            <td>Validate action arguments against the manifest's input schema using AJV.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>execute()</code></td>
+            <td>execute(action, args) → ExecutionResult</td>
+            <td>Fill fields, click submit, and read status. Returns structured result with status (success, error, needs_confirmation).</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" data-agent-kind="collection" data-agent-action="execution.result-statuses">
+      <h2>Result Statuses</h2>
+      <table>
+        <thead>
+          <tr><th>Status</th><th>Meaning</th><th>When Returned</th></tr>
+        </thead>
+        <tbody>
+          <tr data-agent-kind="item">
+            <td><code>success</code></td>
+            <td>Action completed successfully.</td>
+            <td>Fields were filled, submit was clicked, and the status element shows a success message.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>error</code></td>
+            <td>Action failed during execution.</td>
+            <td>Validation failed, the status element shows an error, or a runtime exception occurred.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>needs_confirmation</code></td>
+            <td>Action is blocked pending user confirmation.</td>
+            <td>The action has danger="high" and confirm="required". The agent must obtain explicit consent before retrying.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>not_found</code></td>
+            <td>The requested action does not exist on this page.</td>
+            <td>The action name does not match any discovered action in the DOM.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card" data-agent-kind="collection" data-agent-action="execution.log-example">
+      <h2>Semantic Execution Log Example</h2>
+      <div data-agent-kind="item">
+        <p>The ExecutionLogger records every step using semantic identifiers — field names and action names, never CSS selectors. Compare this to raw Playwright traces that use <code>click('[data-testid="btn"]')</code> — the semantic log says <code>click action "invoice.create.submit"</code>.</p>
+<pre><code>{
+  "session_id": "s_123",
+  "action": "invoice.create",
+  "mode": "ui",
+  "steps": [
+    { "type": "navigate", "url": "/invoices/new" },
+    { "type": "fill", "field": "customer_email",
+      "value": "alice@example.com" },
+    { "type": "fill", "field": "amount", "value": 120.0 },
+    { "type": "fill", "field": "currency", "value": "EUR" },
+    { "type": "click",
+      "action": "invoice.create.submit" },
+    { "type": "read_status",
+      "output": "invoice.create.status",
+      "value": "Invoice created" }
+  ]
+}</code></pre>
+      </div>
+      <div data-agent-kind="item">
+        <p><strong>Why this matters:</strong> If the site redesigns its UI — moving the form, changing button text, swapping a select for radio buttons — the semantic log stays identical. The field names and action names are stable contracts, not layout-dependent selectors.</p>
+      </div>
+    </div>
+  </main>
+  <script type="module">
+    import { initNav } from '/src/nav.ts';
+    initNav();
+  </script>
+  <script type="module" src="/awi-agent.js"></script>
+</body>
+</html>
