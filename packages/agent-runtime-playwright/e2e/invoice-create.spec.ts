@@ -3,7 +3,7 @@ import { ActionExecutor } from '../src/action-executor.js';
 import type { AgentManifest } from '@agent-accessibility-framework/runtime-core';
 
 const manifest: AgentManifest = {
-  version: '0.2',
+  version: '0.1',
   site: {
     name: 'Example Billing',
     origin: 'http://localhost:5174',

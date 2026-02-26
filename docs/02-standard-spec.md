@@ -218,11 +218,11 @@ DOM annotations help discovery and UI interaction. For generation and validation
 
 ---
 
-## 6.5 Example Agent Manifest v0.2
+## 6.5 Example Agent Manifest
 
 ```json
 {
-  "version": "0.2",
+  "version": "0.1",
   "site": {
     "name": "Example Billing",
     "origin": "https://billing.example.com",

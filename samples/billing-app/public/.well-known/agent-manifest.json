@@ -7,7 +7,7 @@
     "currency": "schema:priceCurrency",
     "memo": "schema:description"
   },
-  "version": "0.2",
+  "version": "0.1",
   "site": {
     "name": "Example Billing",
     "origin": "http://localhost:5173",

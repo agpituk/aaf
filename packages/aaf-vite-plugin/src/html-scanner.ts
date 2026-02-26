@@ -93,7 +93,7 @@ export function generateManifest(
   pageMap?: Record<string, string[]>,
 ): Record<string, unknown> {
   const manifest: Record<string, unknown> = {
-    version: '0.2',
+    version: '0.1',
     site,
     actions: {} as Record<string, unknown>,
   };

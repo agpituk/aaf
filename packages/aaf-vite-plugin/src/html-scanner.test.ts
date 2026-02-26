@@ -66,7 +66,7 @@ describe('generateManifest', () => {
     `);
     const manifest = generateManifest(actions, { name: 'Test', origin: 'http://localhost:3000' });
 
-    expect(manifest.version).toBe('0.2');
+    expect(manifest.version).toBe('0.1');
     expect(manifest.site).toEqual({ name: 'Test', origin: 'http://localhost:3000' });
 
     const invoiceAction = (manifest.actions as any)['invoice.create'];

@@ -10,7 +10,7 @@ function createValidator() {
 }
 
 const exampleManifest = {
-  version: '0.2',
+  version: '0.1',
   site: {
     name: 'Example Billing',
     origin: 'https://billing.example.com',

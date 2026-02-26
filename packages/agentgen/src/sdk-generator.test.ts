@@ -3,7 +3,7 @@ import { generateSDK, generateCLI } from './sdk-generator.js';
 import type { AgentManifest } from '@agent-accessibility-framework/runtime-core';
 
 const billingManifest: AgentManifest = {
-  version: '0.2',
+  version: '0.1',
   site: { name: 'Example Billing', origin: 'https://billing.example.com' },
   actions: {
     'invoice.create': {

@@ -30,7 +30,7 @@
           <tr data-agent-kind="item">
             <td><code>version</code></td>
             <td>string</td>
-            <td>Semantics version (e.g. "0.2"). Must match the data-agent-version on the page.</td>
+            <td>Semantics version (e.g. "0.1"). Must match the data-agent-version on the page.</td>
           </tr>
           <tr data-agent-kind="item">
             <td><code>site.name</code></td>
@@ -122,7 +122,7 @@
       <div data-agent-kind="item">
         <p>A complete manifest for the billing app's <code>invoice.create</code> action. The <code>inputSchema</code> uses JSON Schema to validate field types and constraints before execution. The <code>pages</code> map groups actions by route.</p>
 <pre><code>{
-  "version": "0.2",
+  "version": "0.1",
   "site": {
     "name": "Example Billing",
     "origin": "https://billing.example.com",
@@ -163,7 +163,7 @@
       <div data-agent-kind="item">
         <p>A data-only site (like this docs site) can use a minimal manifest with an empty actions object. The widget will detect the collections on the page and enter data chat mode.</p>
 <pre><code>{
-  "version": "0.2",
+  "version": "0.1",
   "site": {
     "name": "AAF Docs",
     "origin": "http://localhost:5174"
