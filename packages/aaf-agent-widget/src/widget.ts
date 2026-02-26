@@ -203,6 +203,7 @@ async function init(): Promise<void> {
   interface ConversationTurn { role: 'user' | 'assistant' | 'error'; text: string }
   const history: ConversationTurn[] = [];
   let lastPlan: { action: string; args: Record<string, unknown> } | null = null;
+  let pendingReview: { action: string; args: Record<string, unknown> } | null = null;
 
   const chat = new ChatUI({
     onSubmit: (text) => handleUserMessage(text),
@@ -223,6 +224,37 @@ async function init(): Promise<void> {
 
   // Load manifest
   manifest = await fetchManifest();
+
+  /** Click submit on an already-filled form (after user confirms a pending review) */
+  async function submitPendingAction(actionName: string): Promise<ExecutionResult> {
+    const logger = new ExecutionLogger(actionName, 'ui');
+
+    const actions = parser.discoverActions(document.body);
+    const discovered = actions.find((a) => a.action === actionName);
+    if (!discovered) {
+      return { status: 'execution_error', error: `Action "${actionName}" not found on page`, log: logger.toLog() };
+    }
+
+    const submitSelector = discovered.submitAction
+      ? `[data-agent-action="${discovered.submitAction}"]`
+      : `[data-agent-action="${actionName}"]`;
+    const submitEl = document.querySelector(submitSelector) as HTMLElement | null;
+    if (submitEl) {
+      submitEl.click();
+      logger.click(discovered.submitAction || actionName);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const statusEl = document.querySelector('[data-agent-kind="status"]');
+    const statusText = statusEl?.textContent?.trim() || '';
+    if (statusText) {
+      const outputAttr = statusEl?.getAttribute('data-agent-output') || '';
+      logger.readStatus(outputAttr, statusText);
+    }
+
+    return { status: 'completed', result: statusText, log: logger.toLog() };
+  }
 
   async function handleUserMessage(text: string): Promise<void> {
     chat.addMessage('user', text);
@@ -273,6 +305,30 @@ async function init(): Promise<void> {
       }
 
       const request = planResult.request;
+
+      // Check if this is a confirmation of a pending review
+      if (pendingReview && request.confirmed && request.action === pendingReview.action) {
+        chat.addMessage('system', 'Submitting...');
+        const result = await submitPendingAction(request.action);
+        pendingReview = null;
+        lastPlan = null;
+
+        if (result.status === 'completed') {
+          const msg = result.result || 'Action completed successfully.';
+          chat.addMessage('assistant', msg);
+          history.push({ role: 'assistant', text: msg });
+        } else {
+          const msg = `${result.status}: ${result.error || 'Unknown error'}`;
+          chat.addMessage('error', msg);
+          history.push({ role: 'error', text: msg });
+        }
+        chat.setEnabled(true);
+        return;
+      }
+
+      // New action planned — clear any stale pending review
+      pendingReview = null;
+
       chat.addMessage('assistant', `Action: ${request.action}\nArgs: ${JSON.stringify(request.args, null, 2)}`);
 
       // Save plan for follow-up context
@@ -303,10 +359,10 @@ async function init(): Promise<void> {
 
       // Display result
       if (result.status === 'awaiting_review') {
-        const msg = 'Form filled — review and submit when ready.';
+        const msg = 'Form filled — review and submit when ready, or say "submit" to send.';
         chat.addMessage('assistant', msg);
         history.push({ role: 'assistant', text: msg });
-        lastPlan = null;
+        pendingReview = { action: request.action, args: { ...request.args } };
         chat.setEnabled(true);
         return;
       }
@@ -333,6 +389,11 @@ async function init(): Promise<void> {
 
   /** Build a message that includes conversation context for follow-ups */
   function buildContextualMessage(text: string): string {
+    // If there's a pending review, tell the LLM about the filled form
+    if (pendingReview) {
+      return `A form for action "${pendingReview.action}" has been filled with these values and is awaiting user review:\n${JSON.stringify(pendingReview.args, null, 2)}\n\nIf the user wants to submit/send/confirm the form as-is, respond with: {"action": "${pendingReview.action}", "args": ${JSON.stringify(pendingReview.args)}, "confirmed": true}\nIf the user wants to change something, respond with the updated action and args (without "confirmed").\n\nUser message: "${text}"`;
+    }
+
     // If there's a previous plan (from a failed or incomplete attempt), include it
     if (lastPlan) {
       return `Previous plan: ${JSON.stringify(lastPlan)}\n\nThe user is providing a follow-up or correction. Merge the new information with the previous plan, keeping all fields from the previous plan that are not being changed.\n\nUser follow-up: "${text}"`;

@@ -28,7 +28,8 @@ RULES:
 6. Always include ALL fields you can infer from the user's message. If a previous plan is provided, merge the new information with existing values — keep all fields from the previous plan that the user did not change.
 7. If the user is asking an informational question (e.g. "what currencies are supported?", "what fields does this form have?") rather than requesting an action, respond with: {"action": "none", "answer": "<your concise answer based on the available actions and page data>"}
 8. If you cannot map the user's request to an available action AND it is not an informational question, respond with: {"action": "none", "args": {}, "error": "reason"}
-9. For destructive actions (high risk), include "confirmed": false in your response.`;
+9. For destructive actions (high risk), include "confirmed": false in your response.
+10. If the context says a form is awaiting review and the user wants to submit/send/confirm it, respond with the same action, same args, and "confirmed": true.`;
 }
 
 function describeAction(action: DiscoveredAction): string {
