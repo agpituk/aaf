@@ -27,12 +27,13 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --config packages/agent-runtime-playwright/playwright.config.ts",
     "benchmark": "npx tsx tests/falsification/generate-report.ts"
   },
   "devDependencies": {
     "ajv": "^8.17.0",
     "ajv-formats": "^3.0.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },

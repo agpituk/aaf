@@ -56,52 +56,29 @@ At this stage we can discuss:
 
 ---
 
-## 21. Immediate Next Actions
+## 21. Completed Bootstrap (v0.1)
 
-### 21.1 Create the Repo
+All initial bootstrap steps have been completed:
 
-- `agent-accessibility-framework`
-
-### 21.2 Write These First Files
-
-- `README.md`
-- `docs/explainer.md`
-- `docs/spec-v0.1.md`
-- `schemas/agent-manifest.schema.json`
-
-### 21.3 Build One Sample Site
-
-- `samples/billing-app`
-- Add `data-agent-*` labels
-- Expose manifest
-
-### 21.4 Build One Runtime Action
-
-- `invoice.create` in Playwright
-- Semantic parser only, no generic engine yet
-
-### 21.5 Build One Generated Client
-
-- TS or Python first
-- CLI can be thin wrapper over generated client
+- ~~Create the repo~~ — done
+- ~~README, spec docs, JSON Schema~~ — done
+- ~~Sample billing app with `data-agent-*` annotations and manifest~~ — done
+- ~~Runtime action (`invoice.create`) in Playwright~~ — done
+- ~~Generated TS client from manifest~~ — done (`agentgen`)
+- ~~Visual inspector~~ — done (widget inspector mode)
+- ~~Embeddable agent widget~~ — done (`aaf-agent-widget` with Ollama)
+- ~~React and Vue bindings~~ — done (`aaf-react`, `aaf-vue`)
+- ~~ESLint plugin~~ — done (`aaf-eslint-plugin`)
+- ~~Vite plugin~~ — done (`aaf-vite-plugin`)
+- ~~Site-wide linter/auditor~~ — done (`aaf-lint` with `--crawl`)
 
 ---
 
-## 22. Stretch Goals
+## 22. Next Goals
 
-Once MVP works, we can go bigger.
-
-- ~~Visual inspector for `data-agent-*`~~ (done: widget inspector mode)
-- ~~Embeddable agent widget for any AAF page~~ (done: `aaf-agent-widget` with Ollama)
 - Conformance badge for websites ("Agent Semantics v0.1")
-- GitHub Action to lint semantics on PRs
-- Framework plugins:
-  - React helper components
-  - Vue directives
-- Codegen templates for:
-  - SDK TS/Python
-  - CLI
-  - MCP wrapper
+- GitHub Action / CI to lint semantics on PRs
+- Codegen templates for Python SDK and MCP wrapper
 - Action replay tools using semantic logs
 - "Teach the agent" mode for annotating legacy websites
 - Scoped model access permissions for trusted agent runtimes
