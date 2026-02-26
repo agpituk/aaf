@@ -152,8 +152,15 @@ npm run test:e2e
 ### Lint a page
 
 ```bash
+# Local file
 npx agent-lint --html samples/billing-app/invoices/new/index.html \
                --manifest samples/billing-app/public/.well-known/agent-manifest.json
+
+# Remote URL (raw fetch)
+npx agent-lint --audit https://example.com
+
+# Remote SPA (renders JavaScript in headless Chromium first, requires playwright)
+npx agent-lint --audit https://example.com --render
 ```
 
 ### Generate an SDK from a manifest
