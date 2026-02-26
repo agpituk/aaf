@@ -95,6 +95,27 @@ describe('lintManifest', () => {
     expect(results).toHaveLength(0);
   });
 
+  it('returns no errors for a manifest with @context', () => {
+    const manifest = {
+      '@context': 'https://aaf.dev/context.jsonld',
+      version: '0.1',
+      site: { name: 'Test', origin: 'https://test.com' },
+      actions: {
+        'test.action': {
+          title: 'Test',
+          scope: 'test.scope',
+          risk: 'low',
+          confirmation: 'optional',
+          idempotent: false,
+          inputSchema: { type: 'object', properties: {} },
+          outputSchema: { type: 'object', properties: {} },
+        },
+      },
+    };
+    const results = lintManifest(manifest, schema);
+    expect(results).toHaveLength(0);
+  });
+
   it('reports errors for invalid manifest', () => {
     const manifest = { version: 'bad', site: {} };
     const results = lintManifest(manifest, schema);

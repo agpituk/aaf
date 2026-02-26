@@ -98,6 +98,35 @@ describe('ManifestValidator', () => {
     expect(result.valid).toBe(false);
   });
 
+  describe('@context support', () => {
+    it('loads a manifest with a string @context', () => {
+      const manifest = validator.loadManifest({
+        ...testManifest,
+        '@context': 'https://aaf.dev/context.jsonld',
+      });
+      expect(manifest['@context']).toBe('https://aaf.dev/context.jsonld');
+    });
+
+    it('loads a manifest with an object @context', () => {
+      const manifest = validator.loadManifest({
+        ...testManifest,
+        '@context': {
+          'schema': 'https://schema.org/',
+          'aaf': 'https://aaf.dev/vocab#',
+        },
+      });
+      expect(manifest['@context']).toEqual({
+        schema: 'https://schema.org/',
+        aaf: 'https://aaf.dev/vocab#',
+      });
+    });
+
+    it('loads a manifest without @context (backward compat)', () => {
+      const manifest = validator.loadManifest(testManifest);
+      expect(manifest['@context']).toBeUndefined();
+    });
+  });
+
   describe('coerceAndValidate', () => {
     it('coerces string amount and enum case, then validates successfully', () => {
       const action = validator.getAction(testManifest, 'invoice.create');

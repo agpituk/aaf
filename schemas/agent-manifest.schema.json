@@ -2,11 +2,19 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://agent-native-web.dev/schemas/agent-manifest.schema.json",
   "title": "Agent Manifest",
-  "description": "Agent-Native Web capability manifest defining site actions, schemas, and policies.",
+  "description": "Agent Accessibility Framework capability manifest defining site actions, schemas, and policies.",
   "type": "object",
   "required": ["version", "site", "actions"],
   "additionalProperties": false,
   "properties": {
+    "@context": {
+      "description": "Optional JSON-LD context for semantic interoperability.",
+      "oneOf": [
+        { "type": "string", "format": "uri" },
+        { "type": "object" },
+        { "type": "array", "items": { "oneOf": [{ "type": "string", "format": "uri" }, { "type": "object" }] } }
+      ]
+    },
     "version": {
       "type": "string",
       "description": "Manifest version identifier.",

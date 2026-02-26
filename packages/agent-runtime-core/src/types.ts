@@ -1,4 +1,5 @@
 export interface AgentManifest {
+  '@context'?: string | Record<string, unknown> | Array<string | Record<string, unknown>>;
   version: string;
   site: {
     name: string;

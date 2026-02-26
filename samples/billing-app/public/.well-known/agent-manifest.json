@@ -1,4 +1,12 @@
 {
+  "@context": {
+    "schema": "https://schema.org/",
+    "aaf": "https://aaf.dev/vocab#",
+    "customer_email": "schema:email",
+    "amount": "schema:price",
+    "currency": "schema:priceCurrency",
+    "memo": "schema:description"
+  },
   "version": "0.1",
   "site": {
     "name": "Example Billing",
