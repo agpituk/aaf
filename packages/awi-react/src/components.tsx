@@ -8,7 +8,7 @@ export interface AgentActionProps extends React.FormHTMLAttributes<HTMLFormEleme
   /** Risk level */
   danger?: 'none' | 'low' | 'high';
   /** Confirmation requirement */
-  confirm?: 'never' | 'optional' | 'required';
+  confirm?: 'never' | 'optional' | 'review' | 'required';
   /** Permission scope, e.g. "invoices.write" */
   scope?: string;
   /** Whether the action is idempotent */

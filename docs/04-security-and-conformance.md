@@ -12,6 +12,7 @@
 - **High-risk actions must declare risk and confirmation**
   - Examples: delete, send, publish, transfer
 - **Agents must respect confirmation requirements** — no silent execution of `high` + `required`
+- **Review mode (`confirm="review"`)** — agent fills the form but does not submit; three tiers: `optional` (auto), `review` (fill only), `required` (blocked)
 - **CSRF and session protections still apply** — this standard does not replace web security controls
 - **Manifests must not leak hidden capabilities** — only expose actions available to the current user/app context
 - **Idempotency should be declared** — prevent accidental retries causing duplicate effects

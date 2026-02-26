@@ -108,7 +108,7 @@ export function generateSDK(manifest: AgentManifest): Map<string, string> {
   clientContent += `  title: string;\n`;
   clientContent += `  scope: string;\n`;
   clientContent += `  risk: 'none' | 'low' | 'high';\n`;
-  clientContent += `  confirmation: 'never' | 'optional' | 'required';\n`;
+  clientContent += `  confirmation: 'never' | 'optional' | 'review' | 'required';\n`;
   clientContent += `  idempotent: boolean;\n`;
   clientContent += `}\n\n`;
 

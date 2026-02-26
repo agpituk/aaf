@@ -9,7 +9,7 @@
       "title": "Create invoice",
       "scope": "invoices.write",
       "risk": "low",
-      "confirmation": "optional",
+      "confirmation": "review",
       "idempotent": false,
       "inputSchema": {
         "type": "object",

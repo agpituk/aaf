@@ -5,6 +5,7 @@ import runtimeResponseSchema from './schemas/runtime-response.schema.json';
 
 const VALID_STATUSES: Set<RuntimeStatus> = new Set([
   'completed',
+  'awaiting_review',
   'needs_confirmation',
   'validation_error',
   'execution_error',

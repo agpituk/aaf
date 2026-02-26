@@ -89,7 +89,7 @@ Open `http://localhost:5173/invoices/new` and click the chat bubble in the botto
 
 | Prompt | What happens |
 |--------|-------------|
-| "Create an invoice for alice@example.com for 120 EUR" | Fills the form and submits |
+| "Create an invoice for alice@example.com for 120 EUR" | Fills the form but does not submit (review mode) — user clicks submit |
 | "Send a bill to bob@test.com for 50 USD" | Plans and executes `invoice.create` |
 | "Delete the workspace" (on `/settings/`) | Triggers high-risk confirmation dialog |
 
@@ -191,7 +191,7 @@ The benchmark also tests:
 | `data-agent-action` | `invoice.create` | Action identifier (dot-notation) |
 | `data-agent-field` | `customer_email` | Field identifier (snake_case) |
 | `data-agent-danger` | `none` `low` `high` | Risk level |
-| `data-agent-confirm` | `never` `optional` `required` | Confirmation policy |
+| `data-agent-confirm` | `never` `optional` `review` `required` | Confirmation policy |
 | `data-agent-scope` | `invoices.write` | Permission hint |
 | `data-agent-idempotent` | `true` `false` | Safe to retry? |
 | `data-agent-for-action` | `workspace.delete` | Links a field to an action outside its DOM tree |

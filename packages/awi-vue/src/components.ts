@@ -5,7 +5,7 @@ export const AgentAction = defineComponent({
   props: {
     action: { type: String, required: true },
     danger: { type: String as () => 'none' | 'low' | 'high', default: undefined },
-    confirm: { type: String as () => 'never' | 'optional' | 'required', default: undefined },
+    confirm: { type: String as () => 'never' | 'optional' | 'review' | 'required', default: undefined },
     scope: { type: String, default: undefined },
     idempotent: { type: Boolean, default: undefined },
     as: { type: String, default: 'form' },

@@ -7,7 +7,7 @@
   "properties": {
     "status": {
       "type": "string",
-      "enum": ["completed", "needs_confirmation", "validation_error", "execution_error", "missing_required_fields"]
+      "enum": ["completed", "awaiting_review", "needs_confirmation", "validation_error", "execution_error", "missing_required_fields"]
     },
     "action": {
       "type": "string"

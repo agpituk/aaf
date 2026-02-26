@@ -213,6 +213,14 @@ describe('validateRuntimeResponse', () => {
     expect(result.valid).toBe(false);
   });
 
+  it('accepts an awaiting_review response', () => {
+    const result = validateRuntimeResponse({
+      status: 'awaiting_review',
+      action: 'invoice.create',
+    });
+    expect(result.valid).toBe(true);
+  });
+
   it('rejects invalid status value', () => {
     const result = validateRuntimeResponse({
       status: 'unknown_status',

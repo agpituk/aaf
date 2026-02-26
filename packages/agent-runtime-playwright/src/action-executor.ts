@@ -121,7 +121,12 @@ export class ActionExecutor {
       logger.fill(field.field, value);
     }
 
-    // 7. Click submit
+    // 7. If confirmation is 'review', stop after filling — let the user submit manually
+    if (action.confirmation === 'review') {
+      return { status: 'awaiting_review', log: logger.toLog() };
+    }
+
+    // 8. Click submit
     if (discovered.submitAction) {
       const submitSelector = `[data-agent-action="${discovered.submitAction}"]`;
       await page.click(submitSelector);
@@ -133,10 +138,10 @@ export class ActionExecutor {
       logger.click(actionName);
     }
 
-    // 8. Wait a moment for status to update
+    // 9. Wait a moment for status to update
     await page.waitForTimeout(500);
 
-    // 9. Read status
+    // 10. Read status
     const statusSelector = '[data-agent-kind="status"]';
     const statusText = await page.evaluate((sel) => {
       const el = document.querySelector(sel);

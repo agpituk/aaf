@@ -70,7 +70,7 @@
         "confirmation": {
           "type": "string",
           "description": "Confirmation policy.",
-          "enum": ["never", "optional", "required"]
+          "enum": ["never", "optional", "review", "required"]
         },
         "idempotent": {
           "type": "boolean",

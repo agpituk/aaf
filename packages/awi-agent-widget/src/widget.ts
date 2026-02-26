@@ -158,6 +158,11 @@ async function executeOnDOM(
       logger.fill(field.field, value);
     }
 
+    // If confirmation is 'review', stop after filling — let the user submit manually
+    if (action.confirmation === 'review') {
+      return { status: 'awaiting_review', log: logger.toLog() };
+    }
+
     // Click submit
     const submitSelector = discovered.submitAction
       ? `[data-agent-action="${discovered.submitAction}"]`
@@ -297,6 +302,15 @@ async function init(): Promise<void> {
       }
 
       // Display result
+      if (result.status === 'awaiting_review') {
+        const msg = 'Form filled — review and submit when ready.';
+        chat.addMessage('assistant', msg);
+        history.push({ role: 'assistant', text: msg });
+        lastPlan = null;
+        chat.setEnabled(true);
+        return;
+      }
+
       if (result.status === 'completed') {
         const msg = result.result || 'Action completed successfully.';
         chat.addMessage('assistant', msg);

@@ -71,4 +71,24 @@ describe('PolicyEngine', () => {
     });
     expect(result.allowed).toBe(false);
   });
+
+  it('allows confirmation: review actions (not blocked by policy)', () => {
+    const reviewAction: AgentAction = {
+      title: 'Create invoice',
+      scope: 'invoices.write',
+      risk: 'low',
+      confirmation: 'review',
+      idempotent: false,
+      inputSchema: {
+        type: 'object',
+        required: ['customer_email'],
+        properties: { customer_email: { type: 'string' } },
+      },
+      outputSchema: { type: 'object', properties: {} },
+    };
+    const result = engine.checkExecution(reviewAction, {
+      requiredFields: { customer_email: 'test@test.com' },
+    });
+    expect(result.allowed).toBe(true);
+  });
 });

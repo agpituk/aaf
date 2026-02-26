@@ -43,7 +43,7 @@ export const vAgentDanger: Directive<HTMLElement, string> = {
 
 /**
  * v-agent-confirm="requirement"
- * Sets data-agent-confirm attribute. Values: 'never' | 'optional' | 'required'
+ * Sets data-agent-confirm attribute. Values: 'never' | 'optional' | 'review' | 'required'
  */
 export const vAgentConfirm: Directive<HTMLElement, string> = {
   mounted(el, binding) {

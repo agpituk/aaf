@@ -2,7 +2,7 @@ import type { LintResult } from './types.js';
 
 const VALID_KINDS = new Set(['action', 'field', 'status', 'result', 'collection', 'item', 'dialog', 'step']);
 const VALID_DANGER = new Set(['none', 'low', 'high']);
-const VALID_CONFIRM = new Set(['never', 'optional', 'required']);
+const VALID_CONFIRM = new Set(['never', 'optional', 'review', 'required']);
 const VALID_IDEMPOTENT = new Set(['true', 'false']);
 
 const ATTR_PATTERN = /data-agent-(kind|action|field|output|danger|confirm|scope|idempotent|for-action|version)="([^"]*)"/g;

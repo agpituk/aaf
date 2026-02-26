@@ -43,7 +43,7 @@ docs/                        # Spec documents (vision, standard, security)
 
 - **Actions**: dot-notation identifiers (`invoice.create`, `workspace.delete`). Sub-actions use extra dot (`invoice.create.submit`).
 - **Fields**: snake_case identifiers (`customer_email`, `amount`). Linked to actions via nesting or `data-agent-for-action`.
-- **Risk/Confirmation**: `danger="high"` + `confirm="required"` blocks execution without user consent. Runtime returns `needs_confirmation` status.
+- **Risk/Confirmation**: Three tiers — `optional` (fill and submit automatically), `review` (fill only, user submits manually, returns `awaiting_review`), `required` (blocked without user consent, returns `needs_confirmation`). `danger="high"` + `confirm="required"` blocks execution.
 - **AWIAdapter interface**: `detect() → discover() → validate() → execute()`. Implemented by `PlaywrightAdapter` (testing).
 - **Agent Widget**: Embeddable `<script>` that adds a floating chat panel to any AWI-annotated page. Uses Ollama for LLM planning. Shadow DOM isolation.
 - **Contract rule**: Planners send semantic action names + args, NEVER selectors. Validators reject selector-like values.

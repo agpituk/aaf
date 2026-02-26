@@ -40,6 +40,12 @@ describe('lintHTML', () => {
     expect(results[0].message).toContain('always');
   });
 
+  it('accepts data-agent-confirm="review" as valid', () => {
+    const html = `<form data-agent-kind="action" data-agent-confirm="review">Submit</form>`;
+    const results = lintHTML(html);
+    expect(results).toHaveLength(0);
+  });
+
   it('reports error for invalid data-agent-idempotent', () => {
     const html = `<form data-agent-kind="action" data-agent-idempotent="yes">Submit</form>`;
     const results = lintHTML(html);

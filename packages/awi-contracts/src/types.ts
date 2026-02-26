@@ -5,6 +5,7 @@ import type { DiscoveredAction, DiscoveredField, ExecutionLog } from '@agent-nat
  */
 export type RuntimeStatus =
   | 'completed'
+  | 'awaiting_review'
   | 'needs_confirmation'
   | 'validation_error'
   | 'execution_error'

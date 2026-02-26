@@ -61,6 +61,7 @@ Allowed values:
 
 - `never`
 - `optional`
+- `review` — agent fills the form but does not submit; the user reviews and submits manually
 - `required`
 
 #### `data-agent-scope`

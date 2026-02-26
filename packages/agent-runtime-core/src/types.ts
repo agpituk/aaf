@@ -12,7 +12,7 @@ export interface AgentAction {
   title: string;
   scope: string;
   risk: 'none' | 'low' | 'high';
-  confirmation: 'never' | 'optional' | 'required';
+  confirmation: 'never' | 'optional' | 'review' | 'required';
   idempotent: boolean;
   inputSchema: Record<string, unknown>;
   outputSchema: Record<string, unknown>;
@@ -114,7 +114,7 @@ export interface ExecuteOptions {
 }
 
 export interface ExecutionResult {
-  status: 'completed' | 'needs_confirmation' | 'validation_error' | 'execution_error' | 'missing_required_fields';
+  status: 'completed' | 'awaiting_review' | 'needs_confirmation' | 'validation_error' | 'execution_error' | 'missing_required_fields';
   result?: string;
   log?: ExecutionLog;
   confirmation_metadata?: {

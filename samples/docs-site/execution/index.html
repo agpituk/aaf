@@ -55,7 +55,7 @@
             <td>5</td>
             <td>Execute</td>
             <td>ActionExecutor</td>
-            <td>Fill fields using the native value setter and dispatch input/change events. Click the submit action. Read status elements for results.</td>
+            <td>Fill fields using the native value setter and dispatch input/change events. If confirm is "review", stop here and return awaiting_review. Otherwise, click the submit action and read status elements for results.</td>
           </tr>
           <tr data-agent-kind="item">
             <td>6</td>
@@ -114,6 +114,11 @@
             <td><code>error</code></td>
             <td>Action failed during execution.</td>
             <td>Validation failed, the status element shows an error, or a runtime exception occurred.</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>awaiting_review</code></td>
+            <td>Form filled, waiting for user to review and submit.</td>
+            <td>The action has confirm="review". The agent filled all fields but did not click submit.</td>
           </tr>
           <tr data-agent-kind="item">
             <td><code>needs_confirmation</code></td>
