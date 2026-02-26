@@ -1,26 +1,31 @@
+export interface AgentPage {
+  title: string;
+  description?: string;
+  actions: string[];
+}
+
 export interface AgentManifest {
   '@context'?: string | Record<string, unknown> | Array<string | Record<string, unknown>>;
   version: string;
   site: {
     name: string;
     origin: string;
+    description?: string;
   };
   actions: Record<string, AgentAction>;
   errors?: Record<string, { message: string }>;
+  pages?: Record<string, AgentPage>;
 }
 
 export interface AgentAction {
   title: string;
+  description?: string;
   scope: string;
   risk: 'none' | 'low' | 'high';
   confirmation: 'never' | 'optional' | 'review' | 'required';
   idempotent: boolean;
   inputSchema: Record<string, unknown>;
   outputSchema: Record<string, unknown>;
-  ui?: {
-    page?: string;
-    rootActionSelector?: string;
-  };
 }
 
 export type AgentKind = 'action' | 'field' | 'status' | 'result' | 'collection' | 'item' | 'dialog' | 'step';

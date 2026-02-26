@@ -3,7 +3,7 @@ import { ActionExecutor } from '../src/action-executor.js';
 import type { AgentManifest } from '@agent-accessibility-framework/runtime-core';
 
 const manifest: AgentManifest = {
-  version: '0.1',
+  version: '0.2',
   site: {
     name: 'Example Billing',
     origin: 'http://localhost:5174',
@@ -33,10 +33,12 @@ const manifest: AgentManifest = {
           status: { type: 'string', enum: ['draft', 'sent'] },
         },
       },
-      ui: {
-        page: '/invoices/new/',
-        rootActionSelector: "[data-agent-action='invoice.create']",
-      },
+    },
+  },
+  pages: {
+    '/invoices/new/': {
+      title: 'Create Invoice',
+      actions: ['invoice.create'],
     },
   },
 };

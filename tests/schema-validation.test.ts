@@ -10,14 +10,16 @@ function createValidator() {
 }
 
 const exampleManifest = {
-  version: '0.1',
+  version: '0.2',
   site: {
     name: 'Example Billing',
     origin: 'https://billing.example.com',
+    description: 'A billing application for creating and managing invoices.',
   },
   actions: {
     'invoice.create': {
       title: 'Create invoice',
+      description: 'Creates a new invoice for a customer.',
       scope: 'invoices.write',
       risk: 'low',
       confirmation: 'optional',
@@ -40,10 +42,6 @@ const exampleManifest = {
           status: { type: 'string', enum: ['draft', 'sent'] },
         },
       },
-      ui: {
-        page: '/invoices/new',
-        rootActionSelector: "[data-agent-action='invoice.create']",
-      },
     },
     'workspace.delete': {
       title: 'Delete workspace',
@@ -65,6 +63,16 @@ const exampleManifest = {
           deleted: { type: 'boolean' },
         },
       },
+    },
+  },
+  pages: {
+    '/invoices/new': {
+      title: 'Create Invoice',
+      actions: ['invoice.create'],
+    },
+    '/settings/': {
+      title: 'Settings',
+      actions: ['workspace.delete'],
     },
   },
   errors: {
@@ -167,15 +175,27 @@ describe('Agent Manifest Schema Validation', () => {
     expect(validate(noErrors)).toBe(true);
   });
 
-  it('accepts an action without optional ui field', () => {
+  it('accepts a manifest with pages', () => {
     const validate = createValidator();
-    // workspace.delete has no ui field - should be valid
-    const manifest = {
-      ...exampleManifest,
-      actions: {
-        'workspace.delete': exampleManifest.actions['workspace.delete'],
-      },
-    };
-    expect(validate(manifest)).toBe(true);
+    expect(validate(exampleManifest)).toBe(true);
+    expect(exampleManifest.pages).toBeDefined();
+  });
+
+  it('accepts a manifest without optional pages field', () => {
+    const validate = createValidator();
+    const { pages, ...noPages } = exampleManifest;
+    expect(validate(noPages)).toBe(true);
+  });
+
+  it('accepts an action with optional description field', () => {
+    const validate = createValidator();
+    expect(exampleManifest.actions['invoice.create'].description).toBeDefined();
+    expect(validate(exampleManifest)).toBe(true);
+  });
+
+  it('accepts a site with optional description field', () => {
+    const validate = createValidator();
+    expect(exampleManifest.site.description).toBeDefined();
+    expect(validate(exampleManifest)).toBe(true);
   });
 });

@@ -89,10 +89,11 @@ function extractAttr(tag: string, attr: string): string | undefined {
  */
 export function generateManifest(
   actions: ScannedAction[],
-  site: { name: string; origin: string },
+  site: { name: string; origin: string; description?: string },
+  pageMap?: Record<string, string[]>,
 ): Record<string, unknown> {
   const manifest: Record<string, unknown> = {
-    version: '0.1',
+    version: '0.2',
     site,
     actions: {} as Record<string, unknown>,
   };
@@ -124,6 +125,17 @@ export function generateManifest(
         properties: {},
       },
     };
+  }
+
+  if (pageMap && Object.keys(pageMap).length > 0) {
+    const pages: Record<string, { title: string; actions: string[] }> = {};
+    for (const [route, actionNames] of Object.entries(pageMap)) {
+      pages[route] = {
+        title: route === '/' ? 'Home' : route.replace(/^\/|\/$/g, '').split('/').pop()!,
+        actions: actionNames,
+      };
+    }
+    manifest.pages = pages;
   }
 
   return manifest;

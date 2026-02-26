@@ -37,6 +37,13 @@
       "additionalProperties": {
         "$ref": "#/definitions/ErrorDef"
       }
+    },
+    "pages": {
+      "type": "object",
+      "description": "Map of route patterns to page definitions, grouping actions by page.",
+      "additionalProperties": {
+        "$ref": "#/definitions/Page"
+      }
     }
   },
   "definitions": {
@@ -53,6 +60,30 @@
           "type": "string",
           "format": "uri",
           "description": "Site origin URL."
+        },
+        "description": {
+          "type": "string",
+          "description": "LLM-friendly description of the site's capabilities."
+        }
+      }
+    },
+    "Page": {
+      "type": "object",
+      "required": ["title", "actions"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Human-readable page title."
+        },
+        "description": {
+          "type": "string",
+          "description": "LLM-friendly description of the page's purpose."
+        },
+        "actions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Action identifiers available on this page."
         }
       }
     },
@@ -64,6 +95,10 @@
         "title": {
           "type": "string",
           "description": "Human-readable action title."
+        },
+        "description": {
+          "type": "string",
+          "description": "LLM-friendly description of what this action does."
         },
         "scope": {
           "type": "string",
@@ -91,23 +126,6 @@
         "outputSchema": {
           "type": "object",
           "description": "JSON Schema for action output."
-        },
-        "ui": {
-          "$ref": "#/definitions/ActionUI"
-        }
-      }
-    },
-    "ActionUI": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "page": {
-          "type": "string",
-          "description": "URL path for the action page."
-        },
-        "rootActionSelector": {
-          "type": "string",
-          "description": "CSS selector for the root action element."
         }
       }
     },

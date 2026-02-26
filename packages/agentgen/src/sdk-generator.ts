@@ -90,7 +90,11 @@ export function generateSDK(manifest: AgentManifest): Map<string, string> {
 
   // Generate client.ts
   let clientContent = `// Auto-generated client for ${manifest.site.name}\n`;
-  clientContent += `// Origin: ${manifest.site.origin}\n\n`;
+  clientContent += `// Origin: ${manifest.site.origin}\n`;
+  if (manifest.site.description) {
+    clientContent += `// ${manifest.site.description}\n`;
+  }
+  clientContent += '\n';
 
   // Import types
   const imports: string[] = [];
@@ -124,6 +128,9 @@ export function generateSDK(manifest: AgentManifest): Map<string, string> {
     // JSDoc
     clientContent += `  /**\n`;
     clientContent += `   * ${action.title}\n`;
+    if (action.description) {
+      clientContent += `   * ${action.description}\n`;
+    }
     clientContent += `   * @scope ${action.scope}\n`;
     clientContent += `   * @risk ${action.risk}\n`;
     clientContent += `   * @confirmation ${action.confirmation}\n`;

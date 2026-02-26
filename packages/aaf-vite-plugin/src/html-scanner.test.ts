@@ -66,7 +66,7 @@ describe('generateManifest', () => {
     `);
     const manifest = generateManifest(actions, { name: 'Test', origin: 'http://localhost:3000' });
 
-    expect(manifest.version).toBe('0.1');
+    expect(manifest.version).toBe('0.2');
     expect(manifest.site).toEqual({ name: 'Test', origin: 'http://localhost:3000' });
 
     const invoiceAction = (manifest.actions as any)['invoice.create'];
@@ -87,5 +87,28 @@ describe('generateManifest', () => {
     expect(userAction.risk).toBe('none');
     expect(userAction.confirmation).toBe('never');
     expect(userAction.scope).toBe('user.write');
+  });
+
+  it('includes pages when pageMap is provided', () => {
+    const actions = scanHtml(`
+      <form data-agent-kind="action" data-agent-action="invoice.create" data-agent-scope="invoices.write">
+        <input data-agent-kind="field" data-agent-field="customer_email" />
+      </form>
+    `);
+    const pageMap = { '/invoices/new': ['invoice.create'] };
+    const manifest = generateManifest(actions, { name: 'Test', origin: 'http://localhost:3000' }, pageMap);
+
+    expect(manifest.pages).toBeDefined();
+    const pages = manifest.pages as Record<string, { title: string; actions: string[] }>;
+    expect(pages['/invoices/new']).toBeDefined();
+    expect(pages['/invoices/new'].actions).toContain('invoice.create');
+  });
+
+  it('includes site description when provided', () => {
+    const actions = scanHtml(`
+      <form data-agent-kind="action" data-agent-action="user.update"></form>
+    `);
+    const manifest = generateManifest(actions, { name: 'Test', origin: 'http://localhost:3000', description: 'A test site' });
+    expect((manifest.site as any).description).toBe('A test site');
   });
 });

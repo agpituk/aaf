@@ -30,7 +30,7 @@
           <tr data-agent-kind="item">
             <td><code>version</code></td>
             <td>string</td>
-            <td>Semantics version (e.g. "0.1"). Must match the data-agent-version on the page.</td>
+            <td>Semantics version (e.g. "0.2"). Must match the data-agent-version on the page.</td>
           </tr>
           <tr data-agent-kind="item">
             <td><code>site.name</code></td>
@@ -43,9 +43,19 @@
             <td>Origin URL of the site (e.g. "https://billing.example.com").</td>
           </tr>
           <tr data-agent-kind="item">
+            <td><code>site.description</code></td>
+            <td>string</td>
+            <td>Optional LLM-friendly description of the site's capabilities.</td>
+          </tr>
+          <tr data-agent-kind="item">
             <td><code>actions</code></td>
             <td>object</td>
             <td>Map of action identifiers to action definitions. Keys are dot-notation names like "invoice.create".</td>
+          </tr>
+          <tr data-agent-kind="item">
+            <td><code>pages</code></td>
+            <td>object</td>
+            <td>Optional map of route patterns to page definitions, grouping actions by page (e.g. "/invoices/new" → ["invoice.create"]).</td>
           </tr>
           <tr data-agent-kind="item">
             <td><code>errors</code></td>
@@ -69,6 +79,11 @@
             <td>Human-readable action name (e.g. "Create invoice").</td>
           </tr>
           <tr data-agent-kind="item">
+            <td><code>description</code></td>
+            <td>string</td>
+            <td>Optional LLM-friendly description of what the action does.</td>
+          </tr>
+          <tr data-agent-kind="item">
             <td><code>scope</code></td>
             <td>string</td>
             <td>Required permission scope (e.g. "invoices.write").</td>
@@ -81,7 +96,7 @@
           <tr data-agent-kind="item">
             <td><code>confirmation</code></td>
             <td>string</td>
-            <td>Confirmation policy: "never", "optional", or "required".</td>
+            <td>Confirmation policy: "never", "optional", "review", or "required".</td>
           </tr>
           <tr data-agent-kind="item">
             <td><code>idempotent</code></td>
@@ -98,16 +113,6 @@
             <td>JSON Schema</td>
             <td>Schema describing the action's return value structure.</td>
           </tr>
-          <tr data-agent-kind="item">
-            <td><code>ui.page</code></td>
-            <td>string</td>
-            <td>URL path of the page containing this action's UI (e.g. "/invoices/new").</td>
-          </tr>
-          <tr data-agent-kind="item">
-            <td><code>ui.rootActionSelector</code></td>
-            <td>string</td>
-            <td>Semantic selector to locate the action's root element in the DOM.</td>
-          </tr>
         </tbody>
       </table>
     </div>
@@ -115,16 +120,18 @@
     <div class="card" data-agent-kind="collection" data-agent-action="manifest.example-json">
       <h2>Example Manifest (Billing App)</h2>
       <div data-agent-kind="item">
-        <p>A complete manifest for the billing app's <code>invoice.create</code> action. The <code>inputSchema</code> uses JSON Schema to validate field types and constraints before execution.</p>
+        <p>A complete manifest for the billing app's <code>invoice.create</code> action. The <code>inputSchema</code> uses JSON Schema to validate field types and constraints before execution. The <code>pages</code> map groups actions by route.</p>
 <pre><code>{
-  "version": "0.1",
+  "version": "0.2",
   "site": {
     "name": "Example Billing",
-    "origin": "https://billing.example.com"
+    "origin": "https://billing.example.com",
+    "description": "A billing app for creating and managing invoices."
   },
   "actions": {
     "invoice.create": {
       "title": "Create invoice",
+      "description": "Creates a new invoice for a customer.",
       "scope": "invoices.write",
       "risk": "low",
       "confirmation": "optional",
@@ -144,13 +151,19 @@
         }
       }
     }
+  },
+  "pages": {
+    "/invoices/new": {
+      "title": "Create Invoice",
+      "actions": ["invoice.create"]
+    }
   }
 }</code></pre>
       </div>
       <div data-agent-kind="item">
         <p>A data-only site (like this docs site) can use a minimal manifest with an empty actions object. The widget will detect the collections on the page and enter data chat mode.</p>
 <pre><code>{
-  "version": "0.1",
+  "version": "0.2",
   "site": {
     "name": "AAF Docs",
     "origin": "http://localhost:5174"

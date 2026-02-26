@@ -11,7 +11,7 @@
  */
 import { chromium, type Page, type Browser } from 'playwright';
 import { LocalPlanner } from '@agent-accessibility-framework/planner-local';
-import { coerceArgs } from '@agent-accessibility-framework/runtime-core';
+import { coerceArgs, getPageForAction } from '@agent-accessibility-framework/runtime-core';
 import type { AgentManifest, ActionCatalog, DiscoveredAction } from '@agent-accessibility-framework/runtime-core';
 import * as readline from 'readline';
 
@@ -328,11 +328,12 @@ async function runCommand(
 
     // 2. Navigate if action is on a different page
     const actionDef = manifest.actions[request.action];
-    if (actionDef?.ui?.page) {
+    const actionPage = getPageForAction(manifest, request.action);
+    if (actionPage) {
       const currentPath = new URL(page.url()).pathname.replace(/\/$/, '');
-      const targetPath = (actionDef.ui.page as string).replace(/\/$/, '');
+      const targetPath = actionPage.replace(/\/$/, '');
       if (currentPath !== targetPath) {
-        const actionUrl = `${baseUrl}${actionDef.ui.page}`;
+        const actionUrl = `${baseUrl}${actionPage}`;
         log('navigate', actionUrl);
         await navigateTo(page, actionUrl);
         // Re-discover after navigation

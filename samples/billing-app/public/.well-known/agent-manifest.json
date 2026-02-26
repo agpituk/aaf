@@ -7,14 +7,16 @@
     "currency": "schema:priceCurrency",
     "memo": "schema:description"
   },
-  "version": "0.1",
+  "version": "0.2",
   "site": {
     "name": "Example Billing",
-    "origin": "http://localhost:5173"
+    "origin": "http://localhost:5173",
+    "description": "A billing application for creating and managing invoices and workspace settings."
   },
   "actions": {
     "invoice.create": {
       "title": "Create invoice",
+      "description": "Creates a new invoice for a customer with a specified amount, currency, and optional memo.",
       "scope": "invoices.write",
       "risk": "low",
       "confirmation": "review",
@@ -36,14 +38,11 @@
           "invoice_id": { "type": "string" },
           "status": { "type": "string", "enum": ["draft", "sent"] }
         }
-      },
-      "ui": {
-        "page": "/invoices/new",
-        "rootActionSelector": "[data-agent-action='invoice.create']"
       }
     },
     "invoice.list": {
       "title": "List invoices",
+      "description": "Retrieves all invoices. Read-only, no side effects.",
       "scope": "invoices.read",
       "risk": "none",
       "confirmation": "never",
@@ -70,14 +69,11 @@
             }
           }
         }
-      },
-      "ui": {
-        "page": "/invoices/",
-        "rootActionSelector": "[data-agent-action='invoice.list']"
       }
     },
     "workspace.delete": {
       "title": "Delete workspace",
+      "description": "Permanently deletes the workspace. This is irreversible and requires typing DELETE to confirm.",
       "scope": "workspace.delete",
       "risk": "high",
       "confirmation": "required",
@@ -95,11 +91,24 @@
         "properties": {
           "deleted": { "type": "boolean" }
         }
-      },
-      "ui": {
-        "page": "/settings/",
-        "rootActionSelector": "[data-agent-action='workspace.delete']"
       }
+    }
+  },
+  "pages": {
+    "/invoices/new": {
+      "title": "Create Invoice",
+      "description": "Form to create a new invoice with customer email, amount, currency, and memo.",
+      "actions": ["invoice.create"]
+    },
+    "/invoices/": {
+      "title": "Invoice List",
+      "description": "Table listing all invoices with their status.",
+      "actions": ["invoice.list"]
+    },
+    "/settings/": {
+      "title": "Settings",
+      "description": "Workspace settings including the dangerous delete operation.",
+      "actions": ["workspace.delete"]
     }
   },
   "errors": {

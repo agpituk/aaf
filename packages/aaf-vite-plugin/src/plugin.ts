@@ -6,6 +6,8 @@ export interface AAFVitePluginOptions {
   siteName?: string;
   /** Site origin for the manifest */
   origin?: string;
+  /** LLM-friendly description of the site's capabilities */
+  siteDescription?: string;
 }
 
 export function aafPlugin(options: AAFVitePluginOptions = {}): Plugin {
@@ -30,10 +32,16 @@ export function aafPlugin(options: AAFVitePluginOptions = {}): Plugin {
         }
       }
 
-      // Scan all HTML files
+      // Scan all HTML files and build page map
       const allActions = [];
-      for (const html of htmlFiles.values()) {
-        allActions.push(...scanHtml(html));
+      const pageMap: Record<string, string[]> = {};
+      for (const [fileName, html] of htmlFiles.entries()) {
+        const scanned = scanHtml(html);
+        allActions.push(...scanned);
+        if (scanned.length > 0) {
+          const route = '/' + fileName.replace(/index\.html$/, '').replace(/\.html$/, '');
+          pageMap[route] = scanned.map(a => a.action);
+        }
       }
 
       if (allActions.length === 0) return;
@@ -46,12 +54,18 @@ export function aafPlugin(options: AAFVitePluginOptions = {}): Plugin {
         }
       }
 
+      const site: { name: string; origin: string; description?: string } = {
+        name: options.siteName || 'My Site',
+        origin: options.origin || 'http://localhost:5173',
+      };
+      if (options.siteDescription) {
+        site.description = options.siteDescription;
+      }
+
       const manifest = generateManifest(
         Array.from(uniqueActions.values()),
-        {
-          name: options.siteName || 'My Site',
-          origin: options.origin || 'http://localhost:5173',
-        },
+        site,
+        pageMap,
       );
 
       this.emitFile({

@@ -206,29 +206,32 @@ DOM annotations help discovery and UI interaction. For generation and validation
 
 ### Manifest Responsibilities
 
-- Action registry
+- Action registry with descriptions
+- Page-level organization (route → actions)
 - Typed input/output schemas
 - Risk and confirmation metadata
 - Scopes
 - Versioning
 - Error types
-- Optional UI hints
+- Site-level description for LLM context
 - Optional direct execution endpoints (if the site wants to expose them)
 
 ---
 
-## 6.5 Example Agent Manifest v0.1
+## 6.5 Example Agent Manifest v0.2
 
 ```json
 {
-  "version": "0.1",
+  "version": "0.2",
   "site": {
     "name": "Example Billing",
-    "origin": "https://billing.example.com"
+    "origin": "https://billing.example.com",
+    "description": "A billing application for creating and managing invoices."
   },
   "actions": {
     "invoice.create": {
       "title": "Create invoice",
+      "description": "Creates a new invoice for a customer with a specified amount and currency.",
       "scope": "invoices.write",
       "risk": "low",
       "confirmation": "optional",
@@ -250,14 +253,11 @@ DOM annotations help discovery and UI interaction. For generation and validation
           "invoice_id": { "type": "string" },
           "status": { "type": "string", "enum": ["draft", "sent"] }
         }
-      },
-      "ui": {
-        "page": "/invoices/new",
-        "rootActionSelector": "[data-agent-action='invoice.create']"
       }
     },
     "workspace.delete": {
       "title": "Delete workspace",
+      "description": "Permanently deletes the workspace. Irreversible.",
       "scope": "workspace.delete",
       "risk": "high",
       "confirmation": "required",
@@ -276,6 +276,16 @@ DOM annotations help discovery and UI interaction. For generation and validation
           "deleted": { "type": "boolean" }
         }
       }
+    }
+  },
+  "pages": {
+    "/invoices/new": {
+      "title": "Create Invoice",
+      "actions": ["invoice.create"]
+    },
+    "/settings/": {
+      "title": "Settings",
+      "actions": ["workspace.delete"]
     }
   },
   "errors": {

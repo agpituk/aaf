@@ -3,11 +3,12 @@ import { generateSDK, generateCLI } from './sdk-generator.js';
 import type { AgentManifest } from '@agent-accessibility-framework/runtime-core';
 
 const billingManifest: AgentManifest = {
-  version: '0.1',
+  version: '0.2',
   site: { name: 'Example Billing', origin: 'https://billing.example.com' },
   actions: {
     'invoice.create': {
       title: 'Create invoice',
+      description: 'Creates a new invoice for a customer.',
       scope: 'invoices.write',
       risk: 'low',
       confirmation: 'optional',
@@ -29,10 +30,6 @@ const billingManifest: AgentManifest = {
           invoice_id: { type: 'string' },
           status: { type: 'string', enum: ['draft', 'sent'] },
         },
-      },
-      ui: {
-        page: '/invoices/new',
-        rootActionSelector: "[data-agent-action='invoice.create']",
       },
     },
     'workspace.delete': {

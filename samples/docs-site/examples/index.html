@@ -226,18 +226,20 @@
     <div class="card" data-agent-kind="collection" data-agent-action="examples.manifest-json">
       <h2>Manifest JSON — Billing App</h2>
       <div data-agent-kind="item">
-        <p>The manifest lives at <code>/.well-known/agent-manifest.json</code>. It defines action schemas, risk levels, and UI hints. Here is the billing app's manifest showing the <code>invoice.create</code> action with typed input/output schemas.</p>
+        <p>The manifest lives at <code>/.well-known/agent-manifest.json</code>. It defines action schemas, risk levels, and page organization. Here is the billing app's manifest showing the <code>invoice.create</code> action with typed input/output schemas and page grouping.</p>
       </div>
       <div data-agent-kind="item">
 <pre><code>{
-  "version": "0.1",
+  "version": "0.2",
   "site": {
     "name": "Example Billing",
-    "origin": "https://billing.example.com"
+    "origin": "https://billing.example.com",
+    "description": "A billing app for creating and managing invoices."
   },
   "actions": {
     "invoice.create": {
       "title": "Create invoice",
+      "description": "Creates a new invoice for a customer.",
       "scope": "invoices.write",
       "risk": "low",
       "confirmation": "review",
@@ -259,17 +261,19 @@
           "invoice_id": { "type": "string" },
           "status": { "type": "string", "enum": ["draft", "sent"] }
         }
-      },
-      "ui": {
-        "page": "/invoices/new",
-        "rootActionSelector": "[data-agent-action='invoice.create']"
       }
+    }
+  },
+  "pages": {
+    "/invoices/new": {
+      "title": "Create Invoice",
+      "actions": ["invoice.create"]
     }
   }
 }</code></pre>
       </div>
       <div data-agent-kind="item">
-        <p><strong>Key patterns:</strong> The <code>inputSchema</code> uses JSON Schema to define field types and constraints. <code>ManifestValidator</code> checks arguments against this schema before execution. The <code>ui.page</code> tells the runtime which page contains the action's form. The <code>ui.rootActionSelector</code> uses a semantic selector (<code>[data-agent-action=...]</code>), not a CSS class.</p>
+        <p><strong>Key patterns:</strong> The <code>inputSchema</code> uses JSON Schema to define field types and constraints. <code>ManifestValidator</code> checks arguments against this schema before execution. The <code>pages</code> map tells the runtime which page contains each action — no CSS selectors in the manifest. Each action has a <code>description</code> for LLM context.</p>
       </div>
     </div>
 

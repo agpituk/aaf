@@ -3,6 +3,18 @@ import addFormats from 'ajv-formats';
 import type { AgentManifest, AgentAction } from './types.js';
 import { coerceArgs, type Coercion } from './coerce-args.js';
 
+/**
+ * Returns the route key from `manifest.pages` where the given action is listed,
+ * or `undefined` if not found.
+ */
+export function getPageForAction(manifest: AgentManifest, actionName: string): string | undefined {
+  if (!manifest.pages) return undefined;
+  for (const [route, page] of Object.entries(manifest.pages)) {
+    if (page.actions.includes(actionName)) return route;
+  }
+  return undefined;
+}
+
 export class ManifestValidator {
   private ajv: Ajv;
 

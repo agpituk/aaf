@@ -17,4 +17,9 @@ describe('aafPlugin', () => {
     const plugin = aafPlugin({ siteName: 'My App', origin: 'https://example.com' });
     expect(plugin.name).toBe('aaf-manifest-generator');
   });
+
+  it('accepts siteDescription option', () => {
+    const plugin = aafPlugin({ siteName: 'My App', origin: 'https://example.com', siteDescription: 'A test app' });
+    expect(plugin.name).toBe('aaf-manifest-generator');
+  });
 });

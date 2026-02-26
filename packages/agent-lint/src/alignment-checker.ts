@@ -5,9 +5,10 @@ interface ManifestActions {
     inputSchema?: {
       properties?: Record<string, unknown>;
     };
-    ui?: {
-      page?: string;
-    };
+  }>;
+  pages?: Record<string, {
+    title: string;
+    actions: string[];
   }>;
 }
 
@@ -56,6 +57,20 @@ export function checkAlignment(html: string, manifest: ManifestActions): LintRes
           severity: 'warning',
           message: `Manifest action "${actionId}" has field "${field}" not found in HTML data-agent-field attributes`,
         });
+      }
+    }
+  }
+
+  // Check: actions listed in pages must exist in the actions map
+  if (manifest.pages) {
+    for (const [route, page] of Object.entries(manifest.pages)) {
+      for (const actionId of page.actions) {
+        if (!manifest.actions[actionId]) {
+          results.push({
+            severity: 'warning',
+            message: `Page "${route}" references action "${actionId}" which is not defined in manifest actions`,
+          });
+        }
       }
     }
   }

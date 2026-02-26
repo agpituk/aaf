@@ -5,6 +5,7 @@ import {
   PolicyEngine,
   ExecutionLogger,
   coerceArgs,
+  getPageForAction,
   type AgentManifest,
   type ExecutionLog,
   type AAFAdapter,
@@ -55,7 +56,7 @@ export class ActionExecutor {
     logger.policyCheck('PASSED');
 
     // 4. Navigate to page
-    const pagePath = action.ui?.page;
+    const pagePath = getPageForAction(manifest, actionName);
     if (pagePath) {
       const url = `${baseUrl}${pagePath}`;
       logger.navigate(url);
