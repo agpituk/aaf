@@ -66,7 +66,7 @@ export function lintHTML(html: string, source?: string): LintResult[] {
           break;
 
         case 'action':
-          if (!/^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)*$/.test(value)) {
+          if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$/.test(value)) {
             results.push({
               severity: 'warning',
               message: `Action identifier "${value}" should use dot-separated lowercase segments (e.g., "invoice.create")`,
