@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PolicyEngine, ManifestValidator, type AgentManifest } from '@agent-native-web/runtime-core';
+import { PolicyEngine, ManifestValidator, type AgentManifest } from '@agent-accessibility-framework/runtime-core';
 
 const policy = new PolicyEngine();
 const validator = new ManifestValidator();

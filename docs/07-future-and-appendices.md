@@ -60,7 +60,7 @@ At this stage we can discuss:
 
 ### 21.1 Create the Repo
 
-- `agent-native-web`
+- `agent-accessibility-framework`
 
 ### 21.2 Write These First Files
 
@@ -92,7 +92,7 @@ At this stage we can discuss:
 Once MVP works, we can go bigger.
 
 - ~~Visual inspector for `data-agent-*`~~ (done: widget inspector mode)
-- ~~Embeddable agent widget for any AAF page~~ (done: `awi-agent-widget` with Ollama)
+- ~~Embeddable agent widget for any AAF page~~ (done: `aaf-agent-widget` with Ollama)
 - Conformance badge for websites ("Agent Semantics v0.1")
 - GitHub Action to lint semantics on PRs
 - Framework plugins:

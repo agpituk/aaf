@@ -23,12 +23,12 @@ npm run benchmark     # Generate falsification reliability report
 ```
 packages/
   agent-runtime-core/        # SemanticParser, ManifestValidator, PolicyEngine, ExecutionLogger
-  agent-runtime-playwright/  # PlaywrightAdapter (AWIAdapter for headless testing)
+  agent-runtime-playwright/  # PlaywrightAdapter (AAFAdapter for headless testing)
   agent-lint/                # HTML/manifest conformance linter
   agentgen/                  # SDK + CLI code generator from manifests
-  awi-contracts/             # PlannerRequest/RuntimeResponse types, validators, JSON schemas
-  awi-planner-local/         # Local LLM planner (Ollama client, prompt builder, response parser)
-  awi-agent-widget/          # Embeddable agent chat widget (Ollama LLM, shadow DOM)
+  aaf-contracts/             # PlannerRequest/RuntimeResponse types, validators, JSON schemas
+  aaf-planner-local/         # Local LLM planner (Ollama client, prompt builder, response parser)
+  aaf-agent-widget/          # Embeddable agent chat widget (Ollama LLM, shadow DOM)
 samples/
   billing-app/               # Reference app with AAF annotations + widget (3 pages, 3 actions)
 schemas/
@@ -44,7 +44,7 @@ docs/                        # Spec documents (vision, standard, security)
 - **Actions**: dot-notation identifiers (`invoice.create`, `workspace.delete`). Sub-actions use extra dot (`invoice.create.submit`).
 - **Fields**: snake_case identifiers (`customer_email`, `amount`). Linked to actions via nesting or `data-agent-for-action`.
 - **Risk/Confirmation**: Three tiers — `optional` (fill and submit automatically), `review` (fill only, user submits manually, returns `awaiting_review`), `required` (blocked without user consent, returns `needs_confirmation`). `danger="high"` + `confirm="required"` blocks execution.
-- **AWIAdapter interface**: `detect() → discover() → validate() → execute()`. Implemented by `PlaywrightAdapter` (testing).
+- **AAFAdapter interface**: `detect() → discover() → validate() → execute()`. Implemented by `PlaywrightAdapter` (testing).
 - **Agent Widget**: Embeddable `<script>` that adds a floating chat panel to any AAF-annotated page. Uses Ollama for LLM planning. Shadow DOM isolation.
 - **Contract rule**: Planners send semantic action names + args, NEVER selectors. Validators reject selector-like values.
 
@@ -60,7 +60,7 @@ docs/                        # Spec documents (vision, standard, security)
 ## Conventions
 
 - All packages use TypeScript ES modules (`"type": "module"`)
-- Package names: `@agent-native-web/*` for scoped, `agent-lint`/`agentgen` for standalone CLIs
+- Package names: `@agent-accessibility-framework/*` for scoped, `agent-lint`/`agentgen` for standalone CLIs
 - Tests colocated in `src/` as `*.test.ts` (vitest)
 - AJV for JSON Schema validation (runtime-core, contracts)
 - Vite for builds (billing app, agent widget)
@@ -70,11 +70,11 @@ docs/                        # Spec documents (vision, standard, security)
 
 | File | What it does |
 |------|-------------|
-| `packages/agent-runtime-core/src/types.ts` | All core type definitions including AWIAdapter |
+| `packages/agent-runtime-core/src/types.ts` | All core type definitions including AAFAdapter |
 | `packages/agent-runtime-core/src/semantic-parser.ts` | DOM → DiscoveredAction[] (works on real DOM and jsdom) |
-| `packages/awi-contracts/src/validators.ts` | Validates planner requests, rejects selectors |
-| `packages/awi-planner-local/src/planner.ts` | Ollama LLM → semantic action request |
-| `packages/awi-agent-widget/src/widget.ts` | Embeddable agent widget entry point (detects AAF, mounts UI, wires planner) |
-| `packages/awi-agent-widget/src/ollama-planner.ts` | Ollama planner for local LLM inference |
-| `packages/awi-agent-widget/src/ui/chat.ts` | Shadow DOM floating chat panel |
+| `packages/aaf-contracts/src/validators.ts` | Validates planner requests, rejects selectors |
+| `packages/aaf-planner-local/src/planner.ts` | Ollama LLM → semantic action request |
+| `packages/aaf-agent-widget/src/widget.ts` | Embeddable agent widget entry point (detects AAF, mounts UI, wires planner) |
+| `packages/aaf-agent-widget/src/ollama-planner.ts` | Ollama planner for local LLM inference |
+| `packages/aaf-agent-widget/src/ui/chat.ts` | Shadow DOM floating chat panel |
 | `samples/billing-app/public/.well-known/agent-manifest.json` | Reference manifest |

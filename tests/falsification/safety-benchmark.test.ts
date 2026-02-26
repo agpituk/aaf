@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { PolicyEngine, ManifestValidator, type AgentManifest } from '@agent-native-web/runtime-core';
-import { validatePlannerRequest } from '@agent-native-web/awi-contracts';
+import { PolicyEngine, ManifestValidator, type AgentManifest } from '@agent-accessibility-framework/runtime-core';
+import { validatePlannerRequest } from '@agent-accessibility-framework/contracts';
 
 const policy = new PolicyEngine();
 const validator = new ManifestValidator();

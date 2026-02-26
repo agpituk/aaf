@@ -93,7 +93,7 @@ export interface PolicyCheckResult {
   reason?: string;
 }
 
-// --- AWI Adapter Interface ---
+// --- AAF Adapter Interface ---
 
 export interface ActionCatalog {
   actions: DiscoveredAction[];
@@ -101,7 +101,7 @@ export interface ActionCatalog {
   timestamp: string;
 }
 
-export interface AWIValidationResult {
+export interface AAFValidationResult {
   valid: boolean;
   errors: string[];
   missing_fields?: string[];
@@ -129,16 +129,16 @@ export interface ExecutionResult {
 }
 
 /**
- * Platform-agnostic adapter for AWI runtimes.
+ * Platform-agnostic adapter for AAF runtimes.
  * Implemented by PlaywrightAdapter (testing).
  */
-export interface AWIAdapter {
-  /** Check if the current page has AWI semantic elements */
+export interface AAFAdapter {
+  /** Check if the current page has AAF semantic elements */
   detect(): Promise<boolean>;
   /** Discover all available actions on the current page */
   discover(): Promise<ActionCatalog>;
   /** Validate an action request against manifest schema */
-  validate(actionName: string, args: Record<string, unknown>, manifest: AgentManifest): AWIValidationResult;
+  validate(actionName: string, args: Record<string, unknown>, manifest: AgentManifest): AAFValidationResult;
   /** Execute an action on the page */
   execute(options: ExecuteOptions): Promise<ExecutionResult>;
 }

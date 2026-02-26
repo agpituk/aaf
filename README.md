@@ -129,9 +129,9 @@ cd samples/billing-app && npx vite
 ```bash
 # Unit tests for a specific package
 npx vitest run packages/agent-runtime-core
-npx vitest run packages/awi-contracts
-npx vitest run packages/awi-planner-local
-npx vitest run packages/awi-agent-widget
+npx vitest run packages/aaf-contracts
+npx vitest run packages/aaf-planner-local
+npx vitest run packages/aaf-agent-widget
 
 # Falsification benchmark (selector vs semantic reliability)
 npx vitest run tests/falsification
@@ -219,7 +219,7 @@ User message
   -> LLM plans: { action: "invoice.create", args: { ... } }
   -> Validate args against manifest schema (ManifestValidator)
   -> Check policy: risk, confirmation, required fields (PolicyEngine)
-  -> Execute: fill fields, click submit, read status (AWIAdapter)
+  -> Execute: fill fields, click submit, read status (AAFAdapter)
   -> Return structured result + semantic log
 ```
 

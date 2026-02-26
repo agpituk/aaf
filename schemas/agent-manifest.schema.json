@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://agent-native-web.dev/schemas/agent-manifest.schema.json",
+  "$id": "https://agent-accessibility-framework.dev/schemas/agent-manifest.schema.json",
   "title": "Agent Manifest",
   "description": "Agent Accessibility Framework capability manifest defining site actions, schemas, and policies.",
   "type": "object",

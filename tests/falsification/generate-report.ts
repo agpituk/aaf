@@ -101,7 +101,7 @@ function main() {
 
   writeFileSync(resolve(artifactsDir, 'reliability-report.json'), JSON.stringify(report, null, 2));
 
-  const markdown = `# AWI Reliability Report
+  const markdown = `# AAF Reliability Report
 
 Generated: ${report.timestamp}
 
@@ -118,7 +118,7 @@ Generated: ${report.timestamp}
 | Approach | Original App | Refactored App | Survives Refactor? |
 |----------|-------------|----------------|-------------------|
 | CSS Selectors | ${selectorOriginal.filter((r) => r.passed).length}/${selectorOriginal.length} pass | ${selectorRefactored.filter((r) => r.passed).length}/${selectorRefactored.length} pass | No |
-| AWI Semantic | ${semanticOriginal.filter((r) => r.passed).length}/${semanticOriginal.length} pass | ${semanticRefactored.filter((r) => r.passed).length}/${semanticRefactored.length} pass | Yes |
+| AAF Semantic | ${semanticOriginal.filter((r) => r.passed).length}/${semanticOriginal.length} pass | ${semanticRefactored.filter((r) => r.passed).length}/${semanticRefactored.length} pass | Yes |
 
 ## Safety
 
@@ -135,7 +135,7 @@ Generated: ${report.timestamp}
 ## Conclusion
 
 Selector-based automation breaks when the UI is refactored (CSS classes, IDs, and layout changed).
-AWI semantic automation survives identical refactors because it relies on stable \`data-agent-*\` attributes.
+AAF semantic automation survives identical refactors because it relies on stable \`data-agent-*\` attributes.
 `;
 
   writeFileSync(resolve(artifactsDir, 'reliability-report.md'), markdown);

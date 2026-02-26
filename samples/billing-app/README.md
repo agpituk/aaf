@@ -8,7 +8,7 @@ A sample billing application demonstrating Agent Accessibility Framework DOM ann
 - `/invoices/` — List invoices with collection/item annotations
 - `/settings/` — Workspace settings with dangerous delete action
 
-All pages include the AAF agent widget (`<script type="module" src="/awi-agent.js">`), which adds a floating chat panel in the bottom-right corner.
+All pages include the AAF agent widget (`<script type="module" src="/aaf-agent.js">`), which adds a floating chat panel in the bottom-right corner.
 
 ## Prerequisites
 

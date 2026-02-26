@@ -7,12 +7,12 @@ import {
   coerceArgs,
   type AgentManifest,
   type ExecutionLog,
-  type AWIAdapter,
+  type AAFAdapter,
   type ActionCatalog,
-  type AWIValidationResult,
+  type AAFValidationResult,
   type ExecuteOptions,
   type ExecutionResult,
-} from '@agent-native-web/runtime-core';
+} from '@agent-accessibility-framework/runtime-core';
 
 export interface ExecuteActionOptions {
   actionName: string;
@@ -160,10 +160,10 @@ export class ActionExecutor {
 }
 
 /**
- * AWIAdapter implementation using Playwright for headless browser testing.
- * Wraps the existing ActionExecutor with the standardized AWIAdapter interface.
+ * AAFAdapter implementation using Playwright for headless browser testing.
+ * Wraps the existing ActionExecutor with the standardized AAFAdapter interface.
  */
-export class PlaywrightAdapter implements AWIAdapter {
+export class PlaywrightAdapter implements AAFAdapter {
   private page: Page;
   private baseUrl: string;
   private manifest: AgentManifest;
@@ -262,7 +262,7 @@ export class PlaywrightAdapter implements AWIAdapter {
     };
   }
 
-  validate(actionName: string, args: Record<string, unknown>, manifest?: AgentManifest): AWIValidationResult {
+  validate(actionName: string, args: Record<string, unknown>, manifest?: AgentManifest): AAFValidationResult {
     const m = manifest || this.manifest;
     try {
       const action = this.validator.getAction(m, actionName);

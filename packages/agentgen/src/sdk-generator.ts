@@ -1,4 +1,4 @@
-import type { AgentManifest, AgentAction } from '@agent-native-web/runtime-core';
+import type { AgentManifest, AgentAction } from '@agent-accessibility-framework/runtime-core';
 
 function toMethodName(actionId: string): string {
   return actionId

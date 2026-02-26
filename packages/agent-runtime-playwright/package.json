@@ -1,5 +1,5 @@
 {
-  "name": "@agent-native-web/runtime-playwright",
+  "name": "@agent-accessibility-framework/runtime-playwright",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@agent-native-web/runtime-core": "*"
+    "@agent-accessibility-framework/runtime-core": "*"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0"

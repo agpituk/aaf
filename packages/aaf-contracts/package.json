@@ -1,0 +1,14 @@
+{
+  "name": "@agent-accessibility-framework/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agent-accessibility-framework/runtime-core": "*",
+    "ajv": "^8.17.0"
+  }
+}

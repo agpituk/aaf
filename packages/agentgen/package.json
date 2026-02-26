@@ -11,6 +11,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@agent-native-web/runtime-core": "*"
+    "@agent-accessibility-framework/runtime-core": "*"
   }
 }

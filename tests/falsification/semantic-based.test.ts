@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { JSDOM } from 'jsdom';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { SemanticParser } from '@agent-native-web/runtime-core';
+import { SemanticParser } from '@agent-accessibility-framework/runtime-core';
 
 /**
- * AWI semantic approach: uses data-agent-* attributes via SemanticParser.
+ * AAF semantic approach: uses data-agent-* attributes via SemanticParser.
  * PASSES on BOTH original AND refactored billing apps because semantic
  * annotations are stable across CSS/layout changes.
  */

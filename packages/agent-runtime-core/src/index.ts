@@ -15,9 +15,9 @@ export type {
   LogStepType,
   ExecutionLog,
   PolicyCheckResult,
-  AWIAdapter,
+  AAFAdapter,
   ActionCatalog,
-  AWIValidationResult,
+  AAFValidationResult,
   ExecuteOptions,
   ExecutionResult,
 } from './types.js';

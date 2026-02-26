@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ActionExecutor } from '../src/action-executor.js';
-import type { AgentManifest } from '@agent-native-web/runtime-core';
+import type { AgentManifest } from '@agent-accessibility-framework/runtime-core';
 
 const manifest: AgentManifest = {
   version: '0.1',

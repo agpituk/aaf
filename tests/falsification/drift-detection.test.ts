@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { SemanticParser } from '@agent-native-web/runtime-core';
+import { SemanticParser } from '@agent-accessibility-framework/runtime-core';
 import { lintHTML } from 'agent-lint';
 
 const parser = new SemanticParser();

@@ -38,7 +38,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '/awi-agent.js': resolve(__dirname, '../../packages/awi-agent-widget/src/widget.ts'),
+      '/aaf-agent.js': resolve(__dirname, '../../packages/aaf-agent-widget/src/widget.ts'),
     },
   },
 });

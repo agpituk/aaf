@@ -33,7 +33,7 @@
           </tr>
           <tr data-agent-kind="item">
             <td><code>agent-runtime-playwright</code></td>
-            <td>PlaywrightAdapter implementing AWIAdapter for headless browser testing and automation.</td>
+            <td>PlaywrightAdapter implementing AAFAdapter for headless browser testing and automation.</td>
           </tr>
           <tr data-agent-kind="item">
             <td><code>agent-lint</code></td>
@@ -44,39 +44,39 @@
             <td>Code generator that creates TypeScript SDKs, Python SDKs, and CLIs from agent manifests.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>awi-contracts</code></td>
+            <td><code>aaf-contracts</code></td>
             <td>Shared types for PlannerRequest and RuntimeResponse. Includes validators that reject selector-like values.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>awi-planner-local</code></td>
+            <td><code>aaf-planner-local</code></td>
             <td>Local LLM planner using Ollama. Contains prompt builder, response parser, and Ollama client.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>awi-agent-widget</code></td>
+            <td><code>aaf-agent-widget</code></td>
             <td>Embeddable agent chat widget. Uses Ollama for LLM planning. Shadow DOM isolation.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>awi-agent-skill</code></td>
+            <td><code>aaf-agent-skill</code></td>
             <td>Agent skill package for defining reusable agent capabilities.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>awi-eslint-plugin</code></td>
+            <td><code>aaf-eslint-plugin</code></td>
             <td>ESLint plugin for validating AAF annotations in JSX/TSX templates.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>awi-react</code></td>
+            <td><code>aaf-react</code></td>
             <td>React bindings for AAF. Components that add data-agent-* attributes declaratively.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>awi-vue</code></td>
+            <td><code>aaf-vue</code></td>
             <td>Vue bindings for AAF. Directives and components for AAF annotations.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>awi-vite-plugin</code></td>
+            <td><code>aaf-vite-plugin</code></td>
             <td>Vite plugin for AAF. Injects manifest and widget script during development.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>awi-cli</code></td>
+            <td><code>aaf-cli</code></td>
             <td>CLI tool for AAF project scaffolding, manifest validation, and development workflows.</td>
           </tr>
         </tbody>
@@ -125,6 +125,6 @@
     import { initNav } from '/src/nav.ts';
     initNav();
   </script>
-  <script type="module" src="/awi-agent.js"></script>
+  <script type="module" src="/aaf-agent.js"></script>
 </body>
 </html>

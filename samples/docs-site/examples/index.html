@@ -361,7 +361,7 @@
 &lt;/div&gt;
 
 &lt;!-- Step 3: Add the widget script --&gt;
-&lt;script type="module" src="/awi-agent.js"&gt;&lt;/script&gt;</code></pre>
+&lt;script type="module" src="/aaf-agent.js"&gt;&lt;/script&gt;</code></pre>
       </div>
       <div data-agent-kind="item">
         <p><strong>Step 4 (optional):</strong> Add a manifest at <code>/.well-known/agent-manifest.json</code> for typed validation. For data-chat-only pages the manifest can have an empty <code>"actions": {}</code> object. The widget works without a manifest but validation will be skipped.</p>
@@ -371,7 +371,7 @@
     <div class="card" data-agent-kind="collection" data-agent-action="examples.vite-config">
       <h2>Vite Configuration — Widget Alias</h2>
       <div data-agent-kind="item">
-        <p>Both the billing app and this docs site use a Vite alias to resolve <code>/awi-agent.js</code> to the widget's TypeScript source. This lets pages reference the widget with a clean path while Vite handles the compilation.</p>
+        <p>Both the billing app and this docs site use a Vite alias to resolve <code>/aaf-agent.js</code> to the widget's TypeScript source. This lets pages reference the widget with a clean path while Vite handles the compilation.</p>
       </div>
       <div data-agent-kind="item">
 <pre><code>import { defineConfig } from 'vite';
@@ -390,9 +390,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '/awi-agent.js': resolve(
+      '/aaf-agent.js': resolve(
         __dirname,
-        '../../packages/awi-agent-widget/src/widget.ts'
+        '../../packages/aaf-agent-widget/src/widget.ts'
       ),
     },
   },
@@ -407,6 +407,6 @@ export default defineConfig({
     import { initNav } from '/src/nav.ts';
     initNav();
   </script>
-  <script type="module" src="/awi-agent.js"></script>
+  <script type="module" src="/aaf-agent.js"></script>
 </body>
 </html>

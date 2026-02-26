@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateSDK, generateCLI } from './sdk-generator.js';
-import type { AgentManifest } from '@agent-native-web/runtime-core';
+import type { AgentManifest } from '@agent-accessibility-framework/runtime-core';
 
 const billingManifest: AgentManifest = {
   version: '0.1',
