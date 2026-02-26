@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { lintHTML } from '../../packages/agent-lint/src/html-linter.js';
-import { lintManifest } from '../../packages/agent-lint/src/manifest-linter.js';
-import { checkAlignment } from '../../packages/agent-lint/src/alignment-checker.js';
+import { lintHTML } from '../../packages/aaf-lint/src/html-linter.js';
+import { lintManifest } from '../../packages/aaf-lint/src/manifest-linter.js';
+import { checkAlignment } from '../../packages/aaf-lint/src/alignment-checker.js';
 import schema from '../../schemas/agent-manifest.schema.json';
 
 const fixtureDir = resolve(import.meta.dirname, '.');

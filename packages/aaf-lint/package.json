@@ -1,11 +1,11 @@
 {
-  "name": "agent-lint",
+  "name": "aaf-lint",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
   "bin": {
-    "agent-lint": "src/cli.ts"
+    "aaf-lint": "src/cli.ts"
   },
   "scripts": {
     "test": "vitest run"

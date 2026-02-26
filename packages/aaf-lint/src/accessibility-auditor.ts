@@ -1,7 +1,13 @@
 import type { AuditResult, AuditCheck, CategoryScore, AuditCategory } from './types.js';
 
+function stripTags(html: string): string {
+  return html.replace(/<[^>]+>/g, '').trim();
+}
+
 export interface AuditOptions {
   manifest?: Record<string, unknown>;
+  /** Include safety checks (dangerous button annotations). Off by default. */
+  safety?: boolean;
 }
 
 const CATEGORY_WEIGHTS: Record<AuditCategory, number> = {
@@ -21,7 +27,7 @@ const INPUT_REGEX = /<(?:input|select|textarea)\b[^>]*>/gi;
 const HIDDEN_OR_SUBMIT_REGEX = /type\s*=\s*"(?:hidden|submit)"/i;
 const INPUT_WITH_FIELD_REGEX = /data-agent-field="[^"]*"/i;
 
-const BUTTON_REGEX = /<button\b[^>]*>([^<]*)<\/button>/gi;
+const BUTTON_REGEX = /<button\b[^>]*>([\s\S]*?)<\/button>/gi;
 const BUTTON_WITH_ACTION_REGEX = /data-agent-action="[^"]*"/i;
 const BUTTON_WITH_DANGER_REGEX = /data-agent-danger="[^"]*"/i;
 const BUTTON_WITH_CONFIRM_REGEX = /data-agent-confirm="[^"]*"/i;
@@ -38,7 +44,7 @@ function auditForms(html: string): CategoryScore {
       status: 'pass',
       message: 'No forms found (nothing to annotate)',
     });
-    return { category: 'forms', score: 100, checks };
+    return { category: 'forms', score: 100, checks, empty: true };
   }
 
   const annotatedCount = annotatedForms.length;
@@ -77,7 +83,7 @@ function auditFields(html: string): CategoryScore {
       status: 'pass',
       message: 'No visible input fields found (nothing to annotate)',
     });
-    return { category: 'fields', score: 100, checks };
+    return { category: 'fields', score: 100, checks, empty: true };
   }
 
   const annotated = relevantInputs.filter((tag) => INPUT_WITH_FIELD_REGEX.test(tag));
@@ -110,7 +116,7 @@ function auditActions(html: string): CategoryScore {
   const buttonRegex = new RegExp(BUTTON_REGEX.source, BUTTON_REGEX.flags);
   const buttons: Array<{ tag: string; text: string }> = [];
   while ((match = buttonRegex.exec(html)) !== null) {
-    buttons.push({ tag: match[0], text: match[1].trim() });
+    buttons.push({ tag: match[0], text: stripTags(match[1]) });
   }
 
   // Filter to action-like buttons (non-empty text, not just whitespace)
@@ -123,7 +129,7 @@ function auditActions(html: string): CategoryScore {
       status: 'pass',
       message: 'No action buttons found (nothing to annotate)',
     });
-    return { category: 'actions', score: 100, checks };
+    return { category: 'actions', score: 100, checks, empty: true };
   }
 
   const annotated = actionButtons.filter((b) => BUTTON_WITH_ACTION_REGEX.test(b.tag));
@@ -154,9 +160,11 @@ function auditSafety(html: string): CategoryScore {
   let match: RegExpExecArray | null;
 
   const buttonRegex = new RegExp(BUTTON_REGEX.source, BUTTON_REGEX.flags);
+  const allButtons: Array<{ tag: string; text: string }> = [];
   const dangerousButtons: Array<{ tag: string; text: string }> = [];
   while ((match = buttonRegex.exec(html)) !== null) {
-    const text = match[1].trim();
+    const text = stripTags(match[1]);
+    allButtons.push({ tag: match[0], text });
     if (DANGEROUS_WORDS.test(text)) {
       dangerousButtons.push({ tag: match[0], text });
     }
@@ -169,7 +177,8 @@ function auditSafety(html: string): CategoryScore {
       status: 'pass',
       message: 'No dangerous-looking buttons found',
     });
-    return { category: 'safety', score: 100, checks };
+    // Nothing dangerous to guard → not applicable to scoring
+    return { category: 'safety', score: 100, checks, empty: true };
   }
 
   let safeCount = 0;
@@ -241,7 +250,7 @@ function auditManifest(options?: AuditOptions): CategoryScore {
   return { category: 'manifest', score, checks };
 }
 
-function scoreSummary(score: number): string {
+export function scoreSummary(score: number): string {
   if (score >= 90) return 'Excellent agent accessibility';
   if (score >= 70) return 'Good agent accessibility with room for improvement';
   if (score >= 50) return 'Partial agent accessibility — significant gaps';
@@ -253,13 +262,23 @@ export function auditHTML(html: string, options?: AuditOptions): AuditResult {
     auditForms(html),
     auditFields(html),
     auditActions(html),
-    auditSafety(html),
+    ...(options?.safety ? [auditSafety(html)] : []),
     auditManifest(options),
   ];
 
-  const overallScore = Math.round(
-    categories.reduce((sum, cat) => sum + cat.score * CATEGORY_WEIGHTS[cat.category], 0)
-  );
+  // Exclude empty categories (nothing found to check) from the weighted average.
+  // Redistribute their weight proportionally among applicable categories.
+  const applicable = categories.filter((c) => !c.empty);
+  const totalWeight = applicable.reduce((sum, c) => sum + CATEGORY_WEIGHTS[c.category], 0);
+
+  const overallScore = totalWeight === 0
+    ? 0
+    : Math.round(
+        applicable.reduce(
+          (sum, cat) => sum + cat.score * (CATEGORY_WEIGHTS[cat.category] / totalWeight),
+          0,
+        ),
+      );
 
   return {
     overallScore,

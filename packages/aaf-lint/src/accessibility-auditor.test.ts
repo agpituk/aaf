@@ -70,17 +70,23 @@ describe('auditHTML', () => {
   });
 
   it('fails safety for dangerous buttons without annotations', () => {
-    const result = auditHTML(dangerousUnannotatedHTML);
+    const result = auditHTML(dangerousUnannotatedHTML, { safety: true });
     const safetyCategory = result.categories.find((c) => c.category === 'safety');
     expect(safetyCategory!.score).toBe(0);
     expect(safetyCategory!.checks.every((c) => c.status === 'fail')).toBe(true);
   });
 
   it('passes safety for dangerous buttons with proper annotations', () => {
-    const result = auditHTML(dangerousAnnotatedHTML);
+    const result = auditHTML(dangerousAnnotatedHTML, { safety: true });
     const safetyCategory = result.categories.find((c) => c.category === 'safety');
     expect(safetyCategory!.score).toBe(100);
     expect(safetyCategory!.checks.every((c) => c.status === 'pass')).toBe(true);
+  });
+
+  it('excludes safety from categories by default', () => {
+    const result = auditHTML(dangerousUnannotatedHTML);
+    const safetyCategory = result.categories.find((c) => c.category === 'safety');
+    expect(safetyCategory).toBeUndefined();
   });
 
   it('gives forms score 100 when no forms exist', () => {

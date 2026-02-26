@@ -36,8 +36,8 @@
             <td>PlaywrightAdapter implementing AAFAdapter for headless browser testing and automation.</td>
           </tr>
           <tr data-agent-kind="item">
-            <td><code>agent-lint</code></td>
-            <td>HTML and manifest conformance linter. Checks data-agent-* attributes and manifest validity. Supports auditing remote URLs; use <code>--render</code> for JavaScript-rendered SPAs (requires Playwright).</td>
+            <td><code>aaf-lint</code></td>
+            <td>HTML and manifest conformance linter. Checks data-agent-* annotation coverage, manifest validity, and (optionally) safety annotations. Supports auditing remote URLs with <code>--render</code> for SPAs and <code>--crawl</code> to audit all same-origin pages linked from the entry page. Auto-discovers manifests at <code>/.well-known/agent-manifest.json</code>.</td>
           </tr>
           <tr data-agent-kind="item">
             <td><code>agentgen</code></td>

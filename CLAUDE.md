@@ -24,7 +24,7 @@ npm run benchmark     # Generate falsification reliability report
 packages/
   agent-runtime-core/        # SemanticParser, ManifestValidator, PolicyEngine, ExecutionLogger
   agent-runtime-playwright/  # PlaywrightAdapter (AAFAdapter for headless testing)
-  agent-lint/                # HTML/manifest conformance linter
+  aaf-lint/                  # HTML/manifest conformance linter + site auditor
   agentgen/                  # SDK + CLI code generator from manifests
   aaf-contracts/             # PlannerRequest/RuntimeResponse types, validators, JSON schemas
   aaf-planner-local/         # Local LLM planner (Ollama client, prompt builder, response parser)
@@ -60,7 +60,7 @@ docs/                        # Spec documents (vision, standard, security)
 ## Conventions
 
 - All packages use TypeScript ES modules (`"type": "module"`)
-- Package names: `@agent-accessibility-framework/*` for scoped, `agent-lint`/`agentgen` for standalone CLIs
+- Package names: `@agent-accessibility-framework/*` for scoped, `aaf-lint`/`agentgen` for standalone CLIs
 - Tests colocated in `src/` as `*.test.ts` (vitest)
 - AJV for JSON Schema validation (runtime-core, contracts)
 - Vite for builds (billing app, agent widget)

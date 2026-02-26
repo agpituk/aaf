@@ -20,6 +20,8 @@ export interface CategoryScore {
   category: AuditCategory;
   score: number;
   checks: AuditCheck[];
+  /** true when no elements were found to check (score is vacuously 100) */
+  empty?: boolean;
 }
 
 export interface AuditResult {

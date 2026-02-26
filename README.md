@@ -149,19 +149,27 @@ cd packages/agent-runtime-playwright
 npm run test:e2e
 ```
 
-### Lint a page
+### Lint / audit a page
 
 ```bash
 # Local file
-npx agent-lint --html samples/billing-app/invoices/new/index.html \
-               --manifest samples/billing-app/public/.well-known/agent-manifest.json
+npx aaf-lint --html samples/billing-app/invoices/new/index.html \
+             --manifest samples/billing-app/public/.well-known/agent-manifest.json
 
 # Remote URL (raw fetch)
-npx agent-lint --audit https://example.com
+npx aaf-lint --audit https://example.com
 
 # Remote SPA (renders JavaScript in headless Chromium first, requires playwright)
-npx agent-lint --audit https://example.com --render
+npx aaf-lint --audit https://example.com --render
+
+# Site-wide audit — follows same-origin links on the entry page
+npx aaf-lint --audit https://example.com --render --crawl
+
+# Include safety checks (dangerous button annotations)
+npx aaf-lint --audit https://example.com --render --safety
 ```
+
+The audit auto-discovers a manifest at `{origin}/.well-known/agent-manifest.json` — no need to pass `--manifest` for sites that serve one.
 
 ### Generate an SDK from a manifest
 

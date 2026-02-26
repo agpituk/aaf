@@ -295,3 +295,68 @@ DOM annotations help discovery and UI interaction. For generation and validation
   }
 }
 ```
+
+---
+
+## 6.6 Linter: Site Audit with `aaf-lint`
+
+The `aaf-lint` CLI audits annotation coverage for agent accessibility. It scores how much of a page's interactive elements (forms, fields, buttons) have `data-agent-*` annotations and whether a manifest is present.
+
+### Usage
+
+```bash
+# Single page audit
+aaf-lint --audit http://localhost:5178/
+
+# Site-wide audit (follows same-origin links on the entry page)
+aaf-lint --audit http://localhost:5178/ --crawl
+
+# With JavaScript rendering (requires playwright)
+aaf-lint --audit http://localhost:5178/ --crawl --render
+
+# Include safety checks (dangerous button annotations)
+aaf-lint --audit http://localhost:5178/ --safety
+```
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--audit <url\|path>` | Audit a page for annotation coverage |
+| `--crawl` | Follow same-origin links on the entry page (single depth, URL only) |
+| `--render` | Render JavaScript with headless Chromium before auditing |
+| `--safety` | Include safety checks (dangerous button annotations) |
+| `--manifest <path>` | Override manifest path (otherwise auto-discovered) |
+
+### Scoring
+
+The default audit scores four categories:
+
+- **FORMS** — `<form>` tags with `data-agent-action`
+- **FIELDS** — `<input>`, `<select>`, `<textarea>` with `data-agent-field`
+- **ACTIONS** — `<button>` tags with `data-agent-action`
+- **MANIFEST** — Presence and validity of agent manifest
+
+Categories where no elements are found (e.g. no forms on a landing page) are excluded from the score rather than counting as 100. With `--safety`, a fifth category checks that dangerous-looking buttons have `data-agent-danger` and `data-agent-confirm`.
+
+### Auto-Manifest Discovery
+
+When auditing a URL, the linter automatically tries to fetch `{origin}/.well-known/agent-manifest.json`. If found, it is used for the manifest score. Override with `--manifest <path>`.
+
+### Output
+
+With `--crawl`, the output shows a compact per-page breakdown followed by an aggregate site score:
+
+```
+=== Agent Accessibility Audit (Site) ===
+
+  PAGE: http://localhost:5178/
+    FORMS -  FIELDS -  ACTIONS 100  MANIFEST 100  → 100/100
+
+  PAGE: http://localhost:5178/invoices/new/
+    FORMS 100  FIELDS 100  ACTIONS 100  MANIFEST 100  → 100/100
+
+  SITE OVERALL: 100/100 (2 pages) — Excellent agent accessibility
+```
+
+Categories showing `-` had no elements to check (N/A) and do not affect the score.
