@@ -1,4 +1,4 @@
-# Agent-Native Web (AWI)
+# Agent Accessibility Framework (AAF)
 
 **A proposal for making websites reliably operable by browser agents.**
 
@@ -97,14 +97,14 @@ On the invoices list page (`/invoices/`), the widget enters **data chat mode** �
 
 ### Try the docs site
 
-There's also an interactive documentation site that is itself AWI-annotated — you can ask the chat widget questions about the spec:
+There's also an interactive documentation site that is itself AAF-annotated — you can ask the chat widget questions about the spec:
 
 ```bash
 cd samples/docs-site && npm run dev
 # Open http://localhost:5174
 ```
 
-The docs site covers attributes, manifests, execution flow, tooling, and examples. Since every page is annotated with `data-agent-*` attributes, the widget enters data chat mode and you can ask it things like "What attributes does AWI define?" or "How does execution work?"
+The docs site covers attributes, manifests, execution flow, tooling, and examples. Since every page is annotated with `data-agent-*` attributes, the widget enters data chat mode and you can ask it things like "What attributes does AAF define?" or "How does execution work?"
 
 ## What's in the repo
 
@@ -176,7 +176,7 @@ npx vitest run tests/falsification
 | Approach | Original app | Refactored app | Survives refactor? |
 |----------|-------------|----------------|-------------------|
 | CSS selectors | 4/4 pass | 0/4 pass | No |
-| AWI semantic | 2/2 pass | 2/2 pass | **Yes** |
+| AAF semantic | 2/2 pass | 2/2 pass | **Yes** |
 
 The benchmark also tests:
 - **Safety**: high-risk actions without confirmation are blocked
@@ -233,12 +233,12 @@ See [`docs/`](docs/) for the full proposal:
 This is a working prototype — I built it to prove (or disprove) the idea, not to ship a production framework. The prototype includes:
 
 - Core runtime (parser, validator, policy engine, logger, arg coercion)
-- Agent widget — embeddable `<script>` for any AWI page with Ollama LLM
+- Agent widget — embeddable `<script>` for any AAF page with Ollama LLM
 - Local planner (Ollama), prompt builder, response parser
 - Linter, code generator, falsification benchmark
 - Typed planner/runtime contracts with selector rejection
 - React and Vue bindings, ESLint plugin, Vite plugin
-- Interactive docs site (data chat mode — you can ask it questions about AWI)
+- Interactive docs site (data chat mode — you can ask it questions about AAF)
 
 The widget demonstrates the full loop — chat, plan, validate, execute, confirm — running directly on any annotated page. On pages with only data collections (no actions), it enters **data chat mode** where you can ask questions about the visible content.
 

@@ -92,7 +92,7 @@ At this stage we can discuss:
 Once MVP works, we can go bigger.
 
 - ~~Visual inspector for `data-agent-*`~~ (done: widget inspector mode)
-- ~~Embeddable agent widget for any AWI page~~ (done: `awi-agent-widget` with Ollama)
+- ~~Embeddable agent widget for any AAF page~~ (done: `awi-agent-widget` with Ollama)
 - Conformance badge for websites ("Agent Semantics v0.1")
 - GitHub Action to lint semantics on PRs
 - Framework plugins:

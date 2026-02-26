@@ -1,6 +1,6 @@
-# AWI Annotation Guide for Coding Agents
+# AAF Annotation Guide for Coding Agents
 
-You are adding Agent-Native Web (AWI) annotations to HTML. These `data-agent-*` attributes make websites machine-readable by AI agents without CSS selectors.
+You are adding Agent Accessibility Framework (AAF) annotations to HTML. These `data-agent-*` attributes make websites machine-readable by AI agents without CSS selectors.
 
 ## Core Rule
 
@@ -110,7 +110,7 @@ Sub-actions add an extra dot segment: `parent_action.submit`.
 </form>
 ```
 
-### After (AWI-annotated):
+### After (AAF-annotated):
 ```html
 <form id="new-invoice" class="form-container"
       data-agent-kind="action"

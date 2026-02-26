@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Overview — AWI Docs</title>
+  <title>Overview — AAF Docs</title>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
   <nav>
-    <span class="brand">AWI Docs</span>
+    <span class="brand">AAF Docs</span>
     <a href="/">Overview</a>
     <a href="/attributes/">Attributes</a>
     <a href="/manifest/">Manifest</a>
@@ -17,16 +17,16 @@
     <a href="/examples/">Examples</a>
   </nav>
   <main>
-    <h1>Agent-Native Web (AWI)</h1>
+    <h1>Agent Accessibility Framework (AAF)</h1>
     <p class="subtitle">A proposal for making websites reliably operable by browser agents.</p>
 
-    <div class="card" data-agent-kind="collection" data-agent-action="overview.what-is-awi">
-      <h2>What is AWI?</h2>
+    <div class="card" data-agent-kind="collection" data-agent-action="overview.what-is-aaf">
+      <h2>What is AAF?</h2>
       <div data-agent-kind="item">
         <p>Websites today are built for humans and partially for assistive technologies via ARIA, but not for software agents. LLM agents can interact with websites, but they usually do it in brittle ways — guessing CSS selectors, relying on visual position, and breaking when UI labels or layouts change.</p>
       </div>
       <div data-agent-kind="item">
-        <p>AWI is a proposal for a new semantic layer on the web, similar in spirit to ARIA, but focused on agent interaction. The idea: the UI remains the source of truth for humans, while the DOM exposes agent-readable semantics. A typed manifest provides stable capabilities. Tooling can auto-generate SDKs, CLIs, and browser automation wrappers.</p>
+        <p>AAF is a proposal for a new semantic layer on the web, similar in spirit to ARIA, but focused on agent interaction. The idea: the UI remains the source of truth for humans, while the DOM exposes agent-readable semantics. A typed manifest provides stable capabilities. Tooling can auto-generate SDKs, CLIs, and browser automation wrappers.</p>
       </div>
       <div data-agent-kind="item">
         <p>This is not "replace the website with tools." The proposal is to make the website itself agent-readable. Agents would interact with the real UI through named actions and fields — never CSS selectors.</p>

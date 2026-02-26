@@ -1,6 +1,6 @@
-# Billing App — Agent-Native Web Sample
+# Billing App — Agent Accessibility Framework Sample
 
-A sample billing application demonstrating Agent-Native Web DOM annotations (`data-agent-*`) and a typed capability manifest. Includes the embedded AWI agent widget for chat-driven interaction.
+A sample billing application demonstrating Agent Accessibility Framework DOM annotations (`data-agent-*`) and a typed capability manifest. Includes the embedded AAF agent widget for chat-driven interaction.
 
 ## Pages
 
@@ -8,7 +8,7 @@ A sample billing application demonstrating Agent-Native Web DOM annotations (`da
 - `/invoices/` — List invoices with collection/item annotations
 - `/settings/` — Workspace settings with dangerous delete action
 
-All pages include the AWI agent widget (`<script type="module" src="/awi-agent.js">`), which adds a floating chat panel in the bottom-right corner.
+All pages include the AAF agent widget (`<script type="module" src="/awi-agent.js">`), which adds a floating chat panel in the bottom-right corner.
 
 ## Prerequisites
 

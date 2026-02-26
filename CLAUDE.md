@@ -1,4 +1,4 @@
-# Agent-Native Web (AWI)
+# Agent Accessibility Framework (AAF)
 
 A proposal and prototype for making websites reliably operable by browser agents, using semantic DOM annotations (`data-agent-*`) and typed capability manifests. Agents interact with real UI through named actions and fields — never CSS selectors.
 
@@ -30,7 +30,7 @@ packages/
   awi-planner-local/         # Local LLM planner (Ollama client, prompt builder, response parser)
   awi-agent-widget/          # Embeddable agent chat widget (Ollama LLM, shadow DOM)
 samples/
-  billing-app/               # Reference app with AWI annotations + widget (3 pages, 3 actions)
+  billing-app/               # Reference app with AAF annotations + widget (3 pages, 3 actions)
 schemas/
   agent-manifest.schema.json # JSON Schema for manifest validation
 tests/
@@ -45,7 +45,7 @@ docs/                        # Spec documents (vision, standard, security)
 - **Fields**: snake_case identifiers (`customer_email`, `amount`). Linked to actions via nesting or `data-agent-for-action`.
 - **Risk/Confirmation**: Three tiers — `optional` (fill and submit automatically), `review` (fill only, user submits manually, returns `awaiting_review`), `required` (blocked without user consent, returns `needs_confirmation`). `danger="high"` + `confirm="required"` blocks execution.
 - **AWIAdapter interface**: `detect() → discover() → validate() → execute()`. Implemented by `PlaywrightAdapter` (testing).
-- **Agent Widget**: Embeddable `<script>` that adds a floating chat panel to any AWI-annotated page. Uses Ollama for LLM planning. Shadow DOM isolation.
+- **Agent Widget**: Embeddable `<script>` that adds a floating chat panel to any AAF-annotated page. Uses Ollama for LLM planning. Shadow DOM isolation.
 - **Contract rule**: Planners send semantic action names + args, NEVER selectors. Validators reject selector-like values.
 
 ## Execution Flow
@@ -74,7 +74,7 @@ docs/                        # Spec documents (vision, standard, security)
 | `packages/agent-runtime-core/src/semantic-parser.ts` | DOM → DiscoveredAction[] (works on real DOM and jsdom) |
 | `packages/awi-contracts/src/validators.ts` | Validates planner requests, rejects selectors |
 | `packages/awi-planner-local/src/planner.ts` | Ollama LLM → semantic action request |
-| `packages/awi-agent-widget/src/widget.ts` | Embeddable agent widget entry point (detects AWI, mounts UI, wires planner) |
+| `packages/awi-agent-widget/src/widget.ts` | Embeddable agent widget entry point (detects AAF, mounts UI, wires planner) |
 | `packages/awi-agent-widget/src/ollama-planner.ts` | Ollama planner for local LLM inference |
 | `packages/awi-agent-widget/src/ui/chat.ts` | Shadow DOM floating chat panel |
 | `samples/billing-app/public/.well-known/agent-manifest.json` | Reference manifest |

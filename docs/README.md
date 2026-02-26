@@ -1,8 +1,8 @@
-# Agent-Native Web
+# Agent Accessibility Framework (AAF)
 
 ## Draft v0.1 — Vision, Standard, and Security
 
-> A draft standard and tooling stack for agent-native websites. It adds semantic
+> A draft standard and tooling stack for agent-accessible websites. It adds semantic
 > annotations to the DOM and a typed manifest so agents can interact with websites
 > safely and reliably.
 
