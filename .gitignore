@@ -1,6 +1,7 @@
 node_modules/
 dist/
-.claude/
+.claude/*
+!.claude/commands/
 *.local.md
 .env
 .env.*
