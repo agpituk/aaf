@@ -43,6 +43,14 @@ List all routes and note which ones have forms (actions) vs data displays (data 
 
 Use raw `data-agent-*` attributes everywhere. They work in HTML, JSX, Vue templates, and Svelte without any imports or dependencies.
 
+**CRITICAL — `data-agent-kind` is REQUIRED on every annotated element.** The runtime discovers elements via `querySelectorAll('[data-agent-kind="action"]')`, `[data-agent-kind="field"]`, `[data-agent-kind="collection"]`, etc. Without `data-agent-kind`, the element is invisible — `data-agent-action` or `data-agent-field` alone do NOTHING.
+
+Every element you annotate must have BOTH:
+1. `data-agent-kind="<type>"` — where type is `action`, `field`, `status`, `collection`, `item`, `link`, or `dialog`
+2. The type-specific attribute — `data-agent-action`, `data-agent-field`, `data-agent-output`, etc.
+
+**CRITICAL — HTML attribute is `data-agent-danger`, NOT `data-agent-risk`.** The manifest JSON uses `"risk"` as the key name, but the DOM attribute is `data-agent-danger`. Do NOT use `data-agent-risk` — that attribute does not exist and will be silently ignored.
+
 ### Actions (forms)
 
 Wrap the outermost form or container with action attributes:
@@ -130,10 +138,12 @@ Most component libraries (HeroUI, Radix, Headless UI, Chakra) forward `data-*` a
 - Fields outside the action's DOM subtree need `data-agent-for-action="project.create"`
 - Each (action, field) pair must resolve to exactly **one** DOM element
 
-### Risk and confirmation
+### Danger and confirmation
+
+For destructive or risky actions, add `data-agent-danger` and `data-agent-confirm`:
 
 ```tsx
-{/* Dangerous action */}
+{/* Dangerous action — note: HTML attribute is "danger", NOT "risk" */}
 <button
   data-agent-kind="action"
   data-agent-action="workspace.delete"
@@ -144,7 +154,7 @@ Most component libraries (HeroUI, Radix, Headless UI, Chakra) forward `data-*` a
 </button>
 ```
 
-- `data-agent-danger`: `"low"` | `"high"` (omit for none)
+- `data-agent-danger`: `"low"` | `"high"` (omit for none). **The manifest JSON calls this `"risk"` but the HTML attribute is `data-agent-danger`.**
 - `data-agent-confirm`: `"optional"` (auto-submit) | `"review"` (fill only, user submits) | `"required"` (blocked without consent)
 
 ### Data tables and lists
@@ -245,14 +255,17 @@ Create `public/.well-known/agent-manifest.json`.
 
 After annotating, verify correctness by checking these rules yourself (do NOT rely on external tools):
 
-1. **Every action in the manifest** has a corresponding `data-agent-action` attribute in the UI files
-2. **Every field in `inputSchema.properties`** has a corresponding `data-agent-field` attribute in the UI files
-3. **Every action maps to a page** in the manifest `pages` section
-4. **No duplicate fields** — each (action, field) pair appears in exactly one place
-5. **Action identifiers** use `lowercase.dot.notation` (e.g., `project.create`, not `ProjectCreate`)
-6. **Field identifiers** use `snake_case` (e.g., `customer_email`, not `customerEmail`)
-7. **Risk attributes are valid**: `data-agent-danger` is `"low"` or `"high"`, `data-agent-confirm` is `"optional"`, `"review"`, or `"required"`
-8. **Non-anchor links** (`<button>`, `<div>`) with `data-agent-kind="link"` have a `data-agent-page` attribute
+1. **Every annotated element has `data-agent-kind`** — grep the annotated files for `data-agent-action=`, `data-agent-field=`, `data-agent-output=` and confirm each one also has `data-agent-kind=` on the same element. Elements without `data-agent-kind` are invisible to the runtime.
+2. **No `data-agent-risk` anywhere** — grep for `data-agent-risk`. If found, replace with `data-agent-danger`. The attribute `data-agent-risk` does not exist.
+3. **Every action in the manifest** has a corresponding `data-agent-action` attribute in the UI files
+4. **Every field in `inputSchema.properties`** has a corresponding `data-agent-field` attribute in the UI files
+5. **Every collection/data view** has `data-agent-kind="collection"` — not just `data-agent-action`
+6. **Every action maps to a page** in the manifest `pages` section
+7. **No duplicate fields** — each (action, field) pair appears in exactly one place
+8. **Action identifiers** use `lowercase.dot.notation` (e.g., `project.create`, not `ProjectCreate`)
+9. **Field identifiers** use `snake_case` (e.g., `customer_email`, not `customerEmail`)
+10. **Danger attributes are valid**: `data-agent-danger` is `"low"` or `"high"`, `data-agent-confirm` is `"optional"`, `"review"`, or `"required"`
+11. **Non-anchor links** (`<button>`, `<div>`) with `data-agent-kind="link"` have a `data-agent-page` attribute
 
 Report any issues found and fix them.
 
