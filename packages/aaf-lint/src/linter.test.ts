@@ -108,6 +108,116 @@ describe('lintHTML', () => {
     expect(results[0].line).toBe(2);
     expect(results[0].source).toBe('test.html');
   });
+
+  describe('ambiguous field resolution (§6.1.1)', () => {
+    it('warns when the same field appears twice inside the same action', () => {
+      const html = `
+        <form data-agent-kind="action" data-agent-action="invoice.create">
+          <input data-agent-kind="field" data-agent-field="amount" />
+          <input data-agent-kind="field" data-agent-field="amount" />
+        </form>
+      `;
+      const results = lintHTML(html);
+      expect(results.some((r) =>
+        r.severity === 'warning' && r.message.includes('Ambiguous') && r.message.includes('amount')
+      )).toBe(true);
+    });
+
+    it('warns when the same field has multiple for-action bindings to the same action', () => {
+      const html = `
+        <form data-agent-kind="action" data-agent-action="invoice.create">
+        </form>
+        <input data-agent-kind="field" data-agent-field="memo" data-agent-for-action="invoice.create" />
+        <textarea data-agent-kind="field" data-agent-field="memo" data-agent-for-action="invoice.create"></textarea>
+      `;
+      const results = lintHTML(html);
+      expect(results.some((r) =>
+        r.severity === 'warning' && r.message.includes('Ambiguous') && r.message.includes('memo') && r.message.includes('for-action')
+      )).toBe(true);
+    });
+
+    it('warns when a field is both nested and bound via for-action to the same action', () => {
+      const html = `
+        <form data-agent-kind="action" data-agent-action="invoice.create">
+          <input data-agent-kind="field" data-agent-field="amount" />
+        </form>
+        <input data-agent-kind="field" data-agent-field="amount" data-agent-for-action="invoice.create" />
+      `;
+      const results = lintHTML(html);
+      expect(results.some((r) =>
+        r.severity === 'warning' && r.message.includes('nested') && r.message.includes('for-action') && r.message.includes('amount')
+      )).toBe(true);
+    });
+
+    it('does not warn when different fields are in the same action', () => {
+      const html = `
+        <form data-agent-kind="action" data-agent-action="invoice.create">
+          <input data-agent-kind="field" data-agent-field="amount" />
+          <input data-agent-kind="field" data-agent-field="currency" />
+        </form>
+      `;
+      const results = lintHTML(html);
+      expect(results.filter((r) => r.message.includes('Ambiguous'))).toHaveLength(0);
+    });
+
+    it('does not warn when the same field name is in different actions', () => {
+      const html = `
+        <form data-agent-kind="action" data-agent-action="invoice.create">
+          <input data-agent-kind="field" data-agent-field="amount" />
+        </form>
+        <form data-agent-kind="action" data-agent-action="payment.create">
+          <input data-agent-kind="field" data-agent-field="amount" />
+        </form>
+      `;
+      const results = lintHTML(html);
+      expect(results.filter((r) => r.message.includes('Ambiguous'))).toHaveLength(0);
+    });
+  });
+
+  describe('JSX/TSX support', () => {
+    it('validates data-agent-* attributes in JSX files', () => {
+      const tsx = `<input data-agent-kind="field" data-agent-field="customer_email" />`;
+      const results = lintHTML(tsx, 'Form.tsx');
+      expect(results).toHaveLength(0);
+    });
+
+    it('validates aaf-react AgentAction component props', () => {
+      const tsx = `<AgentAction action="invoice.create" danger="low" confirm="optional">`;
+      const results = lintHTML(tsx, 'Form.tsx');
+      expect(results).toHaveLength(0);
+    });
+
+    it('reports error for invalid danger prop on AgentAction', () => {
+      const tsx = `<AgentAction action="test.action" danger="extreme">`;
+      const results = lintHTML(tsx, 'Form.tsx');
+      expect(results.some((r) => r.severity === 'error' && r.message.includes('extreme'))).toBe(true);
+    });
+
+    it('reports warning for invalid action name on AgentAction', () => {
+      const tsx = `<AgentAction action="BadName">`;
+      const results = lintHTML(tsx, 'Form.tsx');
+      expect(results.some((r) => r.severity === 'warning' && r.message.includes('BadName'))).toBe(true);
+    });
+
+    it('reports warning for invalid field name on AgentField', () => {
+      const tsx = `<AgentField field="CamelCase" />`;
+      const results = lintHTML(tsx, 'Form.tsx');
+      expect(results.some((r) => r.severity === 'warning' && r.message.includes('CamelCase'))).toBe(true);
+    });
+
+    it('does not check component props on .html files', () => {
+      // AgentAction doesn't exist in HTML, but the linter shouldn't try to parse it
+      const html = `<AgentAction action="BadName">`;
+      const results = lintHTML(html, 'page.html');
+      expect(results.filter((r) => r.message.includes('BadName'))).toHaveLength(0);
+    });
+
+    it('validates AgentField with valid snake_case name', () => {
+      const tsx = `<AgentField field="customer_email" />`;
+      const results = lintHTML(tsx, 'Form.tsx');
+      expect(results).toHaveLength(0);
+    });
+  });
 });
 
 describe('lintManifest', () => {

@@ -95,13 +95,49 @@ Examples:
 
 #### `data-agent-for-action`
 
-Links a field/status to an action if not nested directly.
+Links a field or status element to an action when the element is not a DOM descendant of the action element.
+
+Example: `data-agent-for-action="workspace.delete"`
 
 #### `data-agent-version`
 
 Semantics version on container/root.
 
 Example: `0.1`
+
+---
+
+## 6.1.1 Element Resolution Order (Conformance)
+
+When an agent runtime resolves a field or status element for a given action, it MUST follow this deterministic lookup order:
+
+### Field resolution
+
+1. **Action-scoped nested lookup** — Search for `[data-agent-kind="field"][data-agent-field="<name>"]` within the subtree of the action element (`[data-agent-kind="action"][data-agent-action="<action>"]`).
+2. **Explicit `for-action` binding** — If not found in step 1, search the entire document for `[data-agent-kind="field"][data-agent-field="<name>"][data-agent-for-action="<action>"]`.
+3. **Resolution failure** — If neither step produces a match, the field is not present on the page. Runtimes MUST NOT fall back to unscoped document-wide queries without `for-action`.
+
+### Status resolution
+
+1. **Action-scoped nested lookup** — Search for `[data-agent-kind="status"]` within the action element's subtree.
+2. **Explicit `for-action` binding** — Search the document for `[data-agent-kind="status"][data-agent-for-action="<action>"]`.
+
+### Ambiguity rules
+
+If any resolution step matches **more than one element**, the runtime MUST either:
+
+- **Error** — Reject the match and report a validation error to the caller, OR
+- **Warn and use the first match** — Use the first element in document order but emit a diagnostic warning.
+
+Conforming runtimes SHOULD prefer erroring in strict mode and warn-and-first-match in lenient mode. In all cases, silent selection of an arbitrary match is non-conforming.
+
+### Rationale
+
+Without a deterministic resolution order, two implementations could resolve the same field name to different DOM elements, causing different behavior from the same annotation. The nested-first strategy ensures that:
+
+- Fields inside a form naturally belong to it without extra attributes.
+- `data-agent-for-action` is an explicit escape hatch for fields that live outside their action's DOM subtree.
+- Ambiguity is surfaced early (at lint time) rather than causing silent failures.
 
 ---
 
