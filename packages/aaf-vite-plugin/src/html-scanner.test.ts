@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { scanHtml, generateManifest } from './html-scanner.js';
+import { scanHtml, scanDataViews, generateManifest, fieldToSchema } from './html-scanner.js';
 
 describe('scanHtml', () => {
   it('extracts action from HTML', () => {
     const html = `
       <form data-agent-kind="action" data-agent-action="invoice.create" data-agent-scope="invoices.write">
-        <input data-agent-kind="field" data-agent-field="customer_email" />
-        <input data-agent-kind="field" data-agent-field="amount" />
+        <input type="email" required aria-label="Customer email" data-agent-kind="field" data-agent-field="customer_email" />
+        <input type="number" min="0" step="0.01" required data-agent-kind="field" data-agent-field="amount" />
       </form>
     `;
     const actions = scanHtml(html);
@@ -15,7 +15,37 @@ describe('scanHtml', () => {
     expect(actions[0].scope).toBe('invoices.write');
     expect(actions[0].fields).toHaveLength(2);
     expect(actions[0].fields[0].field).toBe('customer_email');
+    expect(actions[0].fields[0].inputType).toBe('email');
+    expect(actions[0].fields[0].required).toBe(true);
+    expect(actions[0].fields[0].label).toBe('Customer email');
     expect(actions[0].fields[1].field).toBe('amount');
+    expect(actions[0].fields[1].inputType).toBe('number');
+    expect(actions[0].fields[1].min).toBe('0');
+  });
+
+  it('extracts select options', () => {
+    const html = `
+      <form data-agent-kind="action" data-agent-action="invoice.create">
+        <select data-agent-kind="field" data-agent-field="currency" aria-label="Currency">
+          <option value="EUR">EUR</option>
+          <option value="USD">USD</option>
+        </select>
+      </form>
+    `;
+    const actions = scanHtml(html);
+    expect(actions[0].fields[0].tagName).toBe('select');
+    expect(actions[0].fields[0].options).toEqual(['EUR', 'USD']);
+    expect(actions[0].fields[0].label).toBe('Currency');
+  });
+
+  it('detects optional fields (no required attribute)', () => {
+    const html = `
+      <form data-agent-kind="action" data-agent-action="invoice.create">
+        <textarea data-agent-kind="field" data-agent-field="memo" aria-label="Memo"></textarea>
+      </form>
+    `;
+    const actions = scanHtml(html);
+    expect(actions[0].fields[0].required).toBeUndefined();
   });
 
   it('extracts danger and confirm attributes', () => {
@@ -57,11 +87,43 @@ describe('scanHtml', () => {
   });
 });
 
+describe('scanDataViews', () => {
+  it('extracts data views from collection elements', () => {
+    const html = `
+      <div data-agent-kind="collection" data-agent-action="invoice.list" data-agent-scope="invoices.read">
+        <div data-agent-kind="item">row</div>
+      </div>
+    `;
+    const views = scanDataViews(html);
+    expect(views).toHaveLength(1);
+    expect(views[0].name).toBe('invoice.list');
+    expect(views[0].scope).toBe('invoices.read');
+  });
+
+  it('returns empty array for HTML without collections', () => {
+    expect(scanDataViews('<div>No collections</div>')).toHaveLength(0);
+  });
+
+  it('deduplicates by name', () => {
+    const html = `
+      <div data-agent-kind="collection" data-agent-action="invoice.list"></div>
+      <div data-agent-kind="collection" data-agent-action="invoice.list"></div>
+    `;
+    expect(scanDataViews(html)).toHaveLength(1);
+  });
+});
+
 describe('generateManifest', () => {
-  it('produces valid manifest structure', () => {
+  it('produces valid manifest structure with typed fields', () => {
     const actions = scanHtml(`
       <form data-agent-kind="action" data-agent-action="invoice.create" data-agent-scope="invoices.write" data-agent-danger="low" data-agent-confirm="optional">
-        <input data-agent-kind="field" data-agent-field="customer_email" />
+        <input type="email" required aria-label="Customer email" data-agent-kind="field" data-agent-field="customer_email" />
+        <input type="number" min="0" step="0.01" required data-agent-kind="field" data-agent-field="amount" />
+        <select data-agent-kind="field" data-agent-field="currency" aria-label="Currency">
+          <option value="EUR">EUR</option>
+          <option value="USD">USD</option>
+        </select>
+        <textarea data-agent-kind="field" data-agent-field="memo" aria-label="Memo"></textarea>
       </form>
     `);
     const manifest = generateManifest(actions, { name: 'Test', origin: 'http://localhost:3000' });
@@ -74,8 +136,44 @@ describe('generateManifest', () => {
     expect(invoiceAction.scope).toBe('invoices.write');
     expect(invoiceAction.risk).toBe('low');
     expect(invoiceAction.confirmation).toBe('optional');
-    expect(invoiceAction.inputSchema.properties.customer_email).toEqual({ type: 'string' });
+
+    // email → format: "email", required
+    expect(invoiceAction.inputSchema.properties.customer_email).toEqual({
+      type: 'string', format: 'email', description: 'Customer email',
+    });
     expect(invoiceAction.inputSchema.required).toContain('customer_email');
+
+    // number → type: "number", minimum
+    expect(invoiceAction.inputSchema.properties.amount).toEqual({
+      type: 'number', minimum: 0,
+    });
+    expect(invoiceAction.inputSchema.required).toContain('amount');
+
+    // select → enum, implicitly required (always has a value)
+    expect(invoiceAction.inputSchema.properties.currency).toEqual({
+      type: 'string', enum: ['EUR', 'USD'], description: 'Currency',
+    });
+    expect(invoiceAction.inputSchema.required).toContain('currency');
+
+    // textarea without required → not in required[]
+    expect(invoiceAction.inputSchema.properties.memo).toEqual({
+      type: 'string', description: 'Memo',
+    });
+    expect(invoiceAction.inputSchema.required).not.toContain('memo');
+  });
+
+  it('marks all fields required on danger=high + confirm=required actions', () => {
+    const actions = scanHtml(`
+      <button data-agent-kind="action" data-agent-action="workspace.delete"
+              data-agent-scope="workspace.delete" data-agent-danger="high" data-agent-confirm="required">
+      </button>
+      <input type="text" aria-label="Type DELETE to confirm"
+             data-agent-kind="field" data-agent-field="delete_confirmation_text"
+             data-agent-for-action="workspace.delete" />
+    `);
+    const manifest = generateManifest(actions, { name: 'Test', origin: 'http://localhost:3000' });
+    const deleteAction = (manifest.actions as any)['workspace.delete'];
+    expect(deleteAction.inputSchema.required).toContain('delete_confirmation_text');
   });
 
   it('uses defaults when attributes are missing', () => {
@@ -95,7 +193,7 @@ describe('generateManifest', () => {
         <input data-agent-kind="field" data-agent-field="customer_email" />
       </form>
     `);
-    const pageMap = { '/invoices/new': ['invoice.create'] };
+    const pageMap = { '/invoices/new': { actions: ['invoice.create'], data: [] } };
     const manifest = generateManifest(actions, { name: 'Test', origin: 'http://localhost:3000' }, pageMap);
 
     expect(manifest.pages).toBeDefined();
@@ -104,11 +202,85 @@ describe('generateManifest', () => {
     expect(pages['/invoices/new'].actions).toContain('invoice.create');
   });
 
+  it('includes data views when provided', () => {
+    const actions = scanHtml(`
+      <form data-agent-kind="action" data-agent-action="invoice.create"></form>
+    `);
+    const dataViews = [{ name: 'invoice.list', scope: 'invoices.read' }];
+    const pageMap = {
+      '/invoices/new': { actions: ['invoice.create'], data: [] },
+      '/invoices/': { actions: [], data: ['invoice.list'] },
+    };
+    const manifest = generateManifest(actions, { name: 'Test', origin: 'http://localhost:3000' }, pageMap, dataViews);
+
+    expect(manifest.data).toBeDefined();
+    const data = manifest.data as Record<string, any>;
+    expect(data['invoice.list']).toBeDefined();
+    expect(data['invoice.list'].scope).toBe('invoices.read');
+
+    const pages = manifest.pages as Record<string, any>;
+    expect(pages['/invoices/']).toBeDefined();
+    expect(pages['/invoices/'].data).toContain('invoice.list');
+    expect(pages['/invoices/'].actions).toBeUndefined();
+  });
+
   it('includes site description when provided', () => {
     const actions = scanHtml(`
       <form data-agent-kind="action" data-agent-action="user.update"></form>
     `);
     const manifest = generateManifest(actions, { name: 'Test', origin: 'http://localhost:3000', description: 'A test site' });
     expect((manifest.site as any).description).toBe('A test site');
+  });
+});
+
+describe('fieldToSchema', () => {
+  it('maps email input to string with format', () => {
+    expect(fieldToSchema({ field: 'email', tagName: 'input', inputType: 'email' }))
+      .toEqual({ type: 'string', format: 'email' });
+  });
+
+  it('maps url input to string with uri format', () => {
+    expect(fieldToSchema({ field: 'site', tagName: 'input', inputType: 'url' }))
+      .toEqual({ type: 'string', format: 'uri' });
+  });
+
+  it('maps date input to string with date format', () => {
+    expect(fieldToSchema({ field: 'dob', tagName: 'input', inputType: 'date' }))
+      .toEqual({ type: 'string', format: 'date' });
+  });
+
+  it('maps number input with min/max', () => {
+    expect(fieldToSchema({ field: 'qty', tagName: 'input', inputType: 'number', min: '1', max: '100' }))
+      .toEqual({ type: 'number', minimum: 1, maximum: 100 });
+  });
+
+  it('maps checkbox to boolean', () => {
+    expect(fieldToSchema({ field: 'agree', tagName: 'input', inputType: 'checkbox' }))
+      .toEqual({ type: 'boolean' });
+  });
+
+  it('maps select with options to enum', () => {
+    expect(fieldToSchema({ field: 'color', tagName: 'select', options: ['red', 'blue'] }))
+      .toEqual({ type: 'string', enum: ['red', 'blue'] });
+  });
+
+  it('includes pattern, minLength, maxLength for string fields', () => {
+    expect(fieldToSchema({ field: 'code', tagName: 'input', pattern: '[A-Z]+', minLength: '2', maxLength: '10' }))
+      .toEqual({ type: 'string', pattern: '[A-Z]+', minLength: 2, maxLength: 10 });
+  });
+
+  it('includes aria-label as description', () => {
+    expect(fieldToSchema({ field: 'name', tagName: 'input', label: 'Full name' }))
+      .toEqual({ type: 'string', description: 'Full name' });
+  });
+
+  it('defaults to string for plain input', () => {
+    expect(fieldToSchema({ field: 'x', tagName: 'input' }))
+      .toEqual({ type: 'string' });
+  });
+
+  it('defaults to string for textarea', () => {
+    expect(fieldToSchema({ field: 'notes', tagName: 'textarea', label: 'Notes' }))
+      .toEqual({ type: 'string', description: 'Notes' });
   });
 });

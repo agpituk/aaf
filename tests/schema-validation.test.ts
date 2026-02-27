@@ -110,10 +110,10 @@ describe('Agent Manifest Schema Validation', () => {
     expect(validate(noActions)).toBe(false);
   });
 
-  it('rejects an empty actions object', () => {
+  it('accepts an empty actions object (site may have only data views)', () => {
     const validate = createValidator();
     const manifest = { ...exampleManifest, actions: {} };
-    expect(validate(manifest)).toBe(false);
+    expect(validate(manifest)).toBe(true);
   });
 
   it('rejects an invalid risk value', () => {
@@ -197,5 +197,43 @@ describe('Agent Manifest Schema Validation', () => {
     const validate = createValidator();
     expect(exampleManifest.site.description).toBeDefined();
     expect(validate(exampleManifest)).toBe(true);
+  });
+
+  it('accepts a manifest with both actions and data views', () => {
+    const validate = createValidator();
+    const manifest = {
+      ...exampleManifest,
+      data: {
+        'invoice.list': {
+          title: 'List invoices',
+          scope: 'invoices.read',
+          outputSchema: { type: 'object', properties: {} },
+        },
+      },
+      pages: {
+        '/invoices/new': { title: 'Create Invoice', actions: ['invoice.create'] },
+        '/invoices/': { title: 'Invoice List', data: ['invoice.list'] },
+        '/settings/': { title: 'Settings', actions: ['workspace.delete'] },
+      },
+    };
+    expect(validate(manifest)).toBe(true);
+  });
+
+  it('accepts a page with only data (no actions)', () => {
+    const validate = createValidator();
+    const manifest = {
+      ...exampleManifest,
+      data: {
+        'invoice.list': {
+          title: 'List invoices',
+          scope: 'invoices.read',
+          outputSchema: { type: 'object', properties: {} },
+        },
+      },
+      pages: {
+        '/invoices/': { title: 'Invoice List', data: ['invoice.list'] },
+      },
+    };
+    expect(validate(manifest)).toBe(true);
   });
 });

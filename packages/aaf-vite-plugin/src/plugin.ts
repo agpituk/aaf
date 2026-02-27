@@ -1,5 +1,6 @@
 import type { Plugin } from 'vite';
-import { scanHtml, generateManifest } from './html-scanner.js';
+import { scanHtml, scanDataViews, generateManifest } from './html-scanner.js';
+import type { ScannedDataView } from './html-scanner.js';
 
 export interface AAFVitePluginOptions {
   /** Site name for the manifest */
@@ -34,23 +35,35 @@ export function aafPlugin(options: AAFVitePluginOptions = {}): Plugin {
 
       // Scan all HTML files and build page map
       const allActions = [];
-      const pageMap: Record<string, string[]> = {};
+      const allDataViews: ScannedDataView[] = [];
+      const pageMap: Record<string, { actions: string[]; data: string[] }> = {};
       for (const [fileName, html] of htmlFiles.entries()) {
         const scanned = scanHtml(html);
+        const dataViews = scanDataViews(html);
         allActions.push(...scanned);
-        if (scanned.length > 0) {
+        allDataViews.push(...dataViews);
+        if (scanned.length > 0 || dataViews.length > 0) {
           const route = '/' + fileName.replace(/index\.html$/, '').replace(/\.html$/, '');
-          pageMap[route] = scanned.map(a => a.action);
+          pageMap[route] = {
+            actions: scanned.map(a => a.action),
+            data: dataViews.map(d => d.name),
+          };
         }
       }
 
-      if (allActions.length === 0) return;
+      if (allActions.length === 0 && allDataViews.length === 0) return;
 
       // Deduplicate by action name
       const uniqueActions = new Map();
       for (const action of allActions) {
         if (!uniqueActions.has(action.action)) {
           uniqueActions.set(action.action, action);
+        }
+      }
+      const uniqueDataViews = new Map<string, ScannedDataView>();
+      for (const view of allDataViews) {
+        if (!uniqueDataViews.has(view.name)) {
+          uniqueDataViews.set(view.name, view);
         }
       }
 
@@ -66,6 +79,7 @@ export function aafPlugin(options: AAFVitePluginOptions = {}): Plugin {
         Array.from(uniqueActions.values()),
         site,
         pageMap,
+        Array.from(uniqueDataViews.values()),
       );
 
       this.emitFile({

@@ -10,7 +10,7 @@ import { coerceArgs, type Coercion } from './coerce-args.js';
 export function getPageForAction(manifest: AgentManifest, actionName: string): string | undefined {
   if (!manifest.pages) return undefined;
   for (const [route, page] of Object.entries(manifest.pages)) {
-    if (page.actions.includes(actionName)) return route;
+    if (page.actions?.includes(actionName)) return route;
   }
   return undefined;
 }

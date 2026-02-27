@@ -22,6 +22,15 @@ export interface PlannerRequest {
 }
 
 /**
+ * Result returned by a planner: an executable action, a navigation directive, or a direct answer.
+ * This is the contract between the planner layer and the runtime/widget layer.
+ */
+export type PlannerResult =
+  | { kind: 'action'; request: PlannerRequest }
+  | { kind: 'navigate'; page: string }
+  | { kind: 'answer'; text: string };
+
+/**
  * Summary of a discovered action exposed to the planner.
  */
 export interface DiscoveredActionSummary {

@@ -1,4 +1,4 @@
-import type { AgentManifest, AgentAction } from '@agent-accessibility-framework/runtime-core';
+import type { AgentManifest, AgentAction, AgentDataView } from '@agent-accessibility-framework/runtime-core';
 
 function toMethodName(actionId: string): string {
   return actionId
@@ -75,6 +75,32 @@ function generateOutputInterface(actionId: string, action: AgentAction): string 
   return lines.join('\n') + '\n';
 }
 
+function generateDataViewOutputInterface(dataId: string, dataView: AgentDataView): string {
+  const typeName = `${toTypeName(dataId)}Output`;
+  const schema = dataView.outputSchema as {
+    properties?: Record<string, { type?: string; enum?: string[] }>;
+    required?: string[];
+  };
+
+  if (!schema.properties) return `export interface ${typeName} {}\n`;
+
+  const lines: string[] = [`export interface ${typeName} {`];
+  const required = new Set(schema.required || []);
+
+  for (const [name, prop] of Object.entries(schema.properties)) {
+    const optional = required.has(name) ? '' : '?';
+    let tsType = 'unknown';
+    if (prop.type === 'string') tsType = prop.enum ? prop.enum.map((e) => `'${e}'`).join(' | ') : 'string';
+    else if (prop.type === 'number' || prop.type === 'integer') tsType = 'number';
+    else if (prop.type === 'boolean') tsType = 'boolean';
+    else if (prop.type === 'array') tsType = 'unknown[]';
+    lines.push(`  ${name}${optional}: ${tsType};`);
+  }
+
+  lines.push('}');
+  return lines.join('\n') + '\n';
+}
+
 export function generateSDK(manifest: AgentManifest): Map<string, string> {
   const files = new Map<string, string>();
 
@@ -86,6 +112,14 @@ export function generateSDK(manifest: AgentManifest): Map<string, string> {
     typesContent += generateOutputInterface(actionId, action);
     typesContent += '\n';
   }
+  // Data view output types
+  if (manifest.data) {
+    for (const [dataId, dataView] of Object.entries(manifest.data)) {
+      typesContent += generateDataViewOutputInterface(dataId, dataView);
+      typesContent += '\n';
+    }
+  }
+
   files.set('types.ts', typesContent);
 
   // Generate client.ts
@@ -102,6 +136,11 @@ export function generateSDK(manifest: AgentManifest): Map<string, string> {
     imports.push(`${toTypeName(actionId)}Input`);
     imports.push(`${toTypeName(actionId)}Output`);
   }
+  if (manifest.data) {
+    for (const dataId of Object.keys(manifest.data)) {
+      imports.push(`${toTypeName(dataId)}Output`);
+    }
+  }
   clientContent += `import type { ${imports.join(', ')} } from './types.js';\n\n`;
 
   // Action metadata
@@ -114,6 +153,11 @@ export function generateSDK(manifest: AgentManifest): Map<string, string> {
   clientContent += `  risk: 'none' | 'low' | 'high';\n`;
   clientContent += `  confirmation: 'never' | 'optional' | 'review' | 'required';\n`;
   clientContent += `  idempotent: boolean;\n`;
+  clientContent += `}\n\n`;
+
+  clientContent += `export interface DataViewMetadata {\n`;
+  clientContent += `  title: string;\n`;
+  clientContent += `  scope: string;\n`;
   clientContent += `}\n\n`;
 
   // Client class
@@ -155,6 +199,31 @@ export function generateSDK(manifest: AgentManifest): Map<string, string> {
     clientContent += `  };\n\n`;
   }
 
+  // Data view methods (read-only, GET)
+  if (manifest.data) {
+    for (const [dataId, dataView] of Object.entries(manifest.data)) {
+      const methodName = toMethodName(dataId);
+      const outputType = `${toTypeName(dataId)}Output`;
+
+      clientContent += `  /**\n`;
+      clientContent += `   * ${dataView.title} (read-only data view)\n`;
+      if (dataView.description) {
+        clientContent += `   * ${dataView.description}\n`;
+      }
+      clientContent += `   * @scope ${dataView.scope}\n`;
+      clientContent += `   */\n`;
+      clientContent += `  async ${methodName}(): Promise<${outputType}> {\n`;
+      clientContent += `    const response = await fetch(\`\${this.baseUrl}/api/data/${dataId}\`);\n`;
+      clientContent += `    return response.json() as Promise<${outputType}>;\n`;
+      clientContent += `  }\n\n`;
+
+      clientContent += `  static ${methodName}Metadata: DataViewMetadata = {\n`;
+      clientContent += `    title: '${dataView.title}',\n`;
+      clientContent += `    scope: '${dataView.scope}',\n`;
+      clientContent += `  };\n\n`;
+    }
+  }
+
   clientContent += `}\n`;
   files.set('client.ts', clientContent);
 
@@ -185,6 +254,17 @@ export function generateCLI(manifest: AgentManifest): Map<string, string> {
   }
   cliContent += `};\n\n`;
 
+  cliContent += `const DATA_VIEWS: Record<string, { title: string; scope: string }> = {\n`;
+  if (manifest.data) {
+    for (const [dataId, dataView] of Object.entries(manifest.data)) {
+      cliContent += `  '${dataId}': {\n`;
+      cliContent += `    title: '${dataView.title}',\n`;
+      cliContent += `    scope: '${dataView.scope}',\n`;
+      cliContent += `  },\n`;
+    }
+  }
+  cliContent += `};\n\n`;
+
   cliContent += `function parseArgs(args: string[]): { command: string; flags: Record<string, string>; dryRun: boolean; ui: boolean } {\n`;
   cliContent += `  const command = args[0] || '';\n`;
   cliContent += `  const flags: Record<string, string> = {};\n`;
@@ -206,6 +286,12 @@ export function generateCLI(manifest: AgentManifest): Map<string, string> {
   cliContent += `    console.log('Available actions:');\n`;
   cliContent += `    for (const [id, meta] of Object.entries(ACTIONS)) {\n`;
   cliContent += `      console.log(\`  \${id} — \${meta.title} (risk: \${meta.risk})\`);\n`;
+  cliContent += `    }\n`;
+  cliContent += `    if (Object.keys(DATA_VIEWS).length > 0) {\n`;
+  cliContent += `      console.log('\\nData views (read-only):');\n`;
+  cliContent += `      for (const [id, meta] of Object.entries(DATA_VIEWS)) {\n`;
+  cliContent += `        console.log(\`  \${id} — \${meta.title}\`);\n`;
+  cliContent += `      }\n`;
   cliContent += `    }\n`;
   cliContent += `    return;\n`;
   cliContent += `  }\n\n`;

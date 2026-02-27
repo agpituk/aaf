@@ -1,7 +1,16 @@
 export interface AgentPage {
   title: string;
   description?: string;
-  actions: string[];
+  actions?: string[];
+  data?: string[];
+}
+
+/** Read-only data view — navigating to its page is the "execution." */
+export interface AgentDataView {
+  title: string;
+  description?: string;
+  scope: string;
+  outputSchema: Record<string, unknown>;
 }
 
 export interface AgentManifest {
@@ -13,6 +22,7 @@ export interface AgentManifest {
     description?: string;
   };
   actions: Record<string, AgentAction>;
+  data?: Record<string, AgentDataView>;
   errors?: Record<string, { message: string }>;
   pages?: Record<string, AgentPage>;
 }

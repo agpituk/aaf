@@ -1,5 +1,6 @@
 export type {
   PlannerRequest,
+  PlannerResult,
   RuntimeResponse,
   RuntimeStatus,
   DiscoveredActionSummary,

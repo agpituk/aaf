@@ -6,9 +6,11 @@ interface ManifestActions {
       properties?: Record<string, unknown>;
     };
   }>;
+  data?: Record<string, unknown>;
   pages?: Record<string, {
     title: string;
-    actions: string[];
+    actions?: string[];
+    data?: string[];
   }>;
 }
 
@@ -64,11 +66,19 @@ export function checkAlignment(html: string, manifest: ManifestActions): LintRes
   // Check: actions listed in pages must exist in the actions map
   if (manifest.pages) {
     for (const [route, page] of Object.entries(manifest.pages)) {
-      for (const actionId of page.actions) {
+      for (const actionId of page.actions ?? []) {
         if (!manifest.actions[actionId]) {
           results.push({
             severity: 'warning',
             message: `Page "${route}" references action "${actionId}" which is not defined in manifest actions`,
+          });
+        }
+      }
+      for (const dataId of page.data ?? []) {
+        if (!manifest.data || !(dataId in (manifest.data as Record<string, unknown>))) {
+          results.push({
+            severity: 'warning',
+            message: `Page "${route}" references data view "${dataId}" which is not defined in manifest data`,
           });
         }
       }

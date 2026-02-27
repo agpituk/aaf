@@ -4,6 +4,7 @@ import {
   PolicyEngine,
   ExecutionLogger,
   coerceArgs,
+  getPageForAction,
   type AgentManifest,
   type ActionCatalog,
   type ExecutionResult,
@@ -11,6 +12,7 @@ import {
 import { OllamaPlanner } from './ollama-planner.js';
 import { ChatUI } from './ui/chat.js';
 import { showConfirmation } from './ui/confirmation.js';
+import { buildSiteActions, buildPageSummaries, persistNavigation, checkPendingNavigation } from './navigation.js';
 
 const MANIFEST_PATH = '/.well-known/agent-manifest.json';
 
@@ -192,12 +194,17 @@ async function executeOnDOM(
 
 /** Boot the AAF agent widget */
 async function init(): Promise<void> {
-  // Bail if no AAF elements on the page
-  if (document.querySelectorAll('[data-agent-kind]').length === 0) return;
+  // Check for pending cross-page navigation BEFORE the bail-out so it isn't lost
+  const pendingNav = checkPendingNavigation();
+
+  const hasAAFElements = document.querySelectorAll('[data-agent-kind]').length > 0;
+  if (!hasAAFElements && !pendingNav) return;
 
   const planner = new OllamaPlanner();
   const parser = new SemanticParser();
   let manifest: AgentManifest | null = null;
+  let hasNavigatedThisSession = false;
+  let isNavigationResend = false;
 
   // Conversation memory — tracks last plan + recent exchanges for follow-ups
   interface ConversationTurn { role: 'user' | 'assistant' | 'error'; text: string }
@@ -224,6 +231,30 @@ async function init(): Promise<void> {
 
   // Load manifest
   manifest = await fetchManifest();
+
+  // Restore pending cross-page navigation
+  if (pendingNav) {
+    hasNavigatedThisSession = true;
+
+    // Restore conversation history into UI (for visual context)
+    for (const turn of pendingNav.conversationHistory) {
+      history.push({ role: turn.role as ConversationTurn['role'], text: turn.text });
+      chat.addMessage(turn.role as 'user' | 'assistant' | 'system' | 'error', turn.text);
+    }
+
+    chat.open();
+    chat.addMessage('system', `Navigated to ${pendingNav.targetPage}`);
+
+    if (pendingNav.navigateOnly) {
+      // Navigation was the goal — don't re-plan. Just show the page.
+      chat.setEnabled(true);
+    } else {
+      // Re-send the original user message to plan against the new page.
+      // Flag prevents handleUserMessage from re-adding the user message to chat/history.
+      isNavigationResend = true;
+      handleUserMessage(pendingNav.userMessage);
+    }
+  }
 
   /** Click submit on an already-filled form (after user confirms a pending review) */
   async function submitPendingAction(actionName: string): Promise<ExecutionResult> {
@@ -257,20 +288,34 @@ async function init(): Promise<void> {
   }
 
   async function handleUserMessage(text: string): Promise<void> {
-    chat.addMessage('user', text);
+    // Skip adding user message when re-sending after navigation (already restored from history)
+    if (!isNavigationResend) {
+      chat.addMessage('user', text);
+      history.push({ role: 'user', text });
+    }
+    isNavigationResend = false;
     chat.setEnabled(false);
-    history.push({ role: 'user', text });
 
     try {
-      // Discover actions
+      // Discover actions on current page
       const catalog: ActionCatalog = {
         actions: parser.discoverActions(document.body),
         url: window.location.href,
         timestamp: new Date().toISOString(),
       };
 
-      if (catalog.actions.length === 0) {
-        // No actions — try data chat mode
+      // Build off-page actions and navigable page summaries from manifest
+      const currentActionNames = catalog.actions.map((a) => a.action);
+      const otherPageActions = manifest
+        ? buildSiteActions(manifest, currentActionNames)
+        : [];
+      const pageSummaries = manifest
+        ? buildPageSummaries(manifest, window.location.pathname)
+        : [];
+      const hasSiteContext = otherPageActions.length > 0 || pageSummaries.length > 0;
+
+      if (catalog.actions.length === 0 && !hasSiteContext) {
+        // No actions anywhere and no pages to navigate to — try data chat mode
         const pageData = scrapePageData();
         if (pageData) {
           chat.addMessage('system', 'Answering from page data...');
@@ -291,9 +336,19 @@ async function init(): Promise<void> {
       // Build contextual prompt with conversation history
       const contextualMessage = buildContextualMessage(text);
 
-      // Plan
+      // Plan — use site-aware prompt when off-page context exists
       chat.addMessage('system', 'Planning...');
-      const planResult = await planner.plan(contextualMessage, catalog, pageData);
+      const planResult = hasSiteContext
+        ? await planner.planSiteAware(contextualMessage, catalog, otherPageActions, pageSummaries, pageData)
+        : await planner.plan(contextualMessage, catalog, pageData);
+
+      // Handle navigation-only responses
+      if (planResult.kind === 'navigate') {
+        chat.addMessage('system', `Navigating to ${planResult.page}...`);
+        persistNavigation(planResult.page, text, history, true);
+        window.location.href = planResult.page;
+        return;
+      }
 
       // Handle informational answers (no action to execute)
       if (planResult.kind === 'answer') {
@@ -338,6 +393,51 @@ async function init(): Promise<void> {
       if (!manifest) {
         chat.addMessage('error', 'No manifest available — cannot execute.');
         chat.setEnabled(true);
+        return;
+      }
+
+      // Check if the planned action is on the current page
+      const isOnCurrentPage = catalog.actions.some((a) => a.action === request.action);
+
+      if (!isOnCurrentPage) {
+        // Cross-page navigation needed
+        const targetPage = getPageForAction(manifest, request.action);
+        if (!targetPage) {
+          chat.addMessage('error', `Action "${request.action}" not mapped to any page in manifest.`);
+          chat.setEnabled(true);
+          return;
+        }
+
+        if (hasNavigatedThisSession) {
+          // We already navigated this session. Check if we're on the correct page
+          // but the action has no DOM element (safety net).
+          const currentPath = window.location.pathname.replace(/\/$/, '');
+          const normalizedTarget = targetPage.replace(/\/$/, '');
+          if (currentPath === normalizedTarget) {
+            // We're on the right page — this is a view/read action.
+            // Serve page data as the result.
+            const viewData = scrapePageData();
+            if (viewData) {
+              const answer = await planner.query(text, viewData);
+              chat.addMessage('assistant', answer);
+              history.push({ role: 'assistant', text: answer });
+            } else {
+              chat.addMessage('assistant', `Navigated to ${targetPage}. The requested content is now visible.`);
+              history.push({ role: 'assistant', text: `Navigated to ${targetPage}` });
+            }
+            lastPlan = null;
+            chat.setEnabled(true);
+            return;
+          }
+
+          chat.addMessage('error', `Action "${request.action}" not found after navigation — aborting to prevent loop.`);
+          chat.setEnabled(true);
+          return;
+        }
+
+        chat.addMessage('system', `Navigating to ${targetPage}...`);
+        persistNavigation(targetPage, text, history);
+        window.location.href = targetPage;
         return;
       }
 

@@ -206,8 +206,9 @@ DOM annotations help discovery and UI interaction. For generation and validation
 
 ### Manifest Responsibilities
 
-- Action registry with descriptions
-- Page-level organization (route → actions)
+- **Action registry** — executable operations with descriptions, risk, confirmation, input/output schemas
+- **Data view registry** — read-only data sources (`manifest.data`). Navigating to the page is the "execution"; agents can query the visible data.
+- **Page-level organization** (route → actions + data) — enables **cross-page navigation**: the agent widget uses `pages` to discover which actions and data views exist on other routes, builds a site-aware prompt, and auto-navigates when the user requests an action or data on a different page
 - Typed input/output schemas
 - Risk and confirmation metadata
 - Scopes
@@ -278,10 +279,35 @@ DOM annotations help discovery and UI interaction. For generation and validation
       }
     }
   },
+  "data": {
+    "invoice.list": {
+      "title": "List invoices",
+      "description": "All invoices with customer, amount, currency, and status.",
+      "scope": "invoices.read",
+      "outputSchema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "customer_email": { "type": "string" },
+            "amount": { "type": "number" },
+            "currency": { "type": "string" },
+            "status": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
   "pages": {
     "/invoices/new": {
       "title": "Create Invoice",
       "actions": ["invoice.create"]
+    },
+    "/invoices/": {
+      "title": "Invoice List",
+      "description": "Table listing all invoices with their status.",
+      "data": ["invoice.list"]
     },
     "/settings/": {
       "title": "Settings",
@@ -298,7 +324,37 @@ DOM annotations help discovery and UI interaction. For generation and validation
 
 ---
 
-## 6.6 Linter: Site Audit with `aaf-lint`
+## 6.6 Planner Response Types
+
+A planner returns one of three response kinds to the runtime:
+
+| Kind | JSON shape | Meaning |
+|------|-----------|---------|
+| **action** | `{ "action": "invoice.create", "args": { ... } }` | Execute an action with the given arguments |
+| **navigate** | `{ "navigate": "/settings/" }` | Navigate to a page (no action to execute on arrival) |
+| **answer** | `{ "action": "none", "answer": "..." }` | Direct answer from page data — no action or navigation needed |
+
+### Navigation semantics
+
+When the runtime receives an `action` response for an action on another page, it navigates there and **re-plans** on arrival (the action still needs to be executed). When it receives a `navigate` response, it navigates and **stops** — the navigation itself was the user's goal.
+
+This distinction prevents infinite loops: without it, a request like "go to the settings page" would navigate to `/settings/`, re-plan, fail to map the request to an action, and loop.
+
+The canonical TypeScript type is `PlannerResult` in `@agent-accessibility-framework/contracts`.
+
+### Implementation note: LLM response normalization
+
+The canonical formats above are what the spec defines. In practice, LLMs frequently produce variations — especially for `navigate`:
+
+- `{ "action": "navigate", "args": { "page": "/settings/" } }` instead of `{ "navigate": "/settings/" }`
+- Relative paths (`"invoices/new"`) instead of absolute (`"/invoices/new"`)
+- Full URLs (`"http://localhost:5173/settings/"`) instead of pathnames
+
+Planner implementations SHOULD normalize these gracefully rather than rejecting them. The reference parser in `aaf-planner-local` handles all of the above by extracting the pathname and prepending `/` when needed.
+
+---
+
+## 6.7 Linter: Site Audit with `aaf-lint`
 
 The `aaf-lint` CLI audits annotation coverage for agent accessibility. It scores how much of a page's interactive elements (forms, fields, buttons) have `data-agent-*` annotations and whether a manifest is present.
 

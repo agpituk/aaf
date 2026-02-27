@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OllamaPlanner } from './ollama-planner.js';
 import type { ActionCatalog } from '@agent-accessibility-framework/runtime-core';
+import type { ManifestActionSummary, PageSummary } from '@agent-accessibility-framework/planner-local';
 
 const mockCatalog: ActionCatalog = {
   actions: [
@@ -234,6 +235,128 @@ describe('OllamaPlanner', () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
 
       await expect(planner.query('Any data?', 'some context')).rejects.toThrow('No LLM backend');
+      fetchSpy.mockRestore();
+    });
+  });
+
+  describe('planSiteAware()', () => {
+    const otherPageActions: ManifestActionSummary[] = [
+      {
+        action: 'workspace.delete',
+        title: 'Delete workspace',
+        description: 'Permanently deletes the workspace.',
+        page: '/settings/',
+        pageTitle: 'Settings',
+        risk: 'high',
+        confirmation: 'required',
+        fields: ['delete_confirmation_text'],
+      },
+    ];
+
+    const pages: PageSummary[] = [
+      { route: '/invoices/', title: 'Invoice List', description: 'All invoices', hasActions: false, hasData: true },
+      { route: '/settings/', title: 'Settings', hasActions: true, hasData: false },
+    ];
+
+    it('plans with site-aware context including off-page actions', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+      fetchSpy.mockImplementation(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/tags')) {
+          return new Response('{}', { status: 200 });
+        }
+        if (url.includes('/api/generate')) {
+          return new Response(
+            JSON.stringify({
+              response: makeOllamaResponse({ action: 'workspace.delete', args: { delete_confirmation_text: 'DELETE' } }),
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response('', { status: 404 });
+      });
+
+      const result = await planner.planSiteAware('Delete my workspace', mockCatalog, otherPageActions, pages);
+
+      expect(result.kind).toBe('action');
+      if (result.kind !== 'action') throw new Error('unexpected');
+      expect(result.request.action).toBe('workspace.delete');
+      expect(result.request.args.delete_confirmation_text).toBe('DELETE');
+      fetchSpy.mockRestore();
+    });
+
+    it('includes off-page actions in the system prompt sent to Ollama', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+      fetchSpy.mockImplementation(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/tags')) {
+          return new Response('{}', { status: 200 });
+        }
+        if (url.includes('/api/generate')) {
+          return new Response(
+            JSON.stringify({
+              response: makeOllamaResponse({ action: 'invoice.create', args: { customer_email: 'a@b.com', amount: 1, currency: 'EUR' } }),
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response('', { status: 404 });
+      });
+
+      await planner.planSiteAware('Create invoice', mockCatalog, otherPageActions, pages);
+
+      // Verify the system prompt includes off-page action info
+      const generateCall = fetchSpy.mock.calls.find(
+        (call) => typeof call[0] === 'string' && call[0].includes('/api/generate'),
+      );
+      expect(generateCall).toBeDefined();
+      const body = JSON.parse((generateCall![1] as RequestInit).body as string);
+      expect(body.system).toContain('workspace.delete');
+      expect(body.system).toContain('/settings/');
+      expect(body.system).toContain('navigation');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('retries on parse failure', async () => {
+      let generateCallCount = 0;
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+      fetchSpy.mockImplementation(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/tags')) {
+          return new Response('{}', { status: 200 });
+        }
+        if (url.includes('/api/generate')) {
+          generateCallCount++;
+          if (generateCallCount === 1) {
+            return new Response(
+              JSON.stringify({ response: 'not valid json' }),
+              { status: 200 },
+            );
+          }
+          return new Response(
+            JSON.stringify({
+              response: makeOllamaResponse({ action: 'workspace.delete', args: { delete_confirmation_text: 'DELETE' } }),
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response('', { status: 404 });
+      });
+
+      const result = await planner.planSiteAware('Delete workspace', mockCatalog, otherPageActions, pages);
+      expect(result.kind).toBe('action');
+      expect(generateCallCount).toBe(2);
+      fetchSpy.mockRestore();
+    });
+
+    it('throws when no LLM backend is available', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+
+      await expect(planner.planSiteAware('Delete workspace', mockCatalog, otherPageActions, pages)).rejects.toThrow('No LLM backend');
       fetchSpy.mockRestore();
     });
   });

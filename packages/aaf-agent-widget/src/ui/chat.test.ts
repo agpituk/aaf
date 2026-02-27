@@ -100,4 +100,25 @@ describe('ChatUI', () => {
     expect(input.disabled).toBe(false);
     expect(sendBtn.disabled).toBe(false);
   });
+
+  it('open() opens a closed panel', () => {
+    const chat = new ChatUI({ onSubmit: vi.fn() });
+    const panel = chat.shadow.querySelector('.aaf-panel')!;
+
+    expect(panel.classList.contains('open')).toBe(false);
+    chat.open();
+    expect(panel.classList.contains('open')).toBe(true);
+  });
+
+  it('open() is a no-op if panel is already open', () => {
+    const chat = new ChatUI({ onSubmit: vi.fn() });
+    const panel = chat.shadow.querySelector('.aaf-panel')!;
+
+    chat.open();
+    expect(panel.classList.contains('open')).toBe(true);
+
+    // Call open() again — should stay open, not toggle closed
+    chat.open();
+    expect(panel.classList.contains('open')).toBe(true);
+  });
 });

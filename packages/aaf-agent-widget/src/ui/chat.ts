@@ -71,6 +71,13 @@ export class ChatUI {
     });
   }
 
+  /** Open the chat panel (no-op if already open) */
+  open(): void {
+    if (!this.panel.classList.contains('open')) {
+      this.togglePanel();
+    }
+  }
+
   /** Mount the widget into the document */
   mount(): void {
     document.body.appendChild(this.host);

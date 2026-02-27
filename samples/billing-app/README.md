@@ -47,6 +47,12 @@ For the high-risk confirmation flow:
 2. Type: "Delete the workspace"
 3. A confirmation dialog appears inside the widget before execution
 
+For cross-page navigation:
+
+1. Navigate to `/invoices/new`
+2. Type: "Delete my workspace"
+3. The widget recognizes that `workspace.delete` is on `/settings/`, navigates there, restores the conversation, and continues execution
+
 ## Agent Manifest
 
 Available at `/.well-known/agent-manifest.json` when the dev server is running.

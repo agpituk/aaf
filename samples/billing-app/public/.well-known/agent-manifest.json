@@ -40,37 +40,6 @@
         }
       }
     },
-    "invoice.list": {
-      "title": "List invoices",
-      "description": "Retrieves all invoices. Read-only, no side effects.",
-      "scope": "invoices.read",
-      "risk": "none",
-      "confirmation": "never",
-      "idempotent": true,
-      "inputSchema": {
-        "type": "object",
-        "properties": {}
-      },
-      "outputSchema": {
-        "type": "object",
-        "required": ["invoices"],
-        "properties": {
-          "invoices": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string" },
-                "customer_email": { "type": "string" },
-                "amount": { "type": "number" },
-                "currency": { "type": "string" },
-                "status": { "type": "string" }
-              }
-            }
-          }
-        }
-      }
-    },
     "workspace.delete": {
       "title": "Delete workspace",
       "description": "Permanently deletes the workspace. This is irreversible and requires typing DELETE to confirm.",
@@ -94,6 +63,32 @@
       }
     }
   },
+  "data": {
+    "invoice.list": {
+      "title": "List invoices",
+      "description": "All invoices with customer, amount, currency, and status.",
+      "scope": "invoices.read",
+      "outputSchema": {
+        "type": "object",
+        "required": ["invoices"],
+        "properties": {
+          "invoices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "customer_email": { "type": "string" },
+                "amount": { "type": "number" },
+                "currency": { "type": "string" },
+                "status": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "pages": {
     "/invoices/new": {
       "title": "Create Invoice",
@@ -103,7 +98,7 @@
     "/invoices/": {
       "title": "Invoice List",
       "description": "Table listing all invoices with their status.",
-      "actions": ["invoice.list"]
+      "data": ["invoice.list"]
     },
     "/settings/": {
       "title": "Settings",

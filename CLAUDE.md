@@ -15,7 +15,7 @@ npm run benchmark     # Generate falsification reliability report
 
 1. **UI Layer** — Human-facing website (unchanged)
 2. **Agent Semantics Layer** — `data-agent-*` DOM attributes (kind, action, field, danger, confirm, scope)
-3. **Agent Manifest Layer** — `/.well-known/agent-manifest.json` with action schemas and policies
+3. **Agent Manifest Layer** — `/.well-known/agent-manifest.json` with action schemas, data view definitions, and policies
 4. **Tooling Layer** — Runtimes, SDKs, linters, LLM planner
 
 ## Monorepo Layout
@@ -30,7 +30,7 @@ packages/
   aaf-planner-local/         # Local LLM planner (Ollama client, prompt builder, response parser)
   aaf-agent-widget/          # Embeddable agent chat widget (Ollama LLM, shadow DOM)
 samples/
-  billing-app/               # Reference app with AAF annotations + widget (3 pages, 3 actions)
+  billing-app/               # Reference app with AAF annotations + widget (3 pages, 2 actions, 1 data view)
 schemas/
   agent-manifest.schema.json # JSON Schema for manifest validation
 tests/
@@ -41,21 +41,27 @@ docs/                        # Spec documents (vision, standard, security)
 
 ## Core Concepts
 
-- **Actions**: dot-notation identifiers (`invoice.create`, `workspace.delete`). Sub-actions use extra dot (`invoice.create.submit`).
+- **Actions**: Executable operations with dot-notation identifiers (`invoice.create`, `workspace.delete`). Sub-actions use extra dot (`invoice.create.submit`).
+- **Data Views**: Read-only data sources (`invoice.list`). Defined in `manifest.data`, referenced from `page.data`. Navigating to the page is the "execution" — the widget scrapes and answers questions about the visible data.
 - **Fields**: snake_case identifiers (`customer_email`, `amount`). Linked to actions via nesting or `data-agent-for-action`.
 - **Risk/Confirmation**: Three tiers — `optional` (fill and submit automatically), `review` (fill only, user submits manually, returns `awaiting_review`), `required` (blocked without user consent, returns `needs_confirmation`). `danger="high"` + `confirm="required"` blocks execution.
 - **AAFAdapter interface**: `detect() → discover() → validate() → execute()`. Implemented by `PlaywrightAdapter` (testing).
-- **Agent Widget**: Embeddable `<script>` that adds a floating chat panel to any AAF-annotated page. Uses Ollama for LLM planning. Shadow DOM isolation.
+- **Agent Widget**: Embeddable `<script>` that adds a floating chat panel to any AAF-annotated page. Uses Ollama for LLM planning. Shadow DOM isolation. Supports **cross-page navigation** — the widget reads all actions from the manifest, plans against them regardless of which page the user is on, and auto-navigates when the target action is on a different page (conversation history persists via sessionStorage).
 - **Contract rule**: Planners send semantic action names + args, NEVER selectors. Validators reject selector-like values.
 
 ## Execution Flow
 
 1. **Discover** — `SemanticParser.discoverActions(root)` on DOM → `ActionCatalog`
-2. **Plan** — LLM maps user intent to `PlannerRequest { action, args }`
-3. **Validate** — `ManifestValidator.validateInput()` checks args against JSON Schema
-4. **Policy** — `PolicyEngine.checkExecution()` enforces risk/confirmation rules
-5. **Execute** — Fill fields (native value setter + events), click submit, read status
-6. **Log** — `ExecutionLogger` records semantic steps (fill, click, read_status)
+2. **Site-aware context** — `buildSiteActions` + `buildPageSummaries` add off-page actions and navigable pages from the manifest
+3. **Plan** — LLM maps user intent to one of three response types:
+   - `{ kind: 'action', request }` — executable action with args
+   - `{ kind: 'navigate', page }` — navigation-only intent (e.g. "go to settings")
+   - `{ kind: 'answer', text }` — direct answer from page data (data chat mode)
+4. **Navigate** (if needed) — If the planned action is on another page, or the LLM returns a navigate response, persist conversation to sessionStorage and navigate via `window.location.href`. On page load, the widget restores the conversation and re-plans.
+5. **Validate** — `ManifestValidator.validateInput()` checks args against JSON Schema
+6. **Policy** — `PolicyEngine.checkExecution()` enforces risk/confirmation rules
+7. **Execute** — Fill fields (native value setter + events), click submit, read status
+8. **Log** — `ExecutionLogger` records semantic steps (fill, click, read_status, navigate)
 
 ## Conventions
 
@@ -77,4 +83,5 @@ docs/                        # Spec documents (vision, standard, security)
 | `packages/aaf-agent-widget/src/widget.ts` | Embeddable agent widget entry point (detects AAF, mounts UI, wires planner) |
 | `packages/aaf-agent-widget/src/ollama-planner.ts` | Ollama planner for local LLM inference |
 | `packages/aaf-agent-widget/src/ui/chat.ts` | Shadow DOM floating chat panel |
+| `packages/aaf-agent-widget/src/navigation.ts` | Cross-page navigation helpers (buildSiteActions, persist/check pending nav) |
 | `samples/billing-app/public/.well-known/agent-manifest.json` | Reference manifest |

@@ -88,6 +88,82 @@ describe('parseResponse', () => {
     ).toThrow();
   });
 
+  it('parses navigate response', () => {
+    const result = parseResponse('{"navigate": "/settings/"}');
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/settings/');
+  });
+
+  it('normalizes navigate response with relative path', () => {
+    const result = parseResponse('{"navigate": "settings"}');
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/settings');
+  });
+
+  it('normalizes navigate response with full URL', () => {
+    const result = parseResponse('{"navigate": "http://localhost:5173/invoices/new/"}');
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/invoices/new/');
+  });
+
+  it('rejects navigate response with empty path', () => {
+    expect(() =>
+      parseResponse('{"navigate": ""}')
+    ).toThrow('must be a path');
+  });
+
+  it('parses navigate response wrapped in markdown', () => {
+    const raw = '```json\n{"navigate": "/invoices/"}\n```';
+    const result = parseResponse(raw);
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/invoices/');
+  });
+
+  it('converts action="navigate" with args.page to navigate response', () => {
+    const result = parseResponse('{"action": "navigate", "args": {"page": "/invoices/new/"}}');
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/invoices/new/');
+  });
+
+  it('converts action="navigate" with args.route to navigate response', () => {
+    const result = parseResponse('{"action": "navigate", "args": {"route": "/settings/"}}');
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/settings/');
+  });
+
+  it('normalizes action="navigate" with relative page path', () => {
+    const result = parseResponse('{"action": "navigate", "args": {"page": "invoices/new"}}');
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/invoices/new');
+  });
+
+  it('converts action="navigate" with full URL in args', () => {
+    const result = parseResponse('{"action": "navigate", "args": {"url": "http://localhost:5173/settings/"}}');
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/settings/');
+  });
+
+  it('finds page from any string arg as fallback', () => {
+    const result = parseResponse('{"action": "navigate", "args": {"where": "/invoices/"}}');
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/invoices/');
+  });
+
+  it('rejects action="navigate" with no args', () => {
+    expect(() =>
+      parseResponse('{"action": "navigate", "args": {}}')
+    ).toThrow('recognizable page path');
+  });
+
   it('handles nested JSON strings in args', () => {
     const raw = '{"action": "invoice.create", "args": {"customer_email": "alice@example.com", "amount": 120, "currency": "EUR", "memo": "Payment for \\"services\\""}}';
     const result = parseResponse(raw);

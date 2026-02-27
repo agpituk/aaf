@@ -114,6 +114,49 @@ describe('generateSDK', () => {
   });
 });
 
+describe('generateSDK with data views', () => {
+  const manifestWithData: AgentManifest = {
+    ...billingManifest,
+    data: {
+      'invoice.list': {
+        title: 'List invoices',
+        description: 'All invoices with customer, amount, currency, and status.',
+        scope: 'invoices.read',
+        outputSchema: {
+          type: 'object',
+          required: ['invoices'],
+          properties: {
+            invoices: { type: 'array' },
+          },
+        },
+      },
+    },
+  };
+  const files = generateSDK(manifestWithData);
+
+  it('generates output type for data views (no input type)', () => {
+    const types = files.get('types.ts')!;
+    expect(types).toContain('InvoiceListOutput');
+    expect(types).not.toContain('InvoiceListInput');
+  });
+
+  it('generates GET method for data views', () => {
+    const client = files.get('client.ts')!;
+    expect(client).toContain('invoiceList');
+    expect(client).toContain('/api/data/invoice.list');
+    // Data view method should not take input params
+    expect(client).toContain('async invoiceList(): Promise<InvoiceListOutput>');
+    expect(client).toContain('DataViewMetadata');
+  });
+
+  it('includes DataViewMetadata interface', () => {
+    const client = files.get('client.ts')!;
+    expect(client).toContain('export interface DataViewMetadata');
+    expect(client).toContain('title: string');
+    expect(client).toContain('scope: string');
+  });
+});
+
 describe('generateCLI', () => {
   const files = generateCLI(billingManifest);
 
@@ -144,5 +187,23 @@ describe('generateCLI', () => {
     const cli = files.get('cli.ts')!;
     expect(cli).toContain('actions');
     expect(cli).toContain('Available actions');
+  });
+
+  it('separates data views from actions in CLI', () => {
+    const manifestWithData: AgentManifest = {
+      ...billingManifest,
+      data: {
+        'invoice.list': {
+          title: 'List invoices',
+          scope: 'invoices.read',
+          outputSchema: { type: 'object', properties: {} },
+        },
+      },
+    };
+    const cliFiles = generateCLI(manifestWithData);
+    const cli = cliFiles.get('cli.ts')!;
+    expect(cli).toContain('DATA_VIEWS');
+    expect(cli).toContain('invoice.list');
+    expect(cli).toContain('read-only');
   });
 });

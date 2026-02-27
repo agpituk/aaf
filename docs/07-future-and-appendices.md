@@ -7,6 +7,7 @@ These are expected and healthy.
 - **How should multi-step workflows be modeled?**
   - `checkout.step1`, `checkout.step2`?
   - Workflow graph in manifest?
+  - *Partially addressed*: cross-page navigation in the widget (v0.1) allows the agent to plan and execute actions across pages using the manifest's `pages` map, with conversation persistence via sessionStorage.
 - **Should result extraction be explicit in DOM?**
   - `data-agent-result-field="invoice_id"` on status/result nodes?
 - **How should localization work?**
@@ -71,6 +72,7 @@ All initial bootstrap steps have been completed:
 - ~~ESLint plugin~~ — done (`aaf-eslint-plugin`)
 - ~~Vite plugin~~ — done (`aaf-vite-plugin`)
 - ~~Site-wide linter/auditor~~ — done (`aaf-lint` with `--crawl`)
+- ~~Cross-page navigation in widget~~ — done (manifest-driven site-aware planning, sessionStorage conversation persistence, loop guard)
 
 ---
 

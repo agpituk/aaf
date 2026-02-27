@@ -25,11 +25,17 @@
     },
     "actions": {
       "type": "object",
-      "description": "Map of action identifiers to action definitions.",
+      "description": "Map of action identifiers to executable action definitions.",
       "additionalProperties": {
         "$ref": "#/definitions/Action"
-      },
-      "minProperties": 1
+      }
+    },
+    "data": {
+      "type": "object",
+      "description": "Map of data view identifiers to read-only data definitions. Navigating to the page is the 'execution'.",
+      "additionalProperties": {
+        "$ref": "#/definitions/DataView"
+      }
     },
     "errors": {
       "type": "object",
@@ -69,7 +75,7 @@
     },
     "Page": {
       "type": "object",
-      "required": ["title", "actions"],
+      "required": ["title"],
       "additionalProperties": false,
       "properties": {
         "title": {
@@ -83,7 +89,36 @@
         "actions": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Action identifiers available on this page."
+          "description": "Executable action identifiers available on this page."
+        },
+        "data": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Read-only data view identifiers available on this page."
+        }
+      }
+    },
+    "DataView": {
+      "type": "object",
+      "required": ["title", "scope", "outputSchema"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Human-readable data view title."
+        },
+        "description": {
+          "type": "string",
+          "description": "LLM-friendly description of what data is available."
+        },
+        "scope": {
+          "type": "string",
+          "description": "Permission scope required to read this data.",
+          "pattern": "^[a-z][a-z0-9_.]*$"
+        },
+        "outputSchema": {
+          "type": "object",
+          "description": "JSON Schema for the data structure."
         }
       }
     },

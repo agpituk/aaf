@@ -6,6 +6,7 @@ export { coerceArgs, type CoerceResult, type Coercion } from './coerce-args.js';
 export type {
   AgentManifest,
   AgentAction,
+  AgentDataView,
   AgentPage,
   AgentKind,
   SemanticElement,

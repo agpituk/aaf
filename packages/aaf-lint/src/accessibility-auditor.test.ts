@@ -114,6 +114,19 @@ describe('auditHTML', () => {
     expect(manifestCategory!.score).toBe(0);
   });
 
+  it('gives manifest score 100 for manifest with empty actions and data views', () => {
+    const result = auditHTML('<div></div>', {
+      manifest: {
+        version: '0.1',
+        site: { name: 'Test', origin: 'https://test.com' },
+        actions: {},
+        data: { 'invoice.list': { title: 'Invoices', scope: 'invoices.read', outputSchema: {} } },
+      },
+    });
+    const manifestCategory = result.categories.find((c) => c.category === 'manifest');
+    expect(manifestCategory!.score).toBe(100);
+  });
+
   it('computes a weighted overall score', () => {
     // All categories at 100 should yield 100
     const result = auditHTML('<div>No forms, fields, or buttons</div>', {

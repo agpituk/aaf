@@ -124,7 +124,7 @@
     <div class="card" data-agent-kind="collection" data-agent-action="examples.collection-table">
       <h2>Collection Table — Invoice List (Billing App)</h2>
       <div data-agent-kind="item">
-        <p>A data table uses <code>data-agent-kind="collection"</code> on the container and <code>kind="item"</code> on each row. The <code>data-agent-action</code> on a collection serves as a label, not an executable action. This is from the billing app's <code>/invoices/</code> page.</p>
+        <p>A data table uses <code>data-agent-kind="collection"</code> on the container and <code>kind="item"</code> on each row. The <code>data-agent-action</code> on a collection identifies the data view (defined in <code>manifest.data</code>, not <code>manifest.actions</code>). Data views are read-only — the agent navigates to the page and queries the visible content. This is from the billing app's <code>/invoices/</code> page.</p>
       </div>
       <div data-agent-kind="item">
 <pre><code>&lt;div

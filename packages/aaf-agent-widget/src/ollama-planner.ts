@@ -1,6 +1,7 @@
 import type { ActionCatalog } from '@agent-accessibility-framework/runtime-core';
 import type { PlannerRequest } from '@agent-accessibility-framework/contracts';
-import { buildSystemPrompt, buildUserPrompt } from '@agent-accessibility-framework/planner-local';
+import { buildSystemPrompt, buildUserPrompt, buildSiteAwarePrompt } from '@agent-accessibility-framework/planner-local';
+import type { ManifestActionSummary, PageSummary } from '@agent-accessibility-framework/planner-local';
 import { parseResponse, type ParsedPlannerResult } from '@agent-accessibility-framework/planner-local';
 
 const MAX_RETRIES = 2;
@@ -25,6 +26,34 @@ export class OllamaPlanner {
       } catch (err) {
         lastError = err as Error;
         // Don't retry on API connectivity errors
+        if (lastError.message.includes('API error') || lastError.message.includes('No LLM backend')) {
+          throw lastError;
+        }
+      }
+    }
+
+    throw new Error(`Planner failed after ${MAX_RETRIES + 1} attempts: ${lastError?.message}`);
+  }
+
+  /** Plan using site-wide context: current-page actions (full detail) + other-page actions + navigable pages. */
+  async planSiteAware(
+    userMessage: string,
+    catalog: ActionCatalog,
+    otherPageActions: ManifestActionSummary[],
+    pages: PageSummary[],
+    pageData?: string,
+  ): Promise<ParsedPlannerResult> {
+    const systemPrompt = buildSiteAwarePrompt(catalog, otherPageActions, pages, pageData);
+    const userPrompt = buildUserPrompt(userMessage);
+
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const raw = await this.generate(userPrompt, systemPrompt);
+        return parseResponse(raw);
+      } catch (err) {
+        lastError = err as Error;
         if (lastError.message.includes('API error') || lastError.message.includes('No LLM backend')) {
           throw lastError;
         }

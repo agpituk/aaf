@@ -158,6 +158,38 @@ describe('checkAlignment', () => {
     expect(results.some((r) => r.message.includes('invoice.create') && r.message.includes('no corresponding'))).toBe(true);
   });
 
+  it('validates page.data references against manifest.data', () => {
+    const html = `<div data-agent-kind="collection" data-agent-action="invoice.list"></div>`;
+    const manifest = {
+      actions: {},
+      data: { 'invoice.list': {} },
+      pages: { '/invoices/': { title: 'Invoices', data: ['invoice.list'] } },
+    };
+    const results = checkAlignment(html, manifest);
+    expect(results).toHaveLength(0);
+  });
+
+  it('warns when page.data references undefined data view', () => {
+    const html = `<div></div>`;
+    const manifest = {
+      actions: {},
+      pages: { '/invoices/': { title: 'Invoices', data: ['invoice.list'] } },
+    };
+    const results = checkAlignment(html, manifest);
+    expect(results.some((r) => r.message.includes('invoice.list') && r.message.includes('data view'))).toBe(true);
+  });
+
+  it('handles pages with only data (no actions)', () => {
+    const html = `<div data-agent-kind="collection" data-agent-action="invoice.list"></div>`;
+    const manifest = {
+      actions: {},
+      data: { 'invoice.list': {} },
+      pages: { '/invoices/': { title: 'Invoices', data: ['invoice.list'] } },
+    };
+    const results = checkAlignment(html, manifest);
+    expect(results).toHaveLength(0);
+  });
+
   it('warns when manifest field not found in DOM', () => {
     const html = `
       <form data-agent-kind="action" data-agent-action="invoice.create">

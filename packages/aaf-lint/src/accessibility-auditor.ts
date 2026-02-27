@@ -226,7 +226,8 @@ function auditManifest(options?: AuditOptions): CategoryScore {
   const manifest = options.manifest;
   let score = 50; // base score for having a manifest
 
-  if (manifest.version && manifest.site && manifest.actions) {
+  const hasActions = manifest.actions !== undefined;
+  if (manifest.version && manifest.site && hasActions) {
     checks.push({
       category: 'manifest',
       check: 'manifest_valid',
@@ -238,7 +239,7 @@ function auditManifest(options?: AuditOptions): CategoryScore {
     const missing = [];
     if (!manifest.version) missing.push('version');
     if (!manifest.site) missing.push('site');
-    if (!manifest.actions) missing.push('actions');
+    if (!hasActions) missing.push('actions');
     checks.push({
       category: 'manifest',
       check: 'manifest_valid',

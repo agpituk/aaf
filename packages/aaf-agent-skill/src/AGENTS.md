@@ -67,7 +67,8 @@ Sub-actions add an extra dot segment: `parent_action.submit`.
 </div>
 ```
 
-### Collections & Items
+### Collections & Items (Data Views)
+Collections reference read-only data views (defined in `manifest.data`, not `manifest.actions`).
 ```html
 <div data-agent-kind="collection" data-agent-action="invoice.list">
   <div data-agent-kind="item" data-agent-output="invoice">...</div>

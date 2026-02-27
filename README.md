@@ -92,6 +92,7 @@ Open `http://localhost:5173/invoices/new` and click the chat bubble in the botto
 | "Create an invoice for alice@example.com for 120 EUR" | Fills the form but does not submit (review mode) — user clicks submit |
 | "Send a bill to bob@test.com for 50 USD" | Plans and executes `invoice.create` |
 | "Delete the workspace" (on `/settings/`) | Triggers high-risk confirmation dialog |
+| "Delete my workspace" (on `/invoices/new`) | **Cross-page navigation** — widget sees the action exists on `/settings/`, navigates there, restores the conversation, and executes |
 
 On the invoices list page (`/invoices/`), the widget enters **data chat mode** — you can ask questions about the visible invoices like "How many invoices are there?" or "What's the total amount?"
 
@@ -224,7 +225,9 @@ Actions declare risk and confirmation requirements. The runtime enforces them �
 ```
 User message
   -> Discover actions on page (SemanticParser)
+  -> Build site-wide context from manifest (off-page actions)
   -> LLM plans: { action: "invoice.create", args: { ... } }
+  -> If action is on another page: persist conversation, navigate, resume
   -> Validate args against manifest schema (ManifestValidator)
   -> Check policy: risk, confirmation, required fields (PolicyEngine)
   -> Execute: fill fields, click submit, read status (AAFAdapter)
@@ -255,6 +258,6 @@ This is a working prototype — I built it to prove (or disprove) the idea, not 
 - React and Vue bindings, ESLint plugin, Vite plugin
 - Interactive docs site (data chat mode — you can ask it questions about AAF)
 
-The widget demonstrates the full loop — chat, plan, validate, execute, confirm — running directly on any annotated page. On pages with only data collections (no actions), it enters **data chat mode** where you can ask questions about the visible content.
+The widget demonstrates the full loop — chat, plan, validate, execute, confirm — running directly on any annotated page. It supports **cross-page navigation**: if the user requests an action that exists on a different page, the widget auto-navigates there and resumes the conversation. On pages with only data collections (no actions), it enters **data chat mode** where you can ask questions about the visible content.
 
 I think the interesting question now is whether this pattern works on real product flows, not just sample apps. If you try it and have thoughts, I'd love to hear them.

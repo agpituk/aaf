@@ -7,10 +7,25 @@ export interface ScannedAction {
   fields: ScannedField[];
 }
 
+export interface ScannedDataView {
+  name: string;
+  scope?: string;
+}
+
 export interface ScannedField {
   field: string;
   tagName: string;
   forAction?: string;
+  inputType?: string;
+  required?: boolean;
+  min?: string;
+  max?: string;
+  step?: string;
+  pattern?: string;
+  maxLength?: string;
+  minLength?: string;
+  label?: string;
+  options?: string[];
 }
 
 /**
@@ -62,6 +77,42 @@ export function scanHtml(html: string): ScannedAction[] {
     const field: ScannedField = { field: fieldName, tagName };
     if (forAction) field.forAction = forAction;
 
+    const inputType = extractAttr(tagStr, 'type');
+    if (inputType) field.inputType = inputType;
+
+    if (/\brequired\b/i.test(tagStr)) field.required = true;
+
+    const min = extractAttr(tagStr, 'min');
+    if (min) field.min = min;
+    const max = extractAttr(tagStr, 'max');
+    if (max) field.max = max;
+    const step = extractAttr(tagStr, 'step');
+    if (step) field.step = step;
+    const pattern = extractAttr(tagStr, 'pattern');
+    if (pattern) field.pattern = pattern;
+    const maxLength = extractAttr(tagStr, 'maxlength');
+    if (maxLength) field.maxLength = maxLength;
+    const minLength = extractAttr(tagStr, 'minlength');
+    if (minLength) field.minLength = minLength;
+    const label = extractAttr(tagStr, 'aria-label');
+    if (label) field.label = label;
+
+    // Extract <option> values for <select> elements
+    if (tagName === 'select') {
+      const tagEnd = match.index! + match[0].length;
+      const closeIdx = html.indexOf('</select>', tagEnd);
+      if (closeIdx !== -1) {
+        const selectBody = html.slice(tagEnd, closeIdx);
+        const optionRegex = /<option\s[^>]*value=["']([^"']*)["'][^>]*>/gi;
+        const options: string[] = [];
+        let optMatch: RegExpExecArray | null;
+        while ((optMatch = optionRegex.exec(selectBody)) !== null) {
+          options.push(optMatch[1]);
+        }
+        if (options.length > 0) field.options = options;
+      }
+    }
+
     // If forAction is specified, link to that action
     if (forAction && actions.has(forAction)) {
       actions.get(forAction)!.fields.push(field);
@@ -78,6 +129,29 @@ export function scanHtml(html: string): ScannedAction[] {
   return Array.from(actions.values());
 }
 
+/**
+ * Scans HTML for data-agent-kind="collection" elements and returns them as data views.
+ * Collections reference data views via data-agent-action (a label, not an executable action).
+ */
+export function scanDataViews(html: string): ScannedDataView[] {
+  const views: Map<string, ScannedDataView> = new Map();
+  const collectionRegex = /<(\w+)\s[^>]*data-agent-kind=["']collection["'][^>]*>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = collectionRegex.exec(html)) !== null) {
+    const tagStr = match[0];
+    const name = extractAttr(tagStr, 'data-agent-action');
+    if (!name) continue;
+
+    const scope = extractAttr(tagStr, 'data-agent-scope');
+    const view: ScannedDataView = { name };
+    if (scope) view.scope = scope;
+    views.set(name, view);
+  }
+
+  return Array.from(views.values());
+}
+
 function extractAttr(tag: string, attr: string): string | undefined {
   const regex = new RegExp(`${attr}=["']([^"']*)["']`, 'i');
   const match = regex.exec(tag);
@@ -85,12 +159,50 @@ function extractAttr(tag: string, attr: string): string | undefined {
 }
 
 /**
- * Generates an agent-manifest.json from scanned actions.
+ * Maps a ScannedField to a JSON Schema property object.
+ */
+export function fieldToSchema(field: ScannedField): Record<string, unknown> {
+  const schema: Record<string, unknown> = {};
+
+  // Determine base type
+  if (field.tagName === 'select' && field.options && field.options.length > 0) {
+    schema.type = 'string';
+    schema.enum = field.options;
+  } else if (field.inputType === 'number') {
+    schema.type = 'number';
+    if (field.min !== undefined) schema.minimum = Number(field.min);
+    if (field.max !== undefined) schema.maximum = Number(field.max);
+  } else if (field.inputType === 'checkbox') {
+    schema.type = 'boolean';
+  } else {
+    schema.type = 'string';
+    // Format mappings
+    if (field.inputType === 'email') schema.format = 'email';
+    else if (field.inputType === 'url') schema.format = 'uri';
+    else if (field.inputType === 'date') schema.format = 'date';
+  }
+
+  // String constraints
+  if (schema.type === 'string') {
+    if (field.pattern) schema.pattern = field.pattern;
+    if (field.minLength !== undefined) schema.minLength = Number(field.minLength);
+    if (field.maxLength !== undefined) schema.maxLength = Number(field.maxLength);
+  }
+
+  // Label → description
+  if (field.label) schema.description = field.label;
+
+  return schema;
+}
+
+/**
+ * Generates an agent-manifest.json from scanned actions and data views.
  */
 export function generateManifest(
   actions: ScannedAction[],
   site: { name: string; origin: string; description?: string },
-  pageMap?: Record<string, string[]>,
+  pageMap?: Record<string, { actions: string[]; data: string[] }>,
+  dataViews?: ScannedDataView[],
 ): Record<string, unknown> {
   const manifest: Record<string, unknown> = {
     version: '0.1',
@@ -104,9 +216,13 @@ export function generateManifest(
     const properties: Record<string, unknown> = {};
     const required: string[] = [];
 
+    const isDangerous = action.danger === 'high' && action.confirm === 'required';
+
     for (const field of action.fields) {
-      properties[field.field] = { type: 'string' };
-      required.push(field.field);
+      properties[field.field] = fieldToSchema(field);
+      if (field.required || field.tagName === 'select' || isDangerous) {
+        required.push(field.field);
+      }
     }
 
     actionsObj[action.action] = {
@@ -127,13 +243,28 @@ export function generateManifest(
     };
   }
 
-  if (pageMap && Object.keys(pageMap).length > 0) {
-    const pages: Record<string, { title: string; actions: string[] }> = {};
-    for (const [route, actionNames] of Object.entries(pageMap)) {
-      pages[route] = {
-        title: route === '/' ? 'Home' : route.replace(/^\/|\/$/g, '').split('/').pop()!,
-        actions: actionNames,
+  // Data views
+  if (dataViews && dataViews.length > 0) {
+    const dataObj: Record<string, unknown> = {};
+    for (const view of dataViews) {
+      dataObj[view.name] = {
+        title: view.name.split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
+        scope: view.scope || view.name.split('.')[0] + '.read',
+        outputSchema: { type: 'object', properties: {} },
       };
+    }
+    manifest.data = dataObj;
+  }
+
+  if (pageMap && Object.keys(pageMap).length > 0) {
+    const pages: Record<string, Record<string, unknown>> = {};
+    for (const [route, entry] of Object.entries(pageMap)) {
+      const page: Record<string, unknown> = {
+        title: route === '/' ? 'Home' : route.replace(/^\/|\/$/g, '').split('/').pop()!,
+      };
+      if (entry.actions.length > 0) page.actions = entry.actions;
+      if (entry.data.length > 0) page.data = entry.data;
+      pages[route] = page;
     }
     manifest.pages = pages;
   }
