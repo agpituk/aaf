@@ -4,12 +4,14 @@ export interface ScannedAction {
   confirm?: string;
   scope?: string;
   idempotent?: string;
+  description?: string;
   fields: ScannedField[];
 }
 
 export interface ScannedDataView {
   name: string;
   scope?: string;
+  description?: string;
 }
 
 export interface ScannedField {
@@ -25,6 +27,8 @@ export interface ScannedField {
   maxLength?: string;
   minLength?: string;
   label?: string;
+  placeholder?: string;
+  title?: string;
   options?: string[];
 }
 
@@ -62,6 +66,15 @@ export function scanHtml(html: string): ScannedAction[] {
     if (scope) action.scope = scope;
     if (idempotent) action.idempotent = idempotent;
 
+    // Infer description: aria-label first, then nearest heading/legend
+    const ariaLabel = extractAttr(tagStr, 'aria-label');
+    if (ariaLabel) {
+      action.description = ariaLabel;
+    } else {
+      const heading = inferDescription(html, match.index!);
+      if (heading) action.description = heading;
+    }
+
     actions.set(actionName, action);
   }
 
@@ -96,6 +109,10 @@ export function scanHtml(html: string): ScannedAction[] {
     if (minLength) field.minLength = minLength;
     const label = extractAttr(tagStr, 'aria-label');
     if (label) field.label = label;
+    const placeholder = extractAttr(tagStr, 'placeholder');
+    if (placeholder) field.placeholder = placeholder;
+    const title = extractAttr(tagStr, 'title');
+    if (title) field.title = title;
 
     // Extract <option> values for <select> elements
     if (tagName === 'select') {
@@ -146,6 +163,16 @@ export function scanDataViews(html: string): ScannedDataView[] {
     const scope = extractAttr(tagStr, 'data-agent-scope');
     const view: ScannedDataView = { name };
     if (scope) view.scope = scope;
+
+    // Infer description: aria-label first, then nearest heading/legend
+    const ariaLabel = extractAttr(tagStr, 'aria-label');
+    if (ariaLabel) {
+      view.description = ariaLabel;
+    } else {
+      const heading = inferDescription(html, match.index!);
+      if (heading) view.description = heading;
+    }
+
     views.set(name, view);
   }
 
@@ -159,10 +186,55 @@ function extractAttr(tag: string, attr: string): string | undefined {
 }
 
 /**
+ * Infer a nearby heading or legend as a description for an element at the given position.
+ * Looks backward up to 500 characters for the nearest <h1>–<h6> or <legend> text.
+ */
+function inferDescription(html: string, elementPosition: number): string | undefined {
+  const lookback = html.slice(Math.max(0, elementPosition - 500), elementPosition);
+  // Find last heading or legend — match the *closest* one before the element
+  const headingRegex = /<(?:h[1-6]|legend)[^>]*>([^<]+)<\/(?:h[1-6]|legend)>/gi;
+  let lastMatch: RegExpExecArray | null = null;
+  let m: RegExpExecArray | null;
+  while ((m = headingRegex.exec(lookback)) !== null) {
+    lastMatch = m;
+  }
+  return lastMatch?.[1]?.trim() || undefined;
+}
+
+/** Semantic inference pattern table: field name → schema.org type + optional format */
+const FIELD_NAME_SEMANTICS: Array<{ pattern: RegExp; semantic: string; format?: string }> = [
+  { pattern: /email/i, semantic: 'https://schema.org/email', format: 'email' },
+  { pattern: /phone|mobile|cell/i, semantic: 'https://schema.org/telephone' },
+  { pattern: /\burl\b|website/i, semantic: 'https://schema.org/URL', format: 'uri' },
+  { pattern: /price|amount|cost/i, semantic: 'https://schema.org/price' },
+  { pattern: /name|first_name|last_name/i, semantic: 'https://schema.org/name' },
+  { pattern: /address|street/i, semantic: 'https://schema.org/address' },
+  { pattern: /zip|postal/i, semantic: 'https://schema.org/postalCode' },
+  { pattern: /country/i, semantic: 'https://schema.org/addressCountry' },
+  { pattern: /description|memo|notes/i, semantic: 'https://schema.org/description' },
+];
+
+/**
+ * Infer x-semantic type from a field name using known patterns.
+ * Returns { semantic, format? } or undefined if no match.
+ */
+export function inferSemanticFromFieldName(fieldName: string): { semantic: string; format?: string } | undefined {
+  for (const entry of FIELD_NAME_SEMANTICS) {
+    if (entry.pattern.test(fieldName)) {
+      const result: { semantic: string; format?: string } = { semantic: entry.semantic };
+      if (entry.format) result.format = entry.format;
+      return result;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Maps a ScannedField to a JSON Schema property object.
  */
 export function fieldToSchema(field: ScannedField): Record<string, unknown> {
   const schema: Record<string, unknown> = {};
+  let hasInputTypeSemantic = false;
 
   // Determine base type and infer x-semantic from input type
   if (field.tagName === 'select' && field.options && field.options.length > 0) {
@@ -172,22 +244,36 @@ export function fieldToSchema(field: ScannedField): Record<string, unknown> {
     schema.type = 'number';
     if (field.min !== undefined) schema.minimum = Number(field.min);
     if (field.max !== undefined) schema.maximum = Number(field.max);
+    if (field.step !== undefined) schema.multipleOf = Number(field.step);
   } else if (field.inputType === 'checkbox') {
     schema.type = 'boolean';
   } else {
     schema.type = 'string';
-    // Format mappings + semantic type inference
+    // Format mappings + semantic type inference from input type
     if (field.inputType === 'email') {
       schema.format = 'email';
       schema['x-semantic'] = 'https://schema.org/email';
+      hasInputTypeSemantic = true;
     } else if (field.inputType === 'url') {
       schema.format = 'uri';
       schema['x-semantic'] = 'https://schema.org/URL';
+      hasInputTypeSemantic = true;
     } else if (field.inputType === 'date') {
       schema.format = 'date';
       schema['x-semantic'] = 'https://schema.org/Date';
+      hasInputTypeSemantic = true;
     } else if (field.inputType === 'tel') {
       schema['x-semantic'] = 'https://schema.org/telephone';
+      hasInputTypeSemantic = true;
+    }
+  }
+
+  // Field-name semantic inference (only when input type didn't already set x-semantic)
+  if (!hasInputTypeSemantic && !schema['x-semantic']) {
+    const inferred = inferSemanticFromFieldName(field.field);
+    if (inferred) {
+      schema['x-semantic'] = inferred.semantic;
+      if (inferred.format && !schema.format) schema.format = inferred.format;
     }
   }
 
@@ -198,8 +284,14 @@ export function fieldToSchema(field: ScannedField): Record<string, unknown> {
     if (field.maxLength !== undefined) schema.maxLength = Number(field.maxLength);
   }
 
-  // Label → description
-  if (field.label) schema.description = field.label;
+  // Description fallback chain: aria-label > placeholder > title
+  if (field.label) {
+    schema.description = field.label;
+  } else if (field.placeholder) {
+    schema.description = field.placeholder;
+  } else if (field.title) {
+    schema.description = field.title;
+  }
 
   return schema;
 }
@@ -234,7 +326,7 @@ export function generateManifest(
       }
     }
 
-    actionsObj[action.action] = {
+    const actionEntry: Record<string, unknown> = {
       title: action.action.split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
       scope: action.scope || action.action.split('.')[0] + '.write',
       risk: action.danger || 'none',
@@ -250,17 +342,21 @@ export function generateManifest(
         properties: {},
       },
     };
+    if (action.description) actionEntry.description = action.description;
+    actionsObj[action.action] = actionEntry;
   }
 
   // Data views
   if (dataViews && dataViews.length > 0) {
     const dataObj: Record<string, unknown> = {};
     for (const view of dataViews) {
-      dataObj[view.name] = {
+      const viewEntry: Record<string, unknown> = {
         title: view.name.split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
         scope: view.scope || view.name.split('.')[0] + '.read',
         outputSchema: { type: 'object', properties: {} },
       };
+      if (view.description) viewEntry.description = view.description;
+      dataObj[view.name] = viewEntry;
     }
     manifest.data = dataObj;
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scanHtml, scanDataViews, generateManifest, fieldToSchema } from './html-scanner.js';
+import { scanHtml, scanDataViews, generateManifest, fieldToSchema, inferSemanticFromFieldName } from './html-scanner.js';
 
 describe('scanHtml', () => {
   it('extracts action from HTML', () => {
@@ -143,9 +143,9 @@ describe('generateManifest', () => {
     });
     expect(invoiceAction.inputSchema.required).toContain('customer_email');
 
-    // number → type: "number", minimum
+    // number → type: "number", minimum, multipleOf (from step), x-semantic (from field name)
     expect(invoiceAction.inputSchema.properties.amount).toEqual({
-      type: 'number', minimum: 0,
+      type: 'number', minimum: 0, multipleOf: 0.01, 'x-semantic': 'https://schema.org/price',
     });
     expect(invoiceAction.inputSchema.required).toContain('amount');
 
@@ -155,9 +155,9 @@ describe('generateManifest', () => {
     });
     expect(invoiceAction.inputSchema.required).toContain('currency');
 
-    // textarea without required → not in required[]
+    // textarea without required → not in required[], memo infers x-semantic
     expect(invoiceAction.inputSchema.properties.memo).toEqual({
-      type: 'string', description: 'Memo',
+      type: 'string', description: 'Memo', 'x-semantic': 'https://schema.org/description',
     });
     expect(invoiceAction.inputSchema.required).not.toContain('memo');
   });
@@ -276,7 +276,7 @@ describe('fieldToSchema', () => {
 
   it('includes aria-label as description', () => {
     expect(fieldToSchema({ field: 'name', tagName: 'input', label: 'Full name' }))
-      .toEqual({ type: 'string', description: 'Full name' });
+      .toEqual({ type: 'string', description: 'Full name', 'x-semantic': 'https://schema.org/name' });
   });
 
   it('defaults to string for plain input', () => {
@@ -286,6 +286,147 @@ describe('fieldToSchema', () => {
 
   it('defaults to string for textarea', () => {
     expect(fieldToSchema({ field: 'notes', tagName: 'textarea', label: 'Notes' }))
-      .toEqual({ type: 'string', description: 'Notes' });
+      .toEqual({ type: 'string', description: 'Notes', 'x-semantic': 'https://schema.org/description' });
+  });
+
+  it('maps step to multipleOf on number fields', () => {
+    expect(fieldToSchema({ field: 'qty', tagName: 'input', inputType: 'number', step: '0.01' }))
+      .toEqual({ type: 'number', multipleOf: 0.01 });
+  });
+
+  it('uses placeholder as description when no aria-label', () => {
+    expect(fieldToSchema({ field: 'x', tagName: 'input', placeholder: 'Enter value' }))
+      .toEqual({ type: 'string', description: 'Enter value' });
+  });
+
+  it('uses title as description when no aria-label or placeholder', () => {
+    expect(fieldToSchema({ field: 'x', tagName: 'input', title: 'Help text' }))
+      .toEqual({ type: 'string', description: 'Help text' });
+  });
+
+  it('prefers aria-label over placeholder and title', () => {
+    expect(fieldToSchema({ field: 'x', tagName: 'input', label: 'Label', placeholder: 'Placeholder', title: 'Title' }))
+      .toEqual({ type: 'string', description: 'Label' });
+  });
+
+  it('infers x-semantic from field name for email', () => {
+    expect(fieldToSchema({ field: 'customer_email', tagName: 'input' }))
+      .toEqual({ type: 'string', format: 'email', 'x-semantic': 'https://schema.org/email' });
+  });
+
+  it('infers x-semantic from field name for phone', () => {
+    expect(fieldToSchema({ field: 'phone_number', tagName: 'input' }))
+      .toEqual({ type: 'string', 'x-semantic': 'https://schema.org/telephone' });
+  });
+
+  it('infers x-semantic from field name for url/website', () => {
+    expect(fieldToSchema({ field: 'website', tagName: 'input' }))
+      .toEqual({ type: 'string', format: 'uri', 'x-semantic': 'https://schema.org/URL' });
+  });
+
+  it('does not override input-type semantic with field-name semantic', () => {
+    // input type=email already sets x-semantic; field name "customer_email" should not change it
+    expect(fieldToSchema({ field: 'customer_email', tagName: 'input', inputType: 'email' }))
+      .toEqual({ type: 'string', format: 'email', 'x-semantic': 'https://schema.org/email' });
+  });
+});
+
+describe('inferSemanticFromFieldName', () => {
+  it('matches email pattern', () => {
+    expect(inferSemanticFromFieldName('customer_email')).toEqual({ semantic: 'https://schema.org/email', format: 'email' });
+  });
+
+  it('matches phone pattern', () => {
+    expect(inferSemanticFromFieldName('mobile_number')).toEqual({ semantic: 'https://schema.org/telephone' });
+  });
+
+  it('matches price/amount pattern', () => {
+    expect(inferSemanticFromFieldName('total_amount')).toEqual({ semantic: 'https://schema.org/price' });
+  });
+
+  it('matches address pattern', () => {
+    expect(inferSemanticFromFieldName('street_address')).toEqual({ semantic: 'https://schema.org/address' });
+  });
+
+  it('matches country pattern', () => {
+    expect(inferSemanticFromFieldName('country')).toEqual({ semantic: 'https://schema.org/addressCountry' });
+  });
+
+  it('matches zip/postal pattern', () => {
+    expect(inferSemanticFromFieldName('postal_code')).toEqual({ semantic: 'https://schema.org/postalCode' });
+  });
+
+  it('matches description/memo/notes pattern', () => {
+    expect(inferSemanticFromFieldName('memo')).toEqual({ semantic: 'https://schema.org/description' });
+  });
+
+  it('returns undefined for unknown field names', () => {
+    expect(inferSemanticFromFieldName('foobar')).toBeUndefined();
+  });
+});
+
+describe('scanHtml description inference', () => {
+  it('extracts action description from aria-label', () => {
+    const html = `
+      <form data-agent-kind="action" data-agent-action="invoice.create" aria-label="Create a new invoice">
+      </form>
+    `;
+    const actions = scanHtml(html);
+    expect(actions[0].description).toBe('Create a new invoice');
+  });
+
+  it('infers action description from nearest heading', () => {
+    const html = `
+      <h2>Create Invoice</h2>
+      <form data-agent-kind="action" data-agent-action="invoice.create">
+      </form>
+    `;
+    const actions = scanHtml(html);
+    expect(actions[0].description).toBe('Create Invoice');
+  });
+
+  it('extracts placeholder and title from fields', () => {
+    const html = `
+      <form data-agent-kind="action" data-agent-action="user.update">
+        <input data-agent-kind="field" data-agent-field="name" placeholder="Enter name" title="Your full name" />
+      </form>
+    `;
+    const actions = scanHtml(html);
+    expect(actions[0].fields[0].placeholder).toBe('Enter name');
+    expect(actions[0].fields[0].title).toBe('Your full name');
+  });
+
+  it('extracts data view description from aria-label', () => {
+    const html = `
+      <div data-agent-kind="collection" data-agent-action="invoice.list" aria-label="All invoices"></div>
+    `;
+    const views = scanDataViews(html);
+    expect(views[0].description).toBe('All invoices');
+  });
+
+  it('infers data view description from nearest heading', () => {
+    const html = `
+      <h3>Invoice History</h3>
+      <div data-agent-kind="collection" data-agent-action="invoice.list"></div>
+    `;
+    const views = scanDataViews(html);
+    expect(views[0].description).toBe('Invoice History');
+  });
+});
+
+describe('generateManifest descriptions', () => {
+  it('includes action description when present', () => {
+    const actions = scanHtml(`
+      <form data-agent-kind="action" data-agent-action="invoice.create" aria-label="Create a new invoice">
+      </form>
+    `);
+    const manifest = generateManifest(actions, { name: 'Test', origin: 'http://localhost:3000' });
+    expect((manifest.actions as any)['invoice.create'].description).toBe('Create a new invoice');
+  });
+
+  it('includes data view description when present', () => {
+    const dataViews = [{ name: 'invoice.list', scope: 'invoices.read', description: 'All invoices' }];
+    const manifest = generateManifest([], { name: 'Test', origin: 'http://localhost:3000' }, undefined, dataViews);
+    expect((manifest.data as any)['invoice.list'].description).toBe('All invoices');
   });
 });
