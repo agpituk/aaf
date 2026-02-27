@@ -1,0 +1,16 @@
+{
+  "name": "aaf-init",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/cli.ts",
+  "bin": {
+    "aaf-init": "src/cli.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agent-accessibility-framework/vite-plugin": "*"
+  }
+}
