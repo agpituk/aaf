@@ -19,11 +19,16 @@ Note the dev server port (check `vite.config.*`, `package.json` scripts, or `.en
 
 **No packages need to be installed.** All annotations use standard `data-agent-*` HTML attributes that work natively in every framework. JSX, Vue templates, and Svelte all pass `data-*` attributes through to the DOM.
 
-## Step 1: Find all UI files
+## Step 1: Trace the route tree to find rendered components
 
-Glob for `**/*.{html,jsx,tsx,vue,svelte}` in the target directory. Skip `node_modules/`, `dist/`, `build/`, `.next/`.
+**Do NOT glob for all UI files and annotate them.** Instead, start from the router and trace which components are actually rendered:
 
-Focus on files that contain: forms, modals with inputs, data tables/lists, navigation menus, delete/destructive buttons.
+1. Find the router entry point (see Step 2 table below)
+2. For each route, follow the imports to the page/layout component
+3. From each page component, follow imports to the child components that contain forms, tables, buttons, etc.
+4. Only annotate components that are reachable from the route tree
+
+**CRITICAL — Do not annotate dead or legacy components.** Projects often have old components (e.g., `ChangePassword.tsx`) that are no longer imported anywhere in the route tree — a newer component (e.g., `PasswordEditor.tsx`) replaced them. If you annotate the dead component, the annotations are invisible because the component never renders. Always verify a component is imported and used by a route before annotating it.
 
 ## Step 2: Understand the routing
 
