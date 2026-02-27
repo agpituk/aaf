@@ -136,6 +136,42 @@ export function buildSiteDataViews(manifest: AgentManifest): DataViewSummary[] {
   return results;
 }
 
+/**
+ * Resolve an LLM-suggested navigation path against known routes.
+ * LLMs often hallucinate shortened paths (e.g., "/appearance" instead of "/settings/appearance").
+ * This function tries exact match first, then suffix match against known routes.
+ * Returns the corrected path, or the original if no match is found.
+ */
+export function resolveNavigationTarget(
+  suggestedPath: string,
+  knownRoutes: string[],
+): string {
+  const normalized = suggestedPath.endsWith('/') ? suggestedPath : suggestedPath + '/';
+  const normalizedNoSlash = normalized.replace(/\/$/, '');
+
+  // Exact match (with or without trailing slash)
+  for (const route of knownRoutes) {
+    const routeNorm = route.endsWith('/') ? route : route + '/';
+    if (routeNorm === normalized || route === normalizedNoSlash) {
+      return route;
+    }
+  }
+
+  // Suffix match — "/appearance" matches "/settings/appearance"
+  const suffix = normalizedNoSlash; // e.g., "/appearance"
+  const matches = knownRoutes.filter((route) => {
+    const routeNorm = route.replace(/\/$/, '');
+    return routeNorm.endsWith(suffix) && routeNorm !== suffix;
+  });
+
+  if (matches.length === 1) {
+    return matches[0];
+  }
+
+  // No match or ambiguous — return original
+  return suggestedPath;
+}
+
 /** Persist navigation intent to sessionStorage so the widget can resume after page load. */
 export function persistNavigation(
   targetPage: string,

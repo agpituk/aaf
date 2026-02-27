@@ -13,7 +13,7 @@ import { WidgetPlanner } from './widget-planner.js';
 import { readConfig, detectAvailableBackend } from './config.js';
 import { ChatUI } from './ui/chat.js';
 import { showConfirmation } from './ui/confirmation.js';
-import { buildSiteActions, buildSiteDataViews, buildPageSummaries, persistNavigation, checkPendingNavigation } from './navigation.js';
+import { buildSiteActions, buildSiteDataViews, buildPageSummaries, persistNavigation, checkPendingNavigation, resolveNavigationTarget } from './navigation.js';
 
 const MANIFEST_PATH = '/.well-known/agent-manifest.json';
 
@@ -379,9 +379,15 @@ async function init(): Promise<void> {
 
       // Handle navigation-only responses
       if (planResult.kind === 'navigate') {
-        chat.addMessage('system', `Navigating to ${planResult.page}...`);
-        persistNavigation(planResult.page, text, history, true);
-        window.location.href = planResult.page;
+        // Resolve LLM-suggested path against known routes to prevent hallucinated short paths
+        const knownRoutes = [
+          ...pageSummaries.map((p) => p.route),
+          ...discoveredLinks.map((l) => l.page),
+        ];
+        const resolvedPage = resolveNavigationTarget(planResult.page, knownRoutes);
+        chat.addMessage('system', `Navigating to ${resolvedPage}...`);
+        persistNavigation(resolvedPage, text, history, true);
+        window.location.href = resolvedPage;
         return;
       }
 
