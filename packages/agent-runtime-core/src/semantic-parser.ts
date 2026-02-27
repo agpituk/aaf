@@ -1,6 +1,6 @@
-import type { SemanticElement, AgentKind, DiscoveredAction, DiscoveredField, DiscoveredStatus } from './types.js';
+import type { SemanticElement, AgentKind, DiscoveredAction, DiscoveredField, DiscoveredStatus, DiscoveredLink } from './types.js';
 
-const AGENT_KINDS: Set<string> = new Set(['action', 'field', 'status', 'result', 'collection', 'item', 'dialog', 'step']);
+const AGENT_KINDS: Set<string> = new Set(['action', 'field', 'status', 'result', 'collection', 'item', 'dialog', 'step', 'link']);
 
 interface HtmlElement {
   tagName: string;
@@ -26,6 +26,7 @@ export class SemanticParser {
       idempotent: el.getAttribute('data-agent-idempotent') ?? undefined,
       forAction: el.getAttribute('data-agent-for-action') ?? undefined,
       version: el.getAttribute('data-agent-version') ?? undefined,
+      page: el.getAttribute('data-agent-page') ?? undefined,
       tagName: el.tagName.toLowerCase(),
       textContent: el.textContent?.trim() ?? undefined,
       children: this.parseChildren(el),
@@ -78,6 +79,28 @@ export class SemanticParser {
     }
 
     return actions;
+  }
+
+  discoverLinks(root: HtmlElement): DiscoveredLink[] {
+    const linkEls = root.querySelectorAll('[data-agent-kind="link"]');
+    const links: DiscoveredLink[] = [];
+    const seen = new Set<string>();
+
+    for (let i = 0; i < linkEls.length; i++) {
+      const el = linkEls[i];
+      const page = el.getAttribute('data-agent-page') ?? el.getAttribute('href');
+      if (!page) continue;
+      if (seen.has(page)) continue;
+      seen.add(page);
+
+      links.push({
+        page,
+        tagName: el.tagName.toLowerCase(),
+        textContent: el.textContent?.trim() ?? undefined,
+      });
+    }
+
+    return links;
   }
 
   private discoverFields(root: HtmlElement, actionEl: HtmlElement, actionName: string): DiscoveredField[] {

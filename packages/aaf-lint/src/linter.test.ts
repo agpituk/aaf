@@ -66,6 +66,42 @@ describe('lintHTML', () => {
     expect(results.some((r) => r.severity === 'warning' && r.message.includes('CamelCase'))).toBe(true);
   });
 
+  it('accepts data-agent-kind="link" as valid', () => {
+    const html = `<a href="/invoices/" data-agent-kind="link">Invoices</a>`;
+    const results = lintHTML(html);
+    expect(results).toHaveLength(0);
+  });
+
+  it('validates data-agent-page path format', () => {
+    const html = `<button data-agent-kind="link" data-agent-page="invoices">Go</button>`;
+    const results = lintHTML(html);
+    expect(results.some((r) => r.severity === 'warning' && r.message.includes('data-agent-page'))).toBe(true);
+  });
+
+  it('accepts data-agent-page starting with /', () => {
+    const html = `<button data-agent-kind="link" data-agent-page="/invoices/">Go</button>`;
+    const results = lintHTML(html);
+    expect(results).toHaveLength(0);
+  });
+
+  it('accepts data-agent-page starting with http', () => {
+    const html = `<button data-agent-kind="link" data-agent-page="https://docs.example.com">Docs</button>`;
+    const results = lintHTML(html);
+    expect(results).toHaveLength(0);
+  });
+
+  it('errors on non-<a> with kind="link" without data-agent-page', () => {
+    const html = `<button data-agent-kind="link">Go</button>`;
+    const results = lintHTML(html);
+    expect(results.some((r) => r.severity === 'error' && r.message.includes('non-<a>'))).toBe(true);
+  });
+
+  it('passes <a> with kind="link" without data-agent-page', () => {
+    const html = `<a href="/invoices/" data-agent-kind="link">Invoices</a>`;
+    const results = lintHTML(html);
+    expect(results).toHaveLength(0);
+  });
+
   it('includes line numbers in results', () => {
     const html = `line1\n<div data-agent-kind="invalid">test</div>\nline3`;
     const results = lintHTML(html, 'test.html');
@@ -185,6 +221,56 @@ describe('checkAlignment', () => {
       actions: {},
       data: { 'invoice.list': {} },
       pages: { '/invoices/': { title: 'Invoices', data: ['invoice.list'] } },
+    };
+    const results = checkAlignment(html, manifest);
+    expect(results).toHaveLength(0);
+  });
+
+  it('warns when internal link target does not match manifest pages', () => {
+    const html = `<a href="/unknown/" data-agent-kind="link">Unknown</a>`;
+    const manifest = {
+      actions: {},
+      pages: { '/invoices/': { title: 'Invoices' } },
+    };
+    const results = checkAlignment(html, manifest);
+    expect(results.some((r) => r.message.includes('/unknown/') && r.message.includes('manifest page route'))).toBe(true);
+  });
+
+  it('passes when internal link target matches manifest pages', () => {
+    const html = `<a href="/invoices/" data-agent-kind="link">Invoices</a>`;
+    const manifest = {
+      actions: {},
+      pages: { '/invoices/': { title: 'Invoices' } },
+    };
+    const results = checkAlignment(html, manifest);
+    expect(results).toHaveLength(0);
+  });
+
+  it('checks data-agent-page targets against manifest pages', () => {
+    const html = `<button data-agent-kind="link" data-agent-page="/missing/">Go</button>`;
+    const manifest = {
+      actions: {},
+      pages: { '/invoices/': { title: 'Invoices' } },
+    };
+    const results = checkAlignment(html, manifest);
+    expect(results.some((r) => r.message.includes('/missing/'))).toBe(true);
+  });
+
+  it('skips external link targets in manifest alignment', () => {
+    const html = `<a href="https://docs.example.com" data-agent-kind="link">Docs</a>`;
+    const manifest = {
+      actions: {},
+      pages: { '/invoices/': { title: 'Invoices' } },
+    };
+    const results = checkAlignment(html, manifest);
+    expect(results).toHaveLength(0);
+  });
+
+  it('normalizes trailing slashes when matching link targets', () => {
+    const html = `<a href="/invoices" data-agent-kind="link">Invoices</a>`;
+    const manifest = {
+      actions: {},
+      pages: { '/invoices/': { title: 'Invoices' } },
     };
     const results = checkAlignment(html, manifest);
     expect(results).toHaveLength(0);

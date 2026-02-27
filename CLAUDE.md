@@ -14,7 +14,7 @@ npm run benchmark     # Generate falsification reliability report
 ## Architecture (4 Layers)
 
 1. **UI Layer** — Human-facing website (unchanged)
-2. **Agent Semantics Layer** — `data-agent-*` DOM attributes (kind, action, field, danger, confirm, scope)
+2. **Agent Semantics Layer** — `data-agent-*` DOM attributes (kind, action, field, page, danger, confirm, scope)
 3. **Agent Manifest Layer** — `/.well-known/agent-manifest.json` with action schemas, data view definitions, and policies
 4. **Tooling Layer** — Runtimes, SDKs, linters, LLM planner
 
@@ -43,6 +43,7 @@ docs/                        # Spec documents (vision, standard, security)
 
 - **Actions**: Executable operations with dot-notation identifiers (`invoice.create`, `workspace.delete`). Sub-actions use extra dot (`invoice.create.submit`).
 - **Data Views**: Read-only data sources (`invoice.list`). Defined in `manifest.data`, referenced from `page.data`. Navigating to the page is the "execution" — the widget scrapes and answers questions about the visible data.
+- **Links**: Navigation elements annotated with `data-agent-kind="link"`. On `<a>` tags, target is derived from `href`; on non-`<a>` elements, `data-agent-page="/path/"` is required. `data-agent-page` can also override `href` on `<a>` tags. Both internal and external links are supported.
 - **Fields**: snake_case identifiers (`customer_email`, `amount`). Linked to actions via nesting or `data-agent-for-action`.
 - **Risk/Confirmation**: Three tiers — `optional` (fill and submit automatically), `review` (fill only, user submits manually, returns `awaiting_review`), `required` (blocked without user consent, returns `needs_confirmation`). `danger="high"` + `confirm="required"` blocks execution.
 - **AAFAdapter interface**: `detect() → discover() → validate() → execute()`. Implemented by `PlaywrightAdapter` (testing).
@@ -51,7 +52,7 @@ docs/                        # Spec documents (vision, standard, security)
 
 ## Execution Flow
 
-1. **Discover** — `SemanticParser.discoverActions(root)` on DOM → `ActionCatalog`
+1. **Discover** — `SemanticParser.discoverActions(root)` + `discoverLinks(root)` on DOM → `ActionCatalog` + `DiscoveredLink[]`
 2. **Site-aware context** — `buildSiteActions` + `buildPageSummaries` add off-page actions and navigable pages from the manifest
 3. **Plan** — LLM maps user intent to one of three response types:
    - `{ kind: 'action', request }` — executable action with args

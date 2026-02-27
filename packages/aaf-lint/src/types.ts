@@ -7,7 +7,7 @@ export interface LintResult {
   line?: number;
 }
 
-export type AuditCategory = 'forms' | 'fields' | 'actions' | 'safety' | 'manifest';
+export type AuditCategory = 'forms' | 'fields' | 'actions' | 'navigation' | 'safety' | 'manifest';
 
 export interface AuditCheck {
   category: AuditCategory;

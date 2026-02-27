@@ -13,6 +13,7 @@ export type {
   DiscoveredAction,
   DiscoveredField,
   DiscoveredStatus,
+  DiscoveredLink,
   LogStep,
   LogStepType,
   ExecutionLog,

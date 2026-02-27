@@ -16,6 +16,9 @@ interface ManifestActions {
 
 const ACTION_RE = /data-agent-action="([^"]*)"/g;
 const FIELD_RE = /data-agent-field="([^"]*)"/g;
+const LINK_PAGE_RE = /data-agent-page="([^"]*)"/g;
+const LINK_A_HREF_RE = /<a\b[^>]*data-agent-kind="link"[^>]*href="([^"]*)"[^>]*>/g;
+const LINK_A_HREF_ALT_RE = /<a\b[^>]*href="([^"]*)"[^>]*data-agent-kind="link"[^>]*>/g;
 
 export function checkAlignment(html: string, manifest: ManifestActions): LintResult[] {
   const results: LintResult[] = [];
@@ -81,6 +84,38 @@ export function checkAlignment(html: string, manifest: ManifestActions): LintRes
             message: `Page "${route}" references data view "${dataId}" which is not defined in manifest data`,
           });
         }
+      }
+    }
+  }
+
+  // Check: internal link targets should match manifest page routes
+  if (manifest.pages) {
+    const linkTargets = new Set<string>();
+
+    LINK_PAGE_RE.lastIndex = 0;
+    while ((match = LINK_PAGE_RE.exec(html)) !== null) {
+      linkTargets.add(match[1]);
+    }
+    LINK_A_HREF_RE.lastIndex = 0;
+    while ((match = LINK_A_HREF_RE.exec(html)) !== null) {
+      linkTargets.add(match[1]);
+    }
+    LINK_A_HREF_ALT_RE.lastIndex = 0;
+    while ((match = LINK_A_HREF_ALT_RE.exec(html)) !== null) {
+      linkTargets.add(match[1]);
+    }
+
+    const normalize = (p: string) => (p.endsWith('/') ? p : p + '/');
+    const manifestRoutes = new Set(Object.keys(manifest.pages).map(normalize));
+
+    for (const target of linkTargets) {
+      // Only validate internal targets (starting with /)
+      if (!target.startsWith('/')) continue;
+      if (!manifestRoutes.has(normalize(target))) {
+        results.push({
+          severity: 'warning',
+          message: `Link target "${target}" does not match any manifest page route`,
+        });
       }
     }
   }

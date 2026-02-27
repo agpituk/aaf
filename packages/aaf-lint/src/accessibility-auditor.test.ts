@@ -127,6 +127,44 @@ describe('auditHTML', () => {
     expect(manifestCategory!.score).toBe(100);
   });
 
+  it('gives navigation score 100 when all links annotated', () => {
+    const html = `
+      <a href="/invoices/" data-agent-kind="link">Invoices</a>
+      <a href="/settings/" data-agent-kind="link">Settings</a>
+    `;
+    const result = auditHTML(html);
+    const navCategory = result.categories.find((c) => c.category === 'navigation');
+    expect(navCategory!.score).toBe(100);
+  });
+
+  it('gives navigation score 0 when no links annotated', () => {
+    const html = `
+      <a href="/invoices/">Invoices</a>
+      <a href="/settings/">Settings</a>
+    `;
+    const result = auditHTML(html);
+    const navCategory = result.categories.find((c) => c.category === 'navigation');
+    expect(navCategory!.score).toBe(0);
+  });
+
+  it('gives navigation score 100 (empty) when no links exist', () => {
+    const html = '<div>No links here</div>';
+    const result = auditHTML(html);
+    const navCategory = result.categories.find((c) => c.category === 'navigation');
+    expect(navCategory!.score).toBe(100);
+    expect(navCategory!.empty).toBe(true);
+  });
+
+  it('counts external links toward navigation scoring', () => {
+    const html = `
+      <a href="https://docs.example.com" data-agent-kind="link">Docs</a>
+      <a href="/settings/">Settings</a>
+    `;
+    const result = auditHTML(html);
+    const navCategory = result.categories.find((c) => c.category === 'navigation');
+    expect(navCategory!.score).toBe(50);
+  });
+
   it('computes a weighted overall score', () => {
     // All categories at 100 should yield 100
     const result = auditHTML('<div>No forms, fields, or buttons</div>', {

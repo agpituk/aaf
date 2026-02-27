@@ -1,11 +1,11 @@
 import type { LintResult } from './types.js';
 
-const VALID_KINDS = new Set(['action', 'field', 'status', 'result', 'collection', 'item', 'dialog', 'step']);
+const VALID_KINDS = new Set(['action', 'field', 'status', 'result', 'collection', 'item', 'dialog', 'step', 'link']);
 const VALID_DANGER = new Set(['none', 'low', 'high']);
 const VALID_CONFIRM = new Set(['never', 'optional', 'review', 'required']);
 const VALID_IDEMPOTENT = new Set(['true', 'false']);
 
-const ATTR_PATTERN = /data-agent-(kind|action|field|output|danger|confirm|scope|idempotent|for-action|version)="([^"]*)"/g;
+const ATTR_PATTERN = /data-agent-(kind|action|field|output|danger|confirm|scope|idempotent|for-action|version|page)="([^"]*)"/g;
 
 export function lintHTML(html: string, source?: string): LintResult[] {
   const results: LintResult[] = [];
@@ -86,7 +86,28 @@ export function lintHTML(html: string, source?: string): LintResult[] {
             });
           }
           break;
+
+        case 'page':
+          if (!/^\//.test(value) && !/^https?:\/\//.test(value)) {
+            results.push({
+              severity: 'warning',
+              message: `data-agent-page value "${value}" should start with "/" or "http"`,
+              source,
+              line: lineNum,
+            });
+          }
+          break;
       }
+    }
+
+    // Cross-attribute check: kind="link" on non-<a> needs data-agent-page
+    if (/data-agent-kind="link"/.test(line) && !/<a\b/.test(line) && !/data-agent-page="/.test(line)) {
+      results.push({
+        severity: 'error',
+        message: `data-agent-kind="link" on non-<a> element requires data-agent-page`,
+        source,
+        line: lineNum,
+      });
     }
   }
 

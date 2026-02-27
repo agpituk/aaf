@@ -9,9 +9,9 @@
 <body>
   <nav>
     <span class="brand">Billing App</span>
-    <a href="/invoices/new">New Invoice</a>
-    <a href="/invoices/">Invoices</a>
-    <a href="/settings/">Settings</a>
+    <a href="/invoices/new" data-agent-kind="link">New Invoice</a>
+    <a href="/invoices/" data-agent-kind="link">Invoices</a>
+    <a href="/settings/" data-agent-kind="link">Settings</a>
   </nav>
   <main>
     <h1>Invoices</h1>
@@ -33,7 +33,7 @@
         </thead>
         <tbody id="invoice-tbody"></tbody>
       </table>
-      <div id="empty-state" class="empty" style="display:none;">No invoices yet. <a href="/invoices/new">Create one</a>.</div>
+      <div id="empty-state" class="empty" style="display:none;">No invoices yet. <a href="/invoices/new" data-agent-kind="link">Create one</a>.</div>
     </div>
   </main>
   <script type="module">

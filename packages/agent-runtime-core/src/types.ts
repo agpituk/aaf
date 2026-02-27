@@ -38,7 +38,7 @@ export interface AgentAction {
   outputSchema: Record<string, unknown>;
 }
 
-export type AgentKind = 'action' | 'field' | 'status' | 'result' | 'collection' | 'item' | 'dialog' | 'step';
+export type AgentKind = 'action' | 'field' | 'status' | 'result' | 'collection' | 'item' | 'dialog' | 'step' | 'link';
 
 export interface SemanticElement {
   kind: AgentKind;
@@ -51,6 +51,7 @@ export interface SemanticElement {
   idempotent?: string;
   forAction?: string;
   version?: string;
+  page?: string;
   tagName: string;
   textContent?: string;
   children: SemanticElement[];
@@ -79,6 +80,12 @@ export interface DiscoveredField {
 export interface DiscoveredStatus {
   output: string;
   tagName: string;
+}
+
+export interface DiscoveredLink {
+  page: string;
+  tagName: string;
+  textContent?: string;
 }
 
 export type LogStepType = 'navigate' | 'fill' | 'click' | 'read_status' | 'validate' | 'policy_check' | 'coerce';

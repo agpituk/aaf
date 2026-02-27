@@ -124,6 +124,19 @@ describe('SemanticParser', () => {
     expect(actions[0].submitAction).toBe('invoice.create.submit');
   });
 
+  it('recognizes link kind and page attribute', () => {
+    const el = mockElement('A', {
+      'data-agent-kind': 'link',
+      'data-agent-page': '/settings/',
+      href: '/old/',
+    }, [], 'Settings');
+
+    const result = parser.parseElement(el);
+    expect(result).not.toBeNull();
+    expect(result!.kind).toBe('link');
+    expect(result!.page).toBe('/settings/');
+  });
+
   it('discovers fields linked via data-agent-for-action', () => {
     const deleteBtn = mockElement('BUTTON', {
       'data-agent-kind': 'action',
@@ -144,5 +157,72 @@ describe('SemanticParser', () => {
     expect(actions[0].fields).toHaveLength(1);
     expect(actions[0].fields[0].field).toBe('delete_confirmation_text');
     expect(actions[0].fields[0].forAction).toBe('workspace.delete');
+  });
+
+  describe('discoverLinks', () => {
+    it('discovers <a> links using href', () => {
+      const link = mockElement('A', {
+        'data-agent-kind': 'link',
+        href: '/invoices/',
+      }, [], 'Invoices');
+      const root = mockElement('DIV', {}, [link]);
+
+      const links = parser.discoverLinks(root);
+      expect(links).toHaveLength(1);
+      expect(links[0].page).toBe('/invoices/');
+      expect(links[0].tagName).toBe('a');
+      expect(links[0].textContent).toBe('Invoices');
+    });
+
+    it('prefers data-agent-page over href', () => {
+      const link = mockElement('A', {
+        'data-agent-kind': 'link',
+        'data-agent-page': '/settings/',
+        href: '/old-settings/',
+      }, [], 'Settings');
+      const root = mockElement('DIV', {}, [link]);
+
+      const links = parser.discoverLinks(root);
+      expect(links).toHaveLength(1);
+      expect(links[0].page).toBe('/settings/');
+    });
+
+    it('discovers non-<a> elements with data-agent-page', () => {
+      const btn = mockElement('BUTTON', {
+        'data-agent-kind': 'link',
+        'data-agent-page': '/dashboard/',
+      }, [], 'Go to Dashboard');
+      const root = mockElement('DIV', {}, [btn]);
+
+      const links = parser.discoverLinks(root);
+      expect(links).toHaveLength(1);
+      expect(links[0].page).toBe('/dashboard/');
+      expect(links[0].tagName).toBe('button');
+    });
+
+    it('deduplicates by page target', () => {
+      const link1 = mockElement('A', {
+        'data-agent-kind': 'link',
+        href: '/invoices/',
+      }, [], 'Invoices');
+      const link2 = mockElement('A', {
+        'data-agent-kind': 'link',
+        href: '/invoices/',
+      }, [], 'View Invoices');
+      const root = mockElement('DIV', {}, [link1, link2]);
+
+      const links = parser.discoverLinks(root);
+      expect(links).toHaveLength(1);
+    });
+
+    it('skips elements without resolvable target', () => {
+      const btn = mockElement('BUTTON', {
+        'data-agent-kind': 'link',
+      }, [], 'Nowhere');
+      const root = mockElement('DIV', {}, [btn]);
+
+      const links = parser.discoverLinks(root);
+      expect(links).toHaveLength(0);
+    });
   });
 });

@@ -11,9 +11,10 @@ export interface AuditOptions {
 }
 
 const CATEGORY_WEIGHTS: Record<AuditCategory, number> = {
-  forms: 0.25,
-  fields: 0.25,
-  actions: 0.20,
+  forms: 0.20,
+  fields: 0.20,
+  actions: 0.15,
+  navigation: 0.15,
   safety: 0.20,
   manifest: 0.10,
 };
@@ -155,6 +156,46 @@ function auditActions(html: string): CategoryScore {
   return { category: 'actions', score: Math.round(ratio * 100), checks };
 }
 
+const ANCHOR_REGEX = /<a\b[^>]*href="[^"]*"[^>]*>/gi;
+const ANCHOR_WITH_LINK_KIND_REGEX = /<a\b[^>]*data-agent-kind="link"[^>]*>/gi;
+
+function auditNavigation(html: string): CategoryScore {
+  const checks: AuditCheck[] = [];
+  const allAnchors = html.match(ANCHOR_REGEX) || [];
+  const annotatedAnchors = html.match(ANCHOR_WITH_LINK_KIND_REGEX) || [];
+
+  if (allAnchors.length === 0) {
+    checks.push({
+      category: 'navigation',
+      check: 'links_present',
+      status: 'pass',
+      message: 'No links found (nothing to annotate)',
+    });
+    return { category: 'navigation', score: 100, checks, empty: true };
+  }
+
+  const ratio = annotatedAnchors.length / allAnchors.length;
+
+  if (ratio === 1) {
+    checks.push({
+      category: 'navigation',
+      check: 'links_annotated',
+      status: 'pass',
+      message: `All ${allAnchors.length} link(s) have data-agent-kind="link"`,
+    });
+  } else {
+    const missing = allAnchors.length - annotatedAnchors.length;
+    checks.push({
+      category: 'navigation',
+      check: 'links_annotated',
+      status: missing === allAnchors.length ? 'fail' : 'warning',
+      message: `${missing} of ${allAnchors.length} link(s) missing data-agent-kind="link"`,
+    });
+  }
+
+  return { category: 'navigation', score: Math.round(ratio * 100), checks };
+}
+
 function auditSafety(html: string): CategoryScore {
   const checks: AuditCheck[] = [];
   let match: RegExpExecArray | null;
@@ -263,6 +304,7 @@ export function auditHTML(html: string, options?: AuditOptions): AuditResult {
     auditForms(html),
     auditFields(html),
     auditActions(html),
+    auditNavigation(html),
     ...(options?.safety ? [auditSafety(html)] : []),
     auditManifest(options),
   ];
