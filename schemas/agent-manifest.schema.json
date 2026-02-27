@@ -116,6 +116,10 @@
           "description": "Permission scope required to read this data.",
           "pattern": "^[a-z][a-z0-9_.]*$"
         },
+        "inputSchema": {
+          "type": "object",
+          "description": "Optional JSON Schema for query parameters. When present, agents can pass filters that map to URL query params."
+        },
         "outputSchema": {
           "type": "object",
           "description": "JSON Schema for the data structure."

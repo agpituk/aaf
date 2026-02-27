@@ -42,9 +42,9 @@ docs/                        # Spec documents (vision, standard, security)
 ## Core Concepts
 
 - **Actions**: Executable operations with dot-notation identifiers (`invoice.create`, `workspace.delete`). Sub-actions use extra dot (`invoice.create.submit`).
-- **Data Views**: Read-only data sources (`invoice.list`). Defined in `manifest.data`, referenced from `page.data`. Navigating to the page is the "execution" — the widget scrapes and answers questions about the visible data.
+- **Data Views**: Read-only data sources (`invoice.list`). Defined in `manifest.data`, referenced from `page.data`. Navigating to the page is the "execution" — the widget scrapes and answers questions about the visible data. Data views with `inputSchema` are **queryable** — agents pass filter args that map to URL query params (e.g. `/invoices/?status=paid`).
 - **Links**: Navigation elements annotated with `data-agent-kind="link"`. On `<a>` tags, target is derived from `href`; on non-`<a>` elements, `data-agent-page="/path/"` is required. `data-agent-page` can also override `href` on `<a>` tags. Both internal and external links are supported.
-- **Fields**: snake_case identifiers (`customer_email`, `amount`). Linked to actions via nesting or `data-agent-for-action`.
+- **Fields**: snake_case identifiers (`customer_email`, `amount`). Linked to actions via nesting or `data-agent-for-action`. Fields in `inputSchema`/`outputSchema` may include `"x-semantic": "https://schema.org/email"` to express semantic type (manifest-only, no DOM changes).
 - **Risk/Confirmation**: Three tiers — `optional` (fill and submit automatically), `review` (fill only, user submits manually, returns `awaiting_review`), `required` (blocked without user consent, returns `needs_confirmation`). `danger="high"` + `confirm="required"` blocks execution.
 - **AAFAdapter interface**: `detect() → discover() → validate() → execute()`. Implemented by `PlaywrightAdapter` (testing).
 - **Agent Widget**: Embeddable `<script>` that adds a floating chat panel to any AAF-annotated page. Uses Ollama for LLM planning. Shadow DOM isolation. Supports **cross-page navigation** — the widget reads all actions from the manifest, plans against them regardless of which page the user is on, and auto-navigates when the target action is on a different page (conversation history persists via sessionStorage).
@@ -53,7 +53,7 @@ docs/                        # Spec documents (vision, standard, security)
 ## Execution Flow
 
 1. **Discover** — `SemanticParser.discoverActions(root)` + `discoverLinks(root)` on DOM → `ActionCatalog` + `DiscoveredLink[]`
-2. **Site-aware context** — `buildSiteActions` + `buildPageSummaries` add off-page actions and navigable pages from the manifest
+2. **Site-aware context** — `buildSiteActions` + `buildSiteDataViews` + `buildPageSummaries` add off-page actions, queryable data views, and navigable pages from the manifest
 3. **Plan** — LLM maps user intent to one of three response types:
    - `{ kind: 'action', request }` — executable action with args
    - `{ kind: 'navigate', page }` — navigation-only intent (e.g. "go to settings")
@@ -84,5 +84,6 @@ docs/                        # Spec documents (vision, standard, security)
 | `packages/aaf-agent-widget/src/widget.ts` | Embeddable agent widget entry point (detects AAF, mounts UI, wires planner) |
 | `packages/aaf-agent-widget/src/ollama-planner.ts` | Ollama planner for local LLM inference |
 | `packages/aaf-agent-widget/src/ui/chat.ts` | Shadow DOM floating chat panel |
-| `packages/aaf-agent-widget/src/navigation.ts` | Cross-page navigation helpers (buildSiteActions, persist/check pending nav) |
+| `packages/aaf-contracts/src/types.ts` | FieldSummary, DataViewSummary, PlannerRequest/RuntimeResponse types |
+| `packages/aaf-agent-widget/src/navigation.ts` | Cross-page navigation helpers (buildSiteActions, buildSiteDataViews, persist/check pending nav) |
 | `samples/billing-app/public/.well-known/agent-manifest.json` | Reference manifest |

@@ -249,7 +249,7 @@ describe('OllamaPlanner', () => {
         pageTitle: 'Settings',
         risk: 'high',
         confirmation: 'required',
-        fields: ['delete_confirmation_text'],
+        fields: [{ name: 'delete_confirmation_text' }],
       },
     ];
 

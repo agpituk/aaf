@@ -1,6 +1,6 @@
 # Design Principles and Examples
 
-## 16. MVP Rules (Keep It Small)
+## 9. MVP Rules (Keep It Small)
 
 To avoid getting stuck, v0.1 should stay narrow.
 
@@ -28,7 +28,7 @@ To avoid getting stuck, v0.1 should stay narrow.
 
 ---
 
-## 17. Design Principles
+## 10. Design Principles
 
 1. **UI-first, not API-only** — Agent must be able to interact with the website itself
 2. **Semantics over selectors** — `data-agent-field="customer_email"` beats `.input-primary:nth-child(2)`
@@ -40,13 +40,15 @@ To avoid getting stuck, v0.1 should stay narrow.
 
 ---
 
-## 18. Example End-to-End Flow
+## 11. Example End-to-End Flows
 
-### User Intent
+### 11a. Action: Create Invoice
+
+#### User Intent
 
 > "Create an invoice for alice@example.com for 120 EUR"
 
-### Agent Flow (UI mode)
+#### Agent Flow (UI mode)
 
 1. Runtime loads page
 2. Finds action `invoice.create`
@@ -59,7 +61,7 @@ To avoid getting stuck, v0.1 should stay narrow.
 6. Reads `invoice.create.status`
 7. Returns structured result
 
-### Agent Flow (Generated CLI)
+#### Agent Flow (Generated CLI)
 
 ```bash
 billing-agent invoice.create \
@@ -69,9 +71,26 @@ billing-agent invoice.create \
   --ui
 ```
 
-### Agent Flow (MCP Bridge)
+#### Agent Flow (MCP Bridge)
 
 1. LLM calls MCP tool `invoice.create`
 2. MCP wrapper uses runtime + semantics
 3. Website is operated
 4. Result returned to LLM
+
+---
+
+### 11b. Queryable Data View: Filter Invoices
+
+#### User Intent
+
+> "Show me paid invoices"
+
+#### Agent Flow
+
+1. LLM receives queryable data views in prompt (from `manifest.data` entries with `inputSchema`)
+2. Plans: `{ "action": "invoice.list", "args": { "status": "paid" } }`
+3. Runtime recognizes `invoice.list` as a data view (not an action)
+4. Navigates to `/invoices/?status=paid`
+5. Page reads URL query params and filters displayed invoices
+6. Widget scrapes filtered data and answers the user

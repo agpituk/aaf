@@ -158,6 +158,29 @@ describe('lintManifest', () => {
     expect(results.length).toBeGreaterThan(0);
     expect(results[0].severity).toBe('error');
   });
+
+  it('accepts a data view with inputSchema (queryable)', () => {
+    const manifest = {
+      version: '0.1',
+      site: { name: 'Test', origin: 'https://test.com' },
+      actions: {},
+      data: {
+        'invoice.list': {
+          title: 'List invoices',
+          scope: 'invoices.read',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              status: { type: 'string', enum: ['draft', 'sent', 'paid'] },
+            },
+          },
+          outputSchema: { type: 'object', properties: {} },
+        },
+      },
+    };
+    const results = lintManifest(manifest, schema);
+    expect(results).toHaveLength(0);
+  });
 });
 
 describe('checkAlignment', () => {

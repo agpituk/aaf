@@ -1,6 +1,6 @@
 # Future and Appendices
 
-## 19. Open Questions
+## 12. Open Questions
 
 These are expected and healthy.
 
@@ -25,7 +25,7 @@ These are expected and healthy.
 
 ---
 
-## 20. Standardization Strategy (After MVP)
+## 13. Standardization Strategy (After MVP)
 
 Do not start by asking for browser changes. Start by proving value.
 
@@ -57,7 +57,7 @@ At this stage we can discuss:
 
 ---
 
-## 21. Completed Bootstrap (v0.1)
+## 14. Completed Bootstrap (v0.1)
 
 All initial bootstrap steps have been completed:
 
@@ -73,10 +73,12 @@ All initial bootstrap steps have been completed:
 - ~~Vite plugin~~ — done (`aaf-vite-plugin`)
 - ~~Site-wide linter/auditor~~ — done (`aaf-lint` with `--crawl`)
 - ~~Cross-page navigation in widget~~ — done (manifest-driven site-aware planning, sessionStorage conversation persistence, loop guard)
+- ~~Semantic type annotations (`x-semantic`)~~ — done (optional schema.org URIs on manifest field properties, surfaced in LLM prompts)
+- ~~Queryable data views~~ — done (optional `inputSchema` on data views, query params → URL search params, filtered page rendering)
 
 ---
 
-## 22. Next Goals
+## 15. Next Goals
 
 - Conformance badge for websites ("Agent Semantics v0.1")
 - GitHub Action / CI to lint semantics on PRs

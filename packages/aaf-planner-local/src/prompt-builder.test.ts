@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildSystemPrompt, buildUserPrompt, buildSiteAwarePrompt } from './prompt-builder.js';
 import type { ManifestActionSummary, PageSummary } from './prompt-builder.js';
 import type { ActionCatalog } from '@agent-accessibility-framework/runtime-core';
+import type { DataViewSummary } from '@agent-accessibility-framework/contracts';
 
 const CATALOG: ActionCatalog = {
   actions: [
@@ -123,7 +124,7 @@ const OTHER_PAGE_ACTIONS: ManifestActionSummary[] = [
     pageTitle: 'Settings',
     risk: 'high',
     confirmation: 'required',
-    fields: ['delete_confirmation_text'],
+    fields: [{ name: 'delete_confirmation_text' }],
   },
 ];
 
@@ -178,5 +179,57 @@ describe('buildSiteAwarePrompt', () => {
     const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], []);
     expect(prompt).toContain('invoice.create');
     expect(prompt).not.toContain('other pages');
+  });
+
+  it('includes semantic annotations for off-page action fields', () => {
+    const actionsWithSemantic: ManifestActionSummary[] = [
+      {
+        action: 'invoice.create',
+        title: 'Create invoice',
+        page: '/invoices/new',
+        pageTitle: 'Create Invoice',
+        risk: 'low',
+        confirmation: 'review',
+        fields: [
+          { name: 'customer_email', semantic: 'https://schema.org/email' },
+          { name: 'amount', semantic: 'https://schema.org/price' },
+          { name: 'currency' },
+        ],
+      },
+    ];
+    const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, actionsWithSemantic, []);
+    expect(prompt).toContain('customer_email [schema.org/email]');
+    expect(prompt).toContain('amount [schema.org/price]');
+    expect(prompt).toContain('- currency');
+    expect(prompt).not.toContain('currency [');
+  });
+
+  it('includes queryable data views when provided', () => {
+    const dataViews: DataViewSummary[] = [
+      {
+        dataView: 'invoice.list',
+        title: 'List invoices',
+        description: 'All invoices with status.',
+        page: '/invoices/',
+        pageTitle: 'Invoice List',
+        fields: [
+          { name: 'status', semantic: 'https://schema.org/orderStatus' },
+          { name: 'min_amount', semantic: 'https://schema.org/price' },
+        ],
+      },
+    ];
+    const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], [], undefined, dataViews);
+    expect(prompt).toContain('DATA VIEW: invoice.list');
+    expect(prompt).toContain('/invoices/');
+    expect(prompt).toContain('Invoice List');
+    expect(prompt).toContain('status [schema.org/orderStatus]');
+    expect(prompt).toContain('min_amount [schema.org/price]');
+    expect(prompt).toContain('Query parameters');
+  });
+
+  it('omits data view block when no data views', () => {
+    const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], []);
+    expect(prompt).not.toContain('DATA VIEW');
+    expect(prompt).not.toContain('Queryable data views');
   });
 });

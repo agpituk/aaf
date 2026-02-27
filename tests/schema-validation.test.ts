@@ -236,4 +236,46 @@ describe('Agent Manifest Schema Validation', () => {
     };
     expect(validate(manifest)).toBe(true);
   });
+
+  it('accepts a data view with optional inputSchema (queryable)', () => {
+    const validate = createValidator();
+    const manifest = {
+      ...exampleManifest,
+      data: {
+        'invoice.list': {
+          title: 'List invoices',
+          scope: 'invoices.read',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              status: { type: 'string', enum: ['draft', 'sent', 'paid'] },
+              min_amount: { type: 'number' },
+            },
+          },
+          outputSchema: { type: 'object', properties: {} },
+        },
+      },
+    };
+    expect(validate(manifest)).toBe(true);
+  });
+
+  it('accepts x-semantic annotations inside inputSchema properties', () => {
+    const validate = createValidator();
+    const manifest = {
+      ...exampleManifest,
+      actions: {
+        'invoice.create': {
+          ...exampleManifest.actions['invoice.create'],
+          inputSchema: {
+            type: 'object',
+            properties: {
+              customer_email: { type: 'string', 'x-semantic': 'https://schema.org/email' },
+              amount: { type: 'number', 'x-semantic': 'https://schema.org/price' },
+            },
+          },
+        },
+      },
+    };
+    expect(validate(manifest)).toBe(true);
+  });
 });

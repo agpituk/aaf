@@ -207,15 +207,58 @@ DOM annotations help discovery and UI interaction. For generation and validation
 ### Manifest Responsibilities
 
 - **Action registry** — executable operations with descriptions, risk, confirmation, input/output schemas
-- **Data view registry** — read-only data sources (`manifest.data`). Navigating to the page is the "execution"; agents can query the visible data.
+- **Data view registry** — read-only data sources (`manifest.data`). Navigating to the page is the "execution"; agents can query the visible data. Data views with `inputSchema` are **queryable** — agents can pass filter parameters that map to URL query params.
 - **Page-level organization** (route → actions + data) — enables **cross-page navigation**: the agent widget uses `pages` to discover which actions and data views exist on other routes, builds a site-aware prompt, and auto-navigates when the user requests an action or data on a different page
-- Typed input/output schemas
+- Typed input/output schemas with optional **semantic type annotations** (`x-semantic`) referencing schema.org URIs
 - Risk and confirmation metadata
 - Scopes
 - Versioning
 - Error types
 - Site-level description for LLM context
 - Optional direct execution endpoints (if the site wants to expose them)
+
+### Semantic Type Annotations (`x-semantic`)
+
+Fields in `inputSchema.properties` or `outputSchema.properties` may include an optional `x-semantic` property whose value is a URI (typically a schema.org type). This lets agents understand that `customer_email` on Site A is the same concept as `customer_email` on Site B.
+
+```json
+"customer_email": {
+  "type": "string",
+  "format": "email",
+  "x-semantic": "https://schema.org/email"
+}
+```
+
+- `x-semantic` is a manifest-only convention — no changes to DOM attributes
+- No validation that the URI resolves to a real type (it's a hint, not a contract)
+- No `@context` resolution logic — just a plain URI string
+- The planner includes semantic hints in LLM prompts (e.g. `customer_email [schema.org/email]`)
+- The Vite plugin auto-infers `x-semantic` from HTML input types (`type="email"` → `schema.org/email`, `type="url"` → `schema.org/URL`, `type="date"` → `schema.org/Date`, `type="tel"` → `schema.org/telephone`)
+
+#### Relationship with `@context`
+
+The manifest's optional `@context` field is a JSON-LD context for consumers that process linked data. `x-semantic` is a simpler inline alternative that does not require JSON-LD processing. When both are present, `@context` should declare only namespace prefixes (e.g. `"schema": "https://schema.org/"`), while per-field semantics go in `x-semantic`. Do not duplicate the same mapping in both places.
+
+### Queryable Data Views
+
+Data views may include an optional `inputSchema` (same shape as action `inputSchema`). When present, agents can pass query parameters that the runtime translates to URL search params when navigating to the data view's page.
+
+```json
+"invoice.list": {
+  "title": "List invoices",
+  "scope": "invoices.read",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "status": { "type": "string", "enum": ["draft", "sent", "paid"] },
+      "min_amount": { "type": "number" }
+    }
+  },
+  "outputSchema": { ... }
+}
+```
+
+Flow: User says "show me paid invoices" → LLM returns `{"action": "invoice.list", "args": {"status": "paid"}}` → runtime navigates to `/invoices/?status=paid` → page loads pre-filtered → widget scrapes and presents results.
 
 ---
 
@@ -241,18 +284,18 @@ DOM annotations help discovery and UI interaction. For generation and validation
         "type": "object",
         "required": ["customer_email", "amount", "currency"],
         "properties": {
-          "customer_email": { "type": "string", "format": "email" },
-          "amount": { "type": "number", "minimum": 0 },
-          "currency": { "type": "string", "enum": ["EUR", "USD"] },
-          "memo": { "type": "string" }
+          "customer_email": { "type": "string", "format": "email", "x-semantic": "https://schema.org/email" },
+          "amount": { "type": "number", "minimum": 0, "x-semantic": "https://schema.org/price" },
+          "currency": { "type": "string", "enum": ["EUR", "USD"], "x-semantic": "https://schema.org/priceCurrency" },
+          "memo": { "type": "string", "x-semantic": "https://schema.org/description" }
         }
       },
       "outputSchema": {
         "type": "object",
         "required": ["invoice_id", "status"],
         "properties": {
-          "invoice_id": { "type": "string" },
-          "status": { "type": "string", "enum": ["draft", "sent"] }
+          "invoice_id": { "type": "string", "x-semantic": "https://schema.org/identifier" },
+          "status": { "type": "string", "enum": ["draft", "sent"], "x-semantic": "https://schema.org/orderStatus" }
         }
       }
     },
@@ -284,6 +327,13 @@ DOM annotations help discovery and UI interaction. For generation and validation
       "title": "List invoices",
       "description": "All invoices with customer, amount, currency, and status.",
       "scope": "invoices.read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["draft", "sent", "paid"], "x-semantic": "https://schema.org/orderStatus" },
+          "min_amount": { "type": "number", "x-semantic": "https://schema.org/price" }
+        }
+      },
       "outputSchema": {
         "type": "array",
         "items": {

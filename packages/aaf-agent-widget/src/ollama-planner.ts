@@ -1,7 +1,7 @@
 import type { ActionCatalog } from '@agent-accessibility-framework/runtime-core';
 import type { PlannerRequest } from '@agent-accessibility-framework/contracts';
 import { buildSystemPrompt, buildUserPrompt, buildSiteAwarePrompt } from '@agent-accessibility-framework/planner-local';
-import type { ManifestActionSummary, PageSummary } from '@agent-accessibility-framework/planner-local';
+import type { ManifestActionSummary, PageSummary, DataViewSummary } from '@agent-accessibility-framework/planner-local';
 import { parseResponse, type ParsedPlannerResult } from '@agent-accessibility-framework/planner-local';
 
 const MAX_RETRIES = 2;
@@ -42,8 +42,9 @@ export class OllamaPlanner {
     otherPageActions: ManifestActionSummary[],
     pages: PageSummary[],
     pageData?: string,
+    dataViews?: DataViewSummary[],
   ): Promise<ParsedPlannerResult> {
-    const systemPrompt = buildSiteAwarePrompt(catalog, otherPageActions, pages, pageData);
+    const systemPrompt = buildSiteAwarePrompt(catalog, otherPageActions, pages, pageData, dataViews);
     const userPrompt = buildUserPrompt(userMessage);
 
     let lastError: Error | null = null;

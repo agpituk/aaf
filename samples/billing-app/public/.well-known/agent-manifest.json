@@ -1,11 +1,7 @@
 {
   "@context": {
     "schema": "https://schema.org/",
-    "aaf": "https://aaf.dev/vocab#",
-    "customer_email": "schema:email",
-    "amount": "schema:price",
-    "currency": "schema:priceCurrency",
-    "memo": "schema:description"
+    "aaf": "https://aaf.dev/vocab#"
   },
   "version": "0.1",
   "site": {
@@ -25,18 +21,18 @@
         "type": "object",
         "required": ["customer_email", "amount", "currency"],
         "properties": {
-          "customer_email": { "type": "string", "format": "email" },
-          "amount": { "type": "number", "minimum": 0 },
-          "currency": { "type": "string", "enum": ["EUR", "USD"] },
-          "memo": { "type": "string" }
+          "customer_email": { "type": "string", "format": "email", "x-semantic": "https://schema.org/email" },
+          "amount": { "type": "number", "minimum": 0, "x-semantic": "https://schema.org/price" },
+          "currency": { "type": "string", "enum": ["EUR", "USD"], "x-semantic": "https://schema.org/priceCurrency" },
+          "memo": { "type": "string", "x-semantic": "https://schema.org/description" }
         }
       },
       "outputSchema": {
         "type": "object",
         "required": ["invoice_id", "status"],
         "properties": {
-          "invoice_id": { "type": "string" },
-          "status": { "type": "string", "enum": ["draft", "sent"] }
+          "invoice_id": { "type": "string", "x-semantic": "https://schema.org/identifier" },
+          "status": { "type": "string", "enum": ["draft", "sent"], "x-semantic": "https://schema.org/orderStatus" }
         }
       }
     },
@@ -68,6 +64,20 @@
       "title": "List invoices",
       "description": "All invoices with customer, amount, currency, and status.",
       "scope": "invoices.read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["draft", "sent", "paid"],
+            "x-semantic": "https://schema.org/orderStatus"
+          },
+          "min_amount": {
+            "type": "number",
+            "x-semantic": "https://schema.org/price"
+          }
+        }
+      },
       "outputSchema": {
         "type": "object",
         "required": ["invoices"],

@@ -5,6 +5,8 @@ export type {
   RuntimeStatus,
   DiscoveredActionSummary,
   DiscoveryReport,
+  FieldSummary,
+  DataViewSummary,
 } from './types.js';
 export {
   validatePlannerRequest,

@@ -137,9 +137,9 @@ describe('generateManifest', () => {
     expect(invoiceAction.risk).toBe('low');
     expect(invoiceAction.confirmation).toBe('optional');
 
-    // email → format: "email", required
+    // email → format: "email", x-semantic, required
     expect(invoiceAction.inputSchema.properties.customer_email).toEqual({
-      type: 'string', format: 'email', description: 'Customer email',
+      type: 'string', format: 'email', 'x-semantic': 'https://schema.org/email', description: 'Customer email',
     });
     expect(invoiceAction.inputSchema.required).toContain('customer_email');
 
@@ -234,19 +234,24 @@ describe('generateManifest', () => {
 });
 
 describe('fieldToSchema', () => {
-  it('maps email input to string with format', () => {
+  it('maps email input to string with format and x-semantic', () => {
     expect(fieldToSchema({ field: 'email', tagName: 'input', inputType: 'email' }))
-      .toEqual({ type: 'string', format: 'email' });
+      .toEqual({ type: 'string', format: 'email', 'x-semantic': 'https://schema.org/email' });
   });
 
-  it('maps url input to string with uri format', () => {
+  it('maps url input to string with uri format and x-semantic', () => {
     expect(fieldToSchema({ field: 'site', tagName: 'input', inputType: 'url' }))
-      .toEqual({ type: 'string', format: 'uri' });
+      .toEqual({ type: 'string', format: 'uri', 'x-semantic': 'https://schema.org/URL' });
   });
 
-  it('maps date input to string with date format', () => {
+  it('maps date input to string with date format and x-semantic', () => {
     expect(fieldToSchema({ field: 'dob', tagName: 'input', inputType: 'date' }))
-      .toEqual({ type: 'string', format: 'date' });
+      .toEqual({ type: 'string', format: 'date', 'x-semantic': 'https://schema.org/Date' });
+  });
+
+  it('maps tel input to string with x-semantic', () => {
+    expect(fieldToSchema({ field: 'phone', tagName: 'input', inputType: 'tel' }))
+      .toEqual({ type: 'string', 'x-semantic': 'https://schema.org/telephone' });
   });
 
   it('maps number input with min/max', () => {

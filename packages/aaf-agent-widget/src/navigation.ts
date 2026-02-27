@@ -1,6 +1,7 @@
 import type { AgentManifest } from '@agent-accessibility-framework/runtime-core';
 import { getPageForAction } from '@agent-accessibility-framework/runtime-core';
 import type { ManifestActionSummary, PageSummary } from '@agent-accessibility-framework/planner-local';
+import type { FieldSummary, DataViewSummary } from '@agent-accessibility-framework/planner-local';
 
 export const NAV_STORAGE_KEY = 'aaf-widget-pending-nav';
 const NAV_STALENESS_MS = 30_000;
@@ -34,9 +35,7 @@ export function buildSiteActions(
     const pageEntry = manifest.pages?.[page];
     if (!pageEntry) continue;
 
-    const fields = action.inputSchema?.properties
-      ? Object.keys(action.inputSchema.properties as Record<string, unknown>)
-      : [];
+    const fields = extractFieldSummaries(action.inputSchema?.properties as Record<string, Record<string, unknown>> | undefined);
 
     results.push({
       action: actionName,
@@ -75,6 +74,62 @@ export function buildPageSummaries(
       description: page.description,
       hasActions: (page.actions?.length ?? 0) > 0,
       hasData: (page.data?.length ?? 0) > 0,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Extract FieldSummary[] from a JSON Schema properties object.
+ * Reads the `x-semantic` annotation if present.
+ */
+function extractFieldSummaries(
+  properties: Record<string, Record<string, unknown>> | undefined,
+): FieldSummary[] {
+  if (!properties) return [];
+  return Object.entries(properties).map(([name, schema]) => {
+    const semantic = typeof schema['x-semantic'] === 'string' ? schema['x-semantic'] : undefined;
+    return semantic ? { name, semantic } : { name };
+  });
+}
+
+/**
+ * Build DataViewSummary[] for queryable data views (those with inputSchema) from the manifest.
+ * Only includes data views that have query parameters defined.
+ */
+export function buildSiteDataViews(manifest: AgentManifest): DataViewSummary[] {
+  if (!manifest.data || !manifest.pages) return [];
+
+  const results: DataViewSummary[] = [];
+
+  for (const [dvName, dv] of Object.entries(manifest.data)) {
+    // Only include data views that have an inputSchema (queryable)
+    if (!dv.inputSchema) continue;
+
+    // Find the page this data view belongs to
+    let dvPage: string | undefined;
+    let dvPageTitle: string | undefined;
+    for (const [route, page] of Object.entries(manifest.pages)) {
+      if (page.data?.includes(dvName)) {
+        dvPage = route;
+        dvPageTitle = page.title;
+        break;
+      }
+    }
+    if (!dvPage || !dvPageTitle) continue;
+
+    const fields = extractFieldSummaries(
+      (dv.inputSchema as Record<string, unknown>).properties as Record<string, Record<string, unknown>> | undefined,
+    );
+
+    results.push({
+      dataView: dvName,
+      title: dv.title,
+      description: dv.description,
+      page: dvPage,
+      pageTitle: dvPageTitle,
+      fields,
     });
   }
 

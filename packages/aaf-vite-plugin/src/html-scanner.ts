@@ -164,7 +164,7 @@ function extractAttr(tag: string, attr: string): string | undefined {
 export function fieldToSchema(field: ScannedField): Record<string, unknown> {
   const schema: Record<string, unknown> = {};
 
-  // Determine base type
+  // Determine base type and infer x-semantic from input type
   if (field.tagName === 'select' && field.options && field.options.length > 0) {
     schema.type = 'string';
     schema.enum = field.options;
@@ -176,10 +176,19 @@ export function fieldToSchema(field: ScannedField): Record<string, unknown> {
     schema.type = 'boolean';
   } else {
     schema.type = 'string';
-    // Format mappings
-    if (field.inputType === 'email') schema.format = 'email';
-    else if (field.inputType === 'url') schema.format = 'uri';
-    else if (field.inputType === 'date') schema.format = 'date';
+    // Format mappings + semantic type inference
+    if (field.inputType === 'email') {
+      schema.format = 'email';
+      schema['x-semantic'] = 'https://schema.org/email';
+    } else if (field.inputType === 'url') {
+      schema.format = 'uri';
+      schema['x-semantic'] = 'https://schema.org/URL';
+    } else if (field.inputType === 'date') {
+      schema.format = 'date';
+      schema['x-semantic'] = 'https://schema.org/Date';
+    } else if (field.inputType === 'tel') {
+      schema['x-semantic'] = 'https://schema.org/telephone';
+    }
   }
 
   // String constraints

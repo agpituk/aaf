@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { AgentManifest } from '@agent-accessibility-framework/runtime-core';
 import {
   buildSiteActions,
+  buildSiteDataViews,
   buildPageSummaries,
   persistNavigation,
   checkPendingNavigation,
@@ -103,7 +104,38 @@ describe('buildSiteActions', () => {
   it('extracts field names from inputSchema.properties', () => {
     const result = buildSiteActions(MANIFEST, []);
     const invoiceCreate = result.find((a) => a.action === 'invoice.create');
-    expect(invoiceCreate?.fields).toEqual(['customer_email', 'amount', 'currency']);
+    expect(invoiceCreate?.fields).toEqual([
+      { name: 'customer_email' },
+      { name: 'amount' },
+      { name: 'currency' },
+    ]);
+  });
+
+  it('extracts x-semantic annotations into FieldSummary', () => {
+    const manifest: AgentManifest = {
+      ...MANIFEST,
+      actions: {
+        ...MANIFEST.actions,
+        'invoice.create': {
+          ...MANIFEST.actions['invoice.create'],
+          inputSchema: {
+            type: 'object',
+            properties: {
+              customer_email: { type: 'string', 'x-semantic': 'https://schema.org/email' },
+              amount: { type: 'number', 'x-semantic': 'https://schema.org/price' },
+              currency: { type: 'string' },
+            },
+          },
+        },
+      },
+    };
+    const result = buildSiteActions(manifest, []);
+    const invoiceCreate = result.find((a) => a.action === 'invoice.create');
+    expect(invoiceCreate?.fields).toEqual([
+      { name: 'customer_email', semantic: 'https://schema.org/email' },
+      { name: 'amount', semantic: 'https://schema.org/price' },
+      { name: 'currency' },
+    ]);
   });
 
   it('returns [] when all actions are on current page', () => {
@@ -166,6 +198,55 @@ describe('buildPageSummaries', () => {
   it('returns [] when manifest has no pages', () => {
     const manifest: AgentManifest = { ...MANIFEST, pages: undefined };
     expect(buildPageSummaries(manifest, '/invoices/new')).toEqual([]);
+  });
+});
+
+// --- buildSiteDataViews ---
+
+describe('buildSiteDataViews', () => {
+  it('returns [] when no data views have inputSchema', () => {
+    const result = buildSiteDataViews(MANIFEST);
+    expect(result).toEqual([]);
+  });
+
+  it('returns queryable data views with inputSchema', () => {
+    const manifest: AgentManifest = {
+      ...MANIFEST,
+      data: {
+        'invoice.list': {
+          title: 'List invoices',
+          description: 'All invoices with status.',
+          scope: 'invoices.read',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              status: { type: 'string', enum: ['draft', 'sent', 'paid'], 'x-semantic': 'https://schema.org/orderStatus' },
+              min_amount: { type: 'number', 'x-semantic': 'https://schema.org/price' },
+            },
+          },
+          outputSchema: { type: 'object', properties: {} },
+        },
+      },
+    };
+    const result = buildSiteDataViews(manifest);
+    expect(result).toHaveLength(1);
+    expect(result[0].dataView).toBe('invoice.list');
+    expect(result[0].page).toBe('/invoices/');
+    expect(result[0].pageTitle).toBe('Invoice List');
+    expect(result[0].fields).toEqual([
+      { name: 'status', semantic: 'https://schema.org/orderStatus' },
+      { name: 'min_amount', semantic: 'https://schema.org/price' },
+    ]);
+  });
+
+  it('returns [] when manifest has no pages', () => {
+    const manifest: AgentManifest = { ...MANIFEST, pages: undefined };
+    expect(buildSiteDataViews(manifest)).toEqual([]);
+  });
+
+  it('returns [] when manifest has no data', () => {
+    const manifest: AgentManifest = { ...MANIFEST, data: undefined };
+    expect(buildSiteDataViews(manifest)).toEqual([]);
   });
 });
 

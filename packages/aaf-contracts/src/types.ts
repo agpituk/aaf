@@ -53,6 +53,26 @@ export interface DiscoveryReport {
 }
 
 /**
+ * Summary of a field with optional semantic type annotation.
+ */
+export interface FieldSummary {
+  name: string;
+  semantic?: string;  // x-semantic URI (e.g. "https://schema.org/email")
+}
+
+/**
+ * Summary of a queryable data view from the manifest.
+ */
+export interface DataViewSummary {
+  dataView: string;
+  title: string;
+  description?: string;
+  page: string;       // route like "/invoices/"
+  pageTitle: string;   // "Invoice List"
+  fields: FieldSummary[];  // query parameter names + semantic types
+}
+
+/**
  * Response from the runtime after executing an action.
  */
 export interface RuntimeResponse {

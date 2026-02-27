@@ -42,9 +42,24 @@
     initNav();
 
     function render() {
-      const invoices = getInvoices();
+      let invoices = getInvoices();
       const tbody = document.getElementById('invoice-tbody');
       const emptyState = document.getElementById('empty-state');
+
+      // Apply query param filters
+      const params = new URLSearchParams(window.location.search);
+      const statusFilter = params.get('status');
+      const minAmountFilter = params.get('min_amount');
+
+      if (statusFilter) {
+        invoices = invoices.filter((inv) => inv.status === statusFilter);
+      }
+      if (minAmountFilter) {
+        const min = parseFloat(minAmountFilter);
+        if (!isNaN(min)) {
+          invoices = invoices.filter((inv) => inv.amount >= min);
+        }
+      }
 
       if (invoices.length === 0) {
         tbody.innerHTML = '';

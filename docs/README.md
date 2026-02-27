@@ -13,10 +13,10 @@
 | # | Document | Covers |
 |---|----------|--------|
 | 1 | [Vision and Goals](01-vision-and-goals.md) | Vision, core idea, goals, terminology, architecture overview |
-| 2 | [Standard Spec v0.1](02-standard-spec.md) | DOM annotations, attribute reference, HTML examples, capability manifest |
-| 4 | [Security and Conformance](04-security-and-conformance.md) | Security rules, privacy rules, conformance model |
-| 6 | [Design Principles and Examples](06-design-principles.md) | MVP scope, design principles, end-to-end example flows |
-| 7 | [Future and Appendices](07-future-and-appendices.md) | Open questions, standardization strategy, stretch goals, attribute summary |
+| 2 | [Standard Spec v0.1](02-standard-spec.md) | DOM annotations, attribute reference, HTML examples, capability manifest, semantic types, queryable data views |
+| 3 | [Security and Conformance](03-security-and-conformance.md) | Security rules, privacy rules, conformance model |
+| 4 | [Design Principles and Examples](04-design-principles.md) | MVP scope, design principles, end-to-end example flows |
+| 5 | [Future and Appendices](05-future-and-appendices.md) | Open questions, standardization strategy, stretch goals, attribute summary |
 
 ---
 

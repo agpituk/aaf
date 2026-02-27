@@ -10,6 +10,7 @@ export interface AgentDataView {
   title: string;
   description?: string;
   scope: string;
+  inputSchema?: Record<string, unknown>;  // optional query parameters for filtering
   outputSchema: Record<string, unknown>;
 }
 

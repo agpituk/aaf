@@ -12,7 +12,7 @@ import {
 import { OllamaPlanner } from './ollama-planner.js';
 import { ChatUI } from './ui/chat.js';
 import { showConfirmation } from './ui/confirmation.js';
-import { buildSiteActions, buildPageSummaries, persistNavigation, checkPendingNavigation } from './navigation.js';
+import { buildSiteActions, buildSiteDataViews, buildPageSummaries, persistNavigation, checkPendingNavigation } from './navigation.js';
 
 const MANIFEST_PATH = '/.well-known/agent-manifest.json';
 
@@ -304,7 +304,7 @@ async function init(): Promise<void> {
         timestamp: new Date().toISOString(),
       };
 
-      // Build off-page actions and navigable page summaries from manifest
+      // Build off-page actions, queryable data views, and navigable page summaries from manifest
       const currentActionNames = catalog.actions.map((a) => a.action);
       const otherPageActions = manifest
         ? buildSiteActions(manifest, currentActionNames)
@@ -312,7 +312,10 @@ async function init(): Promise<void> {
       const pageSummaries = manifest
         ? buildPageSummaries(manifest, window.location.pathname)
         : [];
-      const hasSiteContext = otherPageActions.length > 0 || pageSummaries.length > 0;
+      const dataViews = manifest
+        ? buildSiteDataViews(manifest)
+        : [];
+      const hasSiteContext = otherPageActions.length > 0 || pageSummaries.length > 0 || dataViews.length > 0;
 
       if (catalog.actions.length === 0 && !hasSiteContext) {
         // No actions anywhere and no pages to navigate to — try data chat mode
@@ -339,7 +342,7 @@ async function init(): Promise<void> {
       // Plan — use site-aware prompt when off-page context exists
       chat.addMessage('system', 'Planning...');
       const planResult = hasSiteContext
-        ? await planner.planSiteAware(contextualMessage, catalog, otherPageActions, pageSummaries, pageData)
+        ? await planner.planSiteAware(contextualMessage, catalog, otherPageActions, pageSummaries, pageData, dataViews)
         : await planner.plan(contextualMessage, catalog, pageData);
 
       // Handle navigation-only responses
@@ -360,6 +363,34 @@ async function init(): Promise<void> {
       }
 
       const request = planResult.request;
+
+      // Check if the planned action is actually a queryable data view
+      if (manifest?.data?.[request.action] && manifest.data[request.action].inputSchema) {
+        const dv = manifest.data[request.action];
+        // Find the page for this data view
+        let dvPage: string | undefined;
+        if (manifest.pages) {
+          for (const [route, page] of Object.entries(manifest.pages)) {
+            if (page.data?.includes(request.action)) {
+              dvPage = route;
+              break;
+            }
+          }
+        }
+        if (dvPage) {
+          // Build URL with query params from args
+          const url = new URL(dvPage, window.location.origin);
+          for (const [key, value] of Object.entries(request.args)) {
+            if (value !== undefined && value !== null) {
+              url.searchParams.set(key, String(value));
+            }
+          }
+          chat.addMessage('system', `Querying ${dv.title}...`);
+          persistNavigation(url.pathname + url.search, text, history, false);
+          window.location.href = url.pathname + url.search;
+          return;
+        }
+      }
 
       // Check if this is a confirmation of a pending review
       if (pendingReview && request.confirmed && request.action === pendingReview.action) {

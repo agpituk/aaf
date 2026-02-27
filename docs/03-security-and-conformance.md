@@ -4,9 +4,9 @@
 
 ---
 
-## 10. Security and Privacy Principles
+## 7. Security and Privacy Principles
 
-### 10.1 Security Rules
+### 7.1 Security Rules
 
 - **Semantics are never authorization** — server-side auth remains authoritative
 - **High-risk actions must declare risk and confirmation**
@@ -18,7 +18,7 @@
 - **Idempotency should be declared** — prevent accidental retries causing duplicate effects
 - **Audit logging should be supported** — especially for agent-triggered actions
 
-### 10.2 Privacy Rules
+### 7.2 Privacy Rules
 
 - Do not embed sensitive private metadata in DOM annotations
 - Do not expose internal IDs unless needed
@@ -28,11 +28,11 @@
 
 ---
 
-## 11. Conformance Model
+## 8. Conformance Model
 
 To make this standard real, define conformance.
 
-### 11.1 Authoring Conformance (sites)
+### 8.1 Authoring Conformance (sites)
 
 A conforming site:
 
@@ -43,7 +43,7 @@ A conforming site:
 - Exposes a valid manifest (if provided)
 - Keeps manifest and DOM semantics aligned
 
-### 11.2 Agent Conformance (clients/runtimes)
+### 8.2 Agent Conformance (clients/runtimes)
 
 A conforming agent/runtime:
 
@@ -54,7 +54,7 @@ A conforming agent/runtime:
 - Does not treat semantics as authorization
 - Emits structured execution logs
 
-### 11.3 Generator Conformance (tooling)
+### 8.3 Generator Conformance (tooling)
 
 A conforming generator:
 

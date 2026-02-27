@@ -1,4 +1,5 @@
 import type { ActionCatalog, DiscoveredAction } from '@agent-accessibility-framework/runtime-core';
+import type { FieldSummary, DataViewSummary } from '@agent-accessibility-framework/contracts';
 
 /** Lightweight summary of an action on another page, derived from the manifest. */
 export interface ManifestActionSummary {
@@ -9,7 +10,7 @@ export interface ManifestActionSummary {
   pageTitle: string;   // "Settings"
   risk: string;
   confirmation: string;
-  fields: string[];    // field names from inputSchema.properties
+  fields: FieldSummary[];  // field names + optional semantic types from inputSchema.properties
 }
 
 /** Summary of a navigable page for the site-aware prompt. */
@@ -92,6 +93,7 @@ export function buildSiteAwarePrompt(
   otherPageActions: ManifestActionSummary[],
   pages: PageSummary[],
   pageData?: string,
+  dataViews?: DataViewSummary[],
 ): string {
   const currentPageDescriptions = catalog.actions.map(describeAction).join('\n\n');
 
@@ -107,6 +109,10 @@ export function buildSiteAwarePrompt(
     ? `\n\nActions on other pages (the runtime will navigate automatically):\n\n${otherPageDescriptions}`
     : '';
 
+  const dataViewBlock = dataViews && dataViews.length > 0
+    ? `\n\nQueryable data views (use {"action": "<data_view_name>", "args": {<query_params>}} to query):\n\n${dataViews.map(describeDataView).join('\n\n')}`
+    : '';
+
   const pageListBlock = pages.length > 0
     ? '\n\nNavigable pages:\n' + pages.map(describePageSummary).join('\n')
     : '';
@@ -116,7 +122,7 @@ You MUST respond with a single JSON object. No text before or after the JSON.
 
 Available actions on this page:
 
-${currentPageDescriptions}${otherPageBlock}${pageListBlock}${pageDataBlock}
+${currentPageDescriptions}${otherPageBlock}${dataViewBlock}${pageListBlock}${pageDataBlock}
 
 RULES:
 1. Respond with EXACTLY this JSON format: {"action": "<action_name>", "args": {<field_name>: <value>}}
@@ -130,7 +136,8 @@ RULES:
 9. For destructive actions (high risk), include "confirmed": false in your response.
 10. If the context says a form is awaiting review and the user wants to submit/send/confirm it, respond with the same action, same args, and "confirmed": true.
 11. If the requested action is on another page, still return it. The runtime handles navigation automatically.
-12. If the user only wants to navigate to a page without executing an action (e.g. "go to invoices", "show me settings", "take me to the invoice form"), respond with: {"navigate": "<page_route>"}`;
+12. If the user only wants to navigate to a page without executing an action (e.g. "go to invoices", "show me settings", "take me to the invoice form"), respond with: {"navigate": "<page_route>"}
+13. For queryable data views, use the same format: {"action": "<data_view_name>", "args": {<query_params>}}. Only include query params the user specified. The runtime navigates to the data view page with filters applied.`;
 }
 
 function describePageSummary(page: PageSummary): string {
@@ -147,12 +154,29 @@ function describeManifestAction(summary: ManifestActionSummary): string {
   if (summary.confirmation) meta.push(`confirmation: ${summary.confirmation}`);
 
   const fields = summary.fields.length > 0
-    ? summary.fields.map((f) => `    - ${f}`).join('\n')
+    ? summary.fields.map((f) => {
+        const sem = f.semantic ? ` [${f.semantic.replace('https://schema.org/', 'schema.org/')}]` : '';
+        return `    - ${f.name}${sem}`;
+      }).join('\n')
     : '    (none)';
 
   return `ACTION: ${summary.action} (on ${summary.page} — "${summary.pageTitle}")
   ${summary.title}${summary.description ? ` — ${summary.description}` : ''}
   ${meta.join(' | ')}
   Fields:
+${fields}`;
+}
+
+function describeDataView(summary: DataViewSummary): string {
+  const fields = summary.fields.length > 0
+    ? summary.fields.map((f) => {
+        const sem = f.semantic ? ` [${f.semantic.replace('https://schema.org/', 'schema.org/')}]` : '';
+        return `    - ${f.name}${sem}`;
+      }).join('\n')
+    : '    (none)';
+
+  return `DATA VIEW: ${summary.dataView} (on ${summary.page} — "${summary.pageTitle}")
+  ${summary.title}${summary.description ? ` — ${summary.description}` : ''}
+  Query parameters:
 ${fields}`;
 }
