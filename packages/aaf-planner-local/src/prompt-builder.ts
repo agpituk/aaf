@@ -1,4 +1,4 @@
-import type { ActionCatalog, DiscoveredAction } from '@agent-accessibility-framework/runtime-core';
+import type { ActionCatalog, DiscoveredAction, DiscoveredLink } from '@agent-accessibility-framework/runtime-core';
 import type { FieldSummary, DataViewSummary } from '@agent-accessibility-framework/contracts';
 
 /** Lightweight summary of an action on another page, derived from the manifest. */
@@ -94,6 +94,7 @@ export function buildSiteAwarePrompt(
   pages: PageSummary[],
   pageData?: string,
   dataViews?: DataViewSummary[],
+  discoveredLinks?: DiscoveredLink[],
 ): string {
   const currentPageDescriptions = catalog.actions.map(describeAction).join('\n\n');
 
@@ -117,12 +118,16 @@ export function buildSiteAwarePrompt(
     ? '\n\nNavigable pages:\n' + pages.map(describePageSummary).join('\n')
     : '';
 
+  const linksBlock = discoveredLinks && discoveredLinks.length > 0
+    ? '\n\nLinks visible on this page:\n' + discoveredLinks.map(describeLinkSummary).join('\n')
+    : '';
+
   return `You are an agent that helps users interact with web applications.
 You MUST respond with a single JSON object. No text before or after the JSON.
 
 Available actions on this page:
 
-${currentPageDescriptions}${otherPageBlock}${dataViewBlock}${pageListBlock}${pageDataBlock}
+${currentPageDescriptions}${otherPageBlock}${dataViewBlock}${pageListBlock}${linksBlock}${pageDataBlock}
 
 RULES:
 1. Respond with EXACTLY this JSON format: {"action": "<action_name>", "args": {<field_name>: <value>}}
@@ -136,7 +141,7 @@ RULES:
 9. For destructive actions (high risk), include "confirmed": false in your response.
 10. If the context says a form is awaiting review and the user wants to submit/send/confirm it, respond with the same action, same args, and "confirmed": true.
 11. If the requested action is on another page, still return it. The runtime handles navigation automatically.
-12. If the user only wants to navigate to a page without executing an action (e.g. "go to invoices", "show me settings", "take me to the invoice form"), respond with: {"navigate": "<page_route>"}
+12. If the user only wants to navigate to a page without executing an action (e.g. "go to invoices", "show me settings", "take me to the invoice form"), respond with: {"navigate": "<page_route>"}. Use exact routes from the navigable pages list or links visible on this page. NEVER guess or invent routes.
 13. For queryable data views, use the same format: {"action": "<data_view_name>", "args": {<query_params>}}. Only include query params the user specified. The runtime navigates to the data view page with filters applied.`;
 }
 
@@ -165,6 +170,11 @@ function describeManifestAction(summary: ManifestActionSummary): string {
   ${meta.join(' | ')}
   Fields:
 ${fields}`;
+}
+
+function describeLinkSummary(link: DiscoveredLink): string {
+  const label = link.textContent ? ` — "${link.textContent}"` : '';
+  return `- ${link.page}${label}`;
 }
 
 function describeDataView(summary: DataViewSummary): string {

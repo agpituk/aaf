@@ -1,4 +1,4 @@
-import type { ActionCatalog } from '@agent-accessibility-framework/runtime-core';
+import type { ActionCatalog, DiscoveredLink } from '@agent-accessibility-framework/runtime-core';
 import { buildSystemPrompt, buildUserPrompt, buildSiteAwarePrompt } from '@agent-accessibility-framework/planner-local';
 import type { ManifestActionSummary, PageSummary, DataViewSummary, LlmBackend } from '@agent-accessibility-framework/planner-local';
 import { parseResponse, type ParsedPlannerResult } from '@agent-accessibility-framework/planner-local';
@@ -48,8 +48,9 @@ export class WidgetPlanner {
     pages: PageSummary[],
     pageData?: string,
     dataViews?: DataViewSummary[],
+    discoveredLinks?: DiscoveredLink[],
   ): Promise<ParsedPlannerResult> {
-    const systemPrompt = buildSiteAwarePrompt(catalog, otherPageActions, pages, pageData, dataViews);
+    const systemPrompt = buildSiteAwarePrompt(catalog, otherPageActions, pages, pageData, dataViews, discoveredLinks);
     const userPrompt = buildUserPrompt(userMessage);
 
     let lastError: Error | null = null;

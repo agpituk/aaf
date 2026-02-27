@@ -232,4 +232,27 @@ describe('buildSiteAwarePrompt', () => {
     expect(prompt).not.toContain('DATA VIEW');
     expect(prompt).not.toContain('Queryable data views');
   });
+
+  it('includes discovered links with routes and labels', () => {
+    const links = [
+      { page: '/settings/profile', tagName: 'a', textContent: 'Profile' },
+      { page: '/settings/privacy', tagName: 'a', textContent: 'Privacy' },
+    ];
+    const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], [], undefined, undefined, links);
+    expect(prompt).toContain('Links visible on this page');
+    expect(prompt).toContain('/settings/profile');
+    expect(prompt).toContain('"Profile"');
+    expect(prompt).toContain('/settings/privacy');
+    expect(prompt).toContain('"Privacy"');
+  });
+
+  it('omits links block when no discovered links', () => {
+    const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], []);
+    expect(prompt).not.toContain('Links visible');
+  });
+
+  it('instructs LLM to use exact routes, never guess', () => {
+    const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], PAGES);
+    expect(prompt).toContain('NEVER guess or invent routes');
+  });
 });

@@ -344,7 +344,10 @@ async function init(): Promise<void> {
       const dataViews = manifest
         ? buildSiteDataViews(manifest)
         : [];
-      const hasSiteContext = otherPageActions.length > 0 || pageSummaries.length > 0 || dataViews.length > 0;
+      // Discover links visible on the current page (supplements manifest pages with actual hrefs)
+      const discoveredLinks = parser.discoverLinks(document.body);
+
+      const hasSiteContext = otherPageActions.length > 0 || pageSummaries.length > 0 || dataViews.length > 0 || discoveredLinks.length > 0;
 
       if (catalog.actions.length === 0 && !hasSiteContext) {
         // No actions anywhere and no pages to navigate to — try data chat mode
@@ -371,7 +374,7 @@ async function init(): Promise<void> {
       // Plan — use site-aware prompt when off-page context exists
       chat.addMessage('system', 'Planning...');
       const planResult = hasSiteContext
-        ? await planner.planSiteAware(contextualMessage, catalog, otherPageActions, pageSummaries, pageData, dataViews)
+        ? await planner.planSiteAware(contextualMessage, catalog, otherPageActions, pageSummaries, pageData, dataViews, discoveredLinks)
         : await planner.plan(contextualMessage, catalog, pageData);
 
       // Handle navigation-only responses

@@ -37,7 +37,7 @@ Determine how routes map to pages — this is critical for the manifest `pages` 
 | **Vue Router** | `router/index.ts` or Nuxt `pages/` directory |
 | **Plain HTML** | File paths relative to public root |
 
-List all routes and note which ones have forms (actions) vs data displays (data views).
+List **every navigable route**, including sub-routes. Do NOT group sub-routes under a parent — list each one individually. For example, if settings has tabs for profile, privacy, and appearance, list `/settings/profile`, `/settings/privacy`, `/settings/appearance` as separate pages, not just `/settings`. The manifest `pages` section is the LLM's only source of truth for navigation when sidebar links are collapsed or conditionally rendered.
 
 ## Step 3: Add `data-agent-*` attributes
 
@@ -242,6 +242,8 @@ Create `public/.well-known/agent-manifest.json`.
    - GitHub: https://github.com/agpituk/aaf/blob/main/docs/02-standard-spec.md
 
 **Derive routes from the router**, not from file paths. Each page entry maps a route to its available actions and data views.
+
+**CRITICAL — List every navigable sub-route individually.** Do NOT collapse sub-routes under a parent. If `/settings` has child routes `/settings/profile`, `/settings/privacy`, `/settings/appearance`, each one needs its own entry in `pages`. The manifest is the LLM's primary navigation source — missing sub-routes cause the LLM to hallucinate incorrect paths (e.g., `/profile` instead of `/settings/profile`).
 
 **Schema rules:**
 - `inputSchema` must list every annotated field as a property with correct JSON Schema type
