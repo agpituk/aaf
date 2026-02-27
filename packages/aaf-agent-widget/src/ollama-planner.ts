@@ -1,123 +1,18 @@
-import type { ActionCatalog } from '@agent-accessibility-framework/runtime-core';
-import type { PlannerRequest } from '@agent-accessibility-framework/contracts';
-import { buildSystemPrompt, buildUserPrompt, buildSiteAwarePrompt } from '@agent-accessibility-framework/planner-local';
-import type { ManifestActionSummary, PageSummary, DataViewSummary } from '@agent-accessibility-framework/planner-local';
-import { parseResponse, type ParsedPlannerResult } from '@agent-accessibility-framework/planner-local';
-
-const MAX_RETRIES = 2;
-const OLLAMA_URL = 'http://localhost:11434';
-const OLLAMA_MODEL = 'llama3.2';
+import { OllamaBackend } from '@agent-accessibility-framework/planner-local';
+import { WidgetPlanner } from './widget-planner.js';
 
 /**
- * Ollama-based planner for LLM inference via local Ollama server.
- * Falls back to inspector-only mode when Ollama is unavailable.
+ * Backward-compatible planner that defaults to Ollama.
+ * All logic lives in WidgetPlanner; this just wires in the OllamaBackend.
  */
-export class OllamaPlanner {
-  async plan(userMessage: string, catalog: ActionCatalog, pageData?: string): Promise<ParsedPlannerResult> {
-    const systemPrompt = buildSystemPrompt(catalog, pageData);
-    const userPrompt = buildUserPrompt(userMessage);
-
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const raw = await this.generate(userPrompt, systemPrompt);
-        return parseResponse(raw);
-      } catch (err) {
-        lastError = err as Error;
-        // Don't retry on API connectivity errors
-        if (lastError.message.includes('API error') || lastError.message.includes('No LLM backend')) {
-          throw lastError;
-        }
-      }
-    }
-
-    throw new Error(`Planner failed after ${MAX_RETRIES + 1} attempts: ${lastError?.message}`);
+export class OllamaPlanner extends WidgetPlanner {
+  constructor() {
+    super(new OllamaBackend());
   }
 
-  /** Plan using site-wide context: current-page actions (full detail) + other-page actions + navigable pages. */
-  async planSiteAware(
-    userMessage: string,
-    catalog: ActionCatalog,
-    otherPageActions: ManifestActionSummary[],
-    pages: PageSummary[],
-    pageData?: string,
-    dataViews?: DataViewSummary[],
-  ): Promise<ParsedPlannerResult> {
-    const systemPrompt = buildSiteAwarePrompt(catalog, otherPageActions, pages, pageData, dataViews);
-    const userPrompt = buildUserPrompt(userMessage);
-
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const raw = await this.generate(userPrompt, systemPrompt);
-        return parseResponse(raw);
-      } catch (err) {
-        lastError = err as Error;
-        if (lastError.message.includes('API error') || lastError.message.includes('No LLM backend')) {
-          throw lastError;
-        }
-      }
-    }
-
-    throw new Error(`Planner failed after ${MAX_RETRIES + 1} attempts: ${lastError?.message}`);
-  }
-
-  /** Answer a free-form question using page data as context */
-  async query(question: string, context: string): Promise<string> {
-    const systemPrompt =
-      'You are an assistant that answers questions about data on a web page. ' +
-      'Here is the data:\n\n' + context + '\n\nAnswer concisely based only on the data provided.';
-    return this.generate(question, systemPrompt, { json: false });
-  }
-
-  /** Check whether Ollama is available */
-  async detectBackend(): Promise<'ollama' | 'none'> {
-    if (await this.isOllamaAvailable()) return 'ollama';
-    return 'none';
-  }
-
-  private async generate(userPrompt: string, systemPrompt: string, opts?: { json?: boolean }): Promise<string> {
-    const json = opts?.json ?? true;
-
-    if (await this.isOllamaAvailable()) {
-      return this.generateWithOllama(userPrompt, systemPrompt, json);
-    }
-
-    throw new Error('No LLM backend available. Install and run Ollama locally (https://ollama.com).');
-  }
-
-  private async isOllamaAvailable(): Promise<boolean> {
-    try {
-      const res = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(2000) });
-      return res.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  private async generateWithOllama(userPrompt: string, systemPrompt: string, json = true): Promise<string> {
-    const body: Record<string, unknown> = {
-      model: OLLAMA_MODEL,
-      prompt: userPrompt,
-      system: systemPrompt,
-      stream: false,
-      options: { temperature: 0.1 },
-    };
-    if (json) body.format = 'json';
-
-    const res = await fetch(`${OLLAMA_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      throw new Error(`Ollama API error: ${res.status} ${res.statusText}`);
-    }
-
-    const data = await res.json();
-    return data.response;
+  /** Backward-compat: returns 'ollama' | 'none' */
+  async detectBackend(): Promise<string> {
+    const result = await super.detectBackend();
+    return result === 'Ollama' ? 'ollama' : 'none';
   }
 }

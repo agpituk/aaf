@@ -9,7 +9,8 @@ import {
   type ActionCatalog,
   type ExecutionResult,
 } from '@agent-accessibility-framework/runtime-core';
-import { OllamaPlanner } from './ollama-planner.js';
+import { WidgetPlanner } from './widget-planner.js';
+import { readConfig, detectAvailableBackend } from './config.js';
 import { ChatUI } from './ui/chat.js';
 import { showConfirmation } from './ui/confirmation.js';
 import { buildSiteActions, buildSiteDataViews, buildPageSummaries, persistNavigation, checkPendingNavigation } from './navigation.js';
@@ -126,14 +127,33 @@ async function executeOnDOM(
       return { status: 'execution_error', error: `Action "${actionName}" not found on page`, log: logger.toLog() };
     }
 
+    const actionRoot = document.querySelector(
+      `[data-agent-kind="action"][data-agent-action="${actionName}"]`,
+    );
+    const findFieldElement = (fieldName: string): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null => {
+      const escaped = (window.CSS && typeof window.CSS.escape === 'function')
+        ? window.CSS.escape(fieldName)
+        : fieldName;
+      const nested = actionRoot?.querySelector(
+        `[data-agent-kind="field"][data-agent-field="${escaped}"]`,
+      ) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+      if (nested) return nested;
+      return document.querySelector(
+        `[data-agent-kind="field"][data-agent-field="${escaped}"][data-agent-for-action="${actionName}"]`,
+      ) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+    };
+    const findStatusElement = (): Element | null => {
+      const nested = actionRoot?.querySelector('[data-agent-kind="status"]');
+      if (nested) return nested;
+      return document.querySelector(`[data-agent-kind="status"][data-agent-for-action="${actionName}"]`);
+    };
+
     // Fill fields using native value setter + event dispatch
     for (const field of discovered.fields) {
       const value = coercedArgs[field.field];
       if (value === undefined) continue;
 
-      const el = document.querySelector(
-        `[data-agent-field="${field.field}"]`,
-      ) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+      const el = findFieldElement(field.field);
       if (!el) continue;
 
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
@@ -179,7 +199,7 @@ async function executeOnDOM(
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Read status
-    const statusEl = document.querySelector('[data-agent-kind="status"]');
+    const statusEl = findStatusElement();
     const statusText = statusEl?.textContent?.trim() || '';
     if (statusText) {
       const outputAttr = statusEl?.getAttribute('data-agent-output') || '';
@@ -200,7 +220,6 @@ async function init(): Promise<void> {
   const hasAAFElements = document.querySelectorAll('[data-agent-kind]').length > 0;
   if (!hasAAFElements && !pendingNav) return;
 
-  const planner = new OllamaPlanner();
   const parser = new SemanticParser();
   let manifest: AgentManifest | null = null;
   let hasNavigatedThisSession = false;
@@ -218,16 +237,17 @@ async function init(): Promise<void> {
 
   chat.mount();
 
-  // Detect backend and show badge
-  const backend = await planner.detectBackend();
-  if (backend === 'ollama') {
-    chat.setBadge('Ollama', true);
-  } else {
+  // Detect backend via config, then availability check
+  const config = readConfig();
+  const backend = await detectAvailableBackend(config);
+  if (!backend) {
     chat.setBadge('inspect only', false);
     chat.addMessage('system', 'No LLM backend detected. Install Ollama (https://ollama.com) and pull a model to enable chat.');
     showInspector();
     return;
   }
+  const planner = new WidgetPlanner(backend);
+  chat.setBadge(backend.name(), true);
 
   // Load manifest
   manifest = await fetchManifest();
@@ -266,6 +286,15 @@ async function init(): Promise<void> {
       return { status: 'execution_error', error: `Action "${actionName}" not found on page`, log: logger.toLog() };
     }
 
+    const actionRoot = document.querySelector(
+      `[data-agent-kind="action"][data-agent-action="${actionName}"]`,
+    );
+    const findStatusElement = (): Element | null => {
+      const nested = actionRoot?.querySelector('[data-agent-kind="status"]');
+      if (nested) return nested;
+      return document.querySelector(`[data-agent-kind="status"][data-agent-for-action="${actionName}"]`);
+    };
+
     const submitSelector = discovered.submitAction
       ? `[data-agent-action="${discovered.submitAction}"]`
       : `[data-agent-action="${actionName}"]`;
@@ -277,7 +306,7 @@ async function init(): Promise<void> {
 
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    const statusEl = document.querySelector('[data-agent-kind="status"]');
+    const statusEl = findStatusElement();
     const statusText = statusEl?.textContent?.trim() || '';
     if (statusText) {
       const outputAttr = statusEl?.getAttribute('data-agent-output') || '';

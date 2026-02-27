@@ -153,7 +153,7 @@ describe('OllamaPlanner', () => {
   it('throws when no LLM backend is available', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
 
-    await expect(planner.plan('Create invoice', mockCatalog)).rejects.toThrow('No LLM backend');
+    await expect(planner.plan('Create invoice', mockCatalog)).rejects.toThrow('Network error');
     fetchSpy.mockRestore();
   });
 
@@ -234,7 +234,7 @@ describe('OllamaPlanner', () => {
     it('throws when no LLM backend is available', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
 
-      await expect(planner.query('Any data?', 'some context')).rejects.toThrow('No LLM backend');
+      await expect(planner.query('Any data?', 'some context')).rejects.toThrow('Network error');
       fetchSpy.mockRestore();
     });
   });
@@ -356,7 +356,7 @@ describe('OllamaPlanner', () => {
     it('throws when no LLM backend is available', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
 
-      await expect(planner.planSiteAware('Delete workspace', mockCatalog, otherPageActions, pages)).rejects.toThrow('No LLM backend');
+      await expect(planner.planSiteAware('Delete workspace', mockCatalog, otherPageActions, pages)).rejects.toThrow('Network error');
       fetchSpy.mockRestore();
     });
   });
