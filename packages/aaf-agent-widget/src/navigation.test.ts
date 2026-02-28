@@ -6,7 +6,6 @@ import {
   buildPageSummaries,
   persistNavigation,
   checkPendingNavigation,
-  resolveNavigationTarget,
   NAV_STORAGE_KEY,
 } from './navigation.js';
 
@@ -342,44 +341,3 @@ describe('persistNavigation / checkPendingNavigation', () => {
   });
 });
 
-describe('resolveNavigationTarget', () => {
-  const KNOWN_ROUTES = [
-    '/settings/profile',
-    '/settings/privacy',
-    '/settings/appearance',
-    '/settings/budgets',
-    '/invoices/',
-    '/invoices/new',
-    '/dashboard/',
-  ];
-
-  it('returns exact match', () => {
-    expect(resolveNavigationTarget('/settings/profile', KNOWN_ROUTES)).toBe('/settings/profile');
-  });
-
-  it('matches with trailing slash difference', () => {
-    expect(resolveNavigationTarget('/invoices', KNOWN_ROUTES)).toBe('/invoices/');
-  });
-
-  it('corrects hallucinated short path via suffix match', () => {
-    expect(resolveNavigationTarget('/appearance', KNOWN_ROUTES)).toBe('/settings/appearance');
-  });
-
-  it('corrects /profile to /settings/profile', () => {
-    expect(resolveNavigationTarget('/profile', KNOWN_ROUTES)).toBe('/settings/profile');
-  });
-
-  it('returns original if no match found', () => {
-    expect(resolveNavigationTarget('/unknown', KNOWN_ROUTES)).toBe('/unknown');
-  });
-
-  it('returns original if suffix is ambiguous (multiple matches)', () => {
-    // Both /a/foo and /b/foo end with /foo — ambiguous
-    const routes = ['/a/foo', '/b/foo'];
-    expect(resolveNavigationTarget('/foo', routes)).toBe('/foo');
-  });
-
-  it('handles empty known routes', () => {
-    expect(resolveNavigationTarget('/profile', [])).toBe('/profile');
-  });
-});

@@ -172,3 +172,66 @@ describe('parseResponse', () => {
     expect(result.request.args.memo).toBe('Payment for "services"');
   });
 });
+
+describe('parseResponse with validRoutes', () => {
+  const validRoutes = ['/invoices/', '/invoices/new', '/settings/', '/settings/appearance'];
+
+  it('accepts a valid route', () => {
+    const result = parseResponse('{"navigate": "/settings/"}', { validRoutes });
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/settings/');
+  });
+
+  it('normalizes trailing slash when matching', () => {
+    const result = parseResponse('{"navigate": "/settings"}', { validRoutes });
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/settings');
+  });
+
+  it('rejects an unknown route', () => {
+    expect(() =>
+      parseResponse('{"navigate": "/unknown/"}', { validRoutes })
+    ).toThrow('Invalid navigation route');
+  });
+
+  it('rejects a hallucinated short path', () => {
+    expect(() =>
+      parseResponse('{"navigate": "/appearance"}', { validRoutes })
+    ).toThrow('Invalid navigation route "/appearance"');
+  });
+
+  it('error message includes valid routes', () => {
+    expect(() =>
+      parseResponse('{"navigate": "/appearance"}', { validRoutes })
+    ).toThrow('/settings/appearance');
+  });
+
+  it('validates action="navigate" variant', () => {
+    expect(() =>
+      parseResponse('{"action": "navigate", "args": {"page": "/appearance"}}', { validRoutes })
+    ).toThrow('Invalid navigation route');
+  });
+
+  it('accepts action="navigate" variant with valid route', () => {
+    const result = parseResponse('{"action": "navigate", "args": {"page": "/invoices/new"}}', { validRoutes });
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/invoices/new');
+  });
+
+  it('skips validation when options not provided (backward compat)', () => {
+    const result = parseResponse('{"navigate": "/any/path"}');
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/any/path');
+  });
+
+  it('skips validation when validRoutes is empty', () => {
+    const result = parseResponse('{"navigate": "/any/path"}', { validRoutes: [] });
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/any/path');
+  });
+});

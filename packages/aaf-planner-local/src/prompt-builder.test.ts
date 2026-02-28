@@ -251,8 +251,9 @@ describe('buildSiteAwarePrompt', () => {
     expect(prompt).not.toContain('Links visible');
   });
 
-  it('instructs LLM to use exact routes, never guess', () => {
+  it('instructs LLM to use exact routes from VALID ROUTES list', () => {
     const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], PAGES);
-    expect(prompt).toContain('NEVER guess or invent routes');
+    expect(prompt).toContain('VALID ROUTES');
+    expect(prompt).toContain('rejected as invalid');
   });
 });

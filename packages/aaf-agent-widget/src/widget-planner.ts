@@ -1,7 +1,7 @@
 import type { ActionCatalog, DiscoveredLink } from '@agent-accessibility-framework/runtime-core';
 import { buildSystemPrompt, buildUserPrompt, buildSiteAwarePrompt } from '@agent-accessibility-framework/planner-local';
 import type { ManifestActionSummary, PageSummary, DataViewSummary, LlmBackend } from '@agent-accessibility-framework/planner-local';
-import { parseResponse, type ParsedPlannerResult } from '@agent-accessibility-framework/planner-local';
+import { parseResponse, type ParsedPlannerResult, type ParseResponseOptions } from '@agent-accessibility-framework/planner-local';
 
 const MAX_RETRIES = 2;
 
@@ -53,12 +53,18 @@ export class WidgetPlanner {
     const systemPrompt = buildSiteAwarePrompt(catalog, otherPageActions, pages, pageData, dataViews, discoveredLinks);
     const userPrompt = buildUserPrompt(userMessage);
 
+    const validRoutes = [
+      ...pages.map((p) => p.route),
+      ...(discoveredLinks ?? []).map((l) => l.page),
+    ];
+    const parseOpts: ParseResponseOptions = validRoutes.length > 0 ? { validRoutes } : {};
+
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         const raw = await this.backend.generate(userPrompt, systemPrompt, { json: true });
-        return parseResponse(raw);
+        return parseResponse(raw, parseOpts);
       } catch (err) {
         lastError = err as Error;
         if (isNonRetryable(lastError)) throw lastError;

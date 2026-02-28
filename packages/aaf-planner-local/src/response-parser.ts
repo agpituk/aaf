@@ -3,13 +3,35 @@ import { validatePlannerRequest, type PlannerResult } from '@agent-accessibility
 /** @deprecated Use PlannerResult from @agent-accessibility-framework/contracts */
 export type ParsedPlannerResult = PlannerResult;
 
+export interface ParseResponseOptions {
+  validRoutes?: string[];
+}
+
+/**
+ * Validates that a navigation target is one of the known valid routes.
+ * Strips trailing slashes from both sides before comparing.
+ * Throws a descriptive error listing valid routes if no match is found.
+ */
+function validateRoute(page: string, validRoutes: string[]): void {
+  const normalize = (p: string) => p.replace(/\/+$/, '');
+  const normalizedPage = normalize(page);
+
+  for (const route of validRoutes) {
+    if (normalize(route) === normalizedPage) return;
+  }
+
+  throw new Error(
+    `Invalid navigation route "${page}" — not in valid routes: ${validRoutes.join(', ')}`,
+  );
+}
+
 /**
  * Extracts and validates JSON from LLM output.
  * Handles common LLM quirks: markdown code blocks, preamble text, trailing text.
  *
  * Returns either an executable PlannerRequest or a direct answer for informational queries.
  */
-export function parseResponse(raw: string): ParsedPlannerResult {
+export function parseResponse(raw: string, options?: ParseResponseOptions): ParsedPlannerResult {
   const json = extractJSON(raw);
   if (!json) {
     throw new Error(`Could not extract JSON from LLM response: ${raw.slice(0, 200)}`);
@@ -28,6 +50,9 @@ export function parseResponse(raw: string): ParsedPlannerResult {
     if (!page) {
       throw new Error(`Invalid navigate target: "${(parsed as Record<string, unknown>).navigate}" — must be a path`);
     }
+    if (options?.validRoutes && options.validRoutes.length > 0) {
+      validateRoute(page, options.validRoutes);
+    }
     return { kind: 'navigate', page };
   }
 
@@ -36,6 +61,9 @@ export function parseResponse(raw: string): ParsedPlannerResult {
     const args = (parsed as Record<string, unknown>).args as Record<string, unknown> | undefined;
     const page = extractNavigatePage(args);
     if (page) {
+      if (options?.validRoutes && options.validRoutes.length > 0) {
+        validateRoute(page, options.validRoutes);
+      }
       return { kind: 'navigate', page };
     }
     throw new Error('Invalid navigate request — args must include a recognizable page path');

@@ -115,7 +115,7 @@ export function buildSiteAwarePrompt(
     : '';
 
   const pageListBlock = pages.length > 0
-    ? '\n\nNavigable pages:\n' + pages.map(describePageSummary).join('\n')
+    ? '\n\nVALID ROUTES (use one of these exactly):\n' + pages.map(describePageSummary).join('\n')
     : '';
 
   const linksBlock = discoveredLinks && discoveredLinks.length > 0
@@ -141,7 +141,7 @@ RULES:
 9. For destructive actions (high risk), include "confirmed": false in your response.
 10. If the context says a form is awaiting review and the user wants to submit/send/confirm it, respond with the same action, same args, and "confirmed": true.
 11. If the requested action is on another page, still return it. The runtime handles navigation automatically.
-12. If the user only wants to navigate to a page without executing an action (e.g. "go to invoices", "show me settings", "take me to the invoice form"), respond with: {"navigate": "<page_route>"}. Use exact routes from the navigable pages list or links visible on this page. NEVER guess or invent routes.
+12. If the user only wants to navigate to a page without executing an action (e.g. "go to invoices", "show me settings", "take me to the invoice form"), respond with: {"navigate": "<route>"}. The <route> MUST be copied exactly from the VALID ROUTES list or Links list. Any route not in those lists will be rejected as invalid.
 13. For queryable data views, use the same format: {"action": "<data_view_name>", "args": {<query_params>}}. Only include query params the user specified. The runtime navigates to the data view page with filters applied.`;
 }
 
