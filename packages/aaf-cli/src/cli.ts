@@ -125,7 +125,25 @@ async function executeAction(
     const value = args[field.field];
     if (value === undefined) continue;
 
-    const selector = `[data-agent-field="${field.field}"]`;
+    const selector = await page.evaluate(
+      ({ name, field }) => {
+        const actionRoot = document.querySelector(
+          `[data-agent-kind="action"][data-agent-action="${name}"]`,
+        );
+        const base = `[data-agent-kind="field"][data-agent-field="${field}"]`;
+        const nested = actionRoot?.querySelector(base) as Element | null;
+        if (nested?.id) return `#${nested.id}`;
+
+        const linked = document.querySelector(
+          `${base}[data-agent-for-action="${name}"]`,
+        ) as Element | null;
+        if (linked?.id) return `#${linked.id}`;
+        return linked ? `${base}[data-agent-for-action="${name}"]` : null;
+      },
+      { name: actionName, field: field.field },
+    );
+    if (!selector) continue;
+
     const tagName = await page.evaluate(
       (sel) => document.querySelector(sel)?.tagName.toLowerCase(),
       selector,
@@ -150,10 +168,17 @@ async function executeAction(
   await page.waitForTimeout(500);
 
   // Read status
-  const statusText = await page.evaluate(() => {
-    const el = document.querySelector('[data-agent-kind="status"]');
+  const statusText = await page.evaluate((name) => {
+    const actionRoot = document.querySelector(
+      `[data-agent-kind="action"][data-agent-action="${name}"]`,
+    );
+    const nested = actionRoot?.querySelector('[data-agent-kind="status"]');
+    const linked = document.querySelector(
+      `[data-agent-kind="status"][data-agent-for-action="${name}"]`,
+    );
+    const el = nested || linked;
     return el?.textContent?.trim() || '';
-  });
+  }, actionName);
 
   if (statusText) {
     return { status: 'completed', result: statusText };

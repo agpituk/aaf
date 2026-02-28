@@ -108,16 +108,35 @@ export class ActionExecutor {
       const value = coerced[field.field];
       if (value === undefined) continue;
 
-      const selector = `[data-agent-field="${field.field}"]`;
+      const fieldSelector = await page.evaluate(
+        ({ name, field }) => {
+          const actionRoot = document.querySelector(
+            `[data-agent-kind="action"][data-agent-action="${name}"]`,
+          );
+          const fieldSelector = `[data-agent-kind="field"][data-agent-field="${field}"]`;
+          const nested = actionRoot?.querySelector(fieldSelector) as Element | null;
+          if (nested?.id) return `#${nested.id}`;
+
+          const linked = document.querySelector(
+            `${fieldSelector}[data-agent-for-action="${name}"]`,
+          ) as Element | null;
+          if (linked?.id) return `#${linked.id}`;
+
+          return linked ? `${fieldSelector}[data-agent-for-action="${name}"]` : null;
+        },
+        { name: actionName, field: field.field }
+      );
+      if (!fieldSelector) continue;
+
       const tagName = await page.evaluate(
         (sel) => document.querySelector(sel)?.tagName.toLowerCase(),
-        selector
+        fieldSelector
       );
 
       if (tagName === 'select') {
-        await page.selectOption(selector, String(value));
+        await page.selectOption(fieldSelector, String(value));
       } else if (tagName === 'textarea' || tagName === 'input') {
-        await page.fill(selector, String(value));
+        await page.fill(fieldSelector, String(value));
       }
       logger.fill(field.field, value);
     }
@@ -143,20 +162,27 @@ export class ActionExecutor {
     await page.waitForTimeout(500);
 
     // 10. Read status
-    const statusSelector = '[data-agent-kind="status"]';
-    const statusText = await page.evaluate((sel) => {
-      const el = document.querySelector(sel);
-      return el?.textContent?.trim() || '';
-    }, statusSelector);
+    const statusPayload = await page.evaluate((name) => {
+      const actionRoot = document.querySelector(
+        `[data-agent-kind="action"][data-agent-action="${name}"]`,
+      );
+      const nested = actionRoot?.querySelector('[data-agent-kind="status"]');
+      const linked = document.querySelector(
+        `[data-agent-kind="status"][data-agent-for-action="${name}"]`,
+      );
+      const el = nested || linked;
+      if (!el) return { text: '', output: '' };
+      return {
+        text: el.textContent?.trim() || '',
+        output: el.getAttribute('data-agent-output') || '',
+      };
+    }, actionName);
 
-    if (statusText) {
-      const outputAttr = await page.evaluate((sel) => {
-        return document.querySelector(sel)?.getAttribute('data-agent-output') || '';
-      }, statusSelector);
-      logger.readStatus(outputAttr, statusText);
+    if (statusPayload.text) {
+      logger.readStatus(statusPayload.output, statusPayload.text);
     }
 
-    return { status: statusText, log: logger.toLog() };
+    return { status: statusPayload.text, log: logger.toLog() };
   }
 }
 
