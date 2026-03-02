@@ -118,3 +118,104 @@ describe('findUIFiles', () => {
     fs.rmSync(dir, { recursive: true });
   });
 });
+
+describe('path filtering', () => {
+  it('findHtmlFiles with paths returns only files under those paths', () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, 'billing'));
+    fs.mkdirSync(path.join(dir, 'settings'));
+    fs.writeFileSync(path.join(dir, 'billing', 'index.html'), '');
+    fs.writeFileSync(path.join(dir, 'settings', 'index.html'), '');
+    fs.writeFileSync(path.join(dir, 'index.html'), '');
+
+    const files = findHtmlFiles(dir, ['billing']);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toContain('billing');
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('findHtmlFiles with specific file path returns that file', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'page.html'), '');
+    fs.writeFileSync(path.join(dir, 'other.html'), '');
+
+    const files = findHtmlFiles(dir, ['page.html']);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toContain('page.html');
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('findHtmlFiles filters non-matching files by extension', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'app.tsx'), '');
+    fs.writeFileSync(path.join(dir, 'page.html'), '');
+
+    // Only looking for HTML files, app.tsx should be excluded
+    const files = findHtmlFiles(dir, ['app.tsx']);
+    expect(files).toHaveLength(0);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('findUIFiles with paths returns only files under those paths', () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, 'billing'));
+    fs.mkdirSync(path.join(dir, 'settings'));
+    fs.writeFileSync(path.join(dir, 'billing', 'Form.tsx'), '');
+    fs.writeFileSync(path.join(dir, 'settings', 'Page.tsx'), '');
+    fs.writeFileSync(path.join(dir, 'App.tsx'), '');
+
+    const files = findUIFiles(dir, ['billing']);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toContain('billing');
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('findUIFiles with multiple paths scans all of them', () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, 'billing'));
+    fs.mkdirSync(path.join(dir, 'settings'));
+    fs.mkdirSync(path.join(dir, 'admin'));
+    fs.writeFileSync(path.join(dir, 'billing', 'Form.tsx'), '');
+    fs.writeFileSync(path.join(dir, 'settings', 'Page.tsx'), '');
+    fs.writeFileSync(path.join(dir, 'admin', 'Panel.tsx'), '');
+
+    const files = findUIFiles(dir, ['billing', 'settings']);
+    expect(files).toHaveLength(2);
+    expect(files.some(f => f.includes('billing'))).toBe(true);
+    expect(files.some(f => f.includes('settings'))).toBe(true);
+    expect(files.some(f => f.includes('admin'))).toBe(false);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('findUIFiles with no paths returns all files (backward compat)', () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, 'billing'));
+    fs.writeFileSync(path.join(dir, 'billing', 'Form.tsx'), '');
+    fs.writeFileSync(path.join(dir, 'App.tsx'), '');
+
+    const withoutPaths = findUIFiles(dir);
+    const withUndefined = findUIFiles(dir, undefined);
+    const withEmpty = findUIFiles(dir, []);
+
+    expect(withoutPaths).toHaveLength(2);
+    expect(withUndefined).toHaveLength(2);
+    expect(withEmpty).toHaveLength(2);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('skips non-existent paths silently', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'index.html'), '');
+
+    const files = findHtmlFiles(dir, ['nonexistent']);
+    expect(files).toHaveLength(0);
+
+    fs.rmSync(dir, { recursive: true });
+  });
+});

@@ -2,7 +2,23 @@
 
 You are annotating a web project with AAF (Agent Accessibility Framework) attributes so that browser agents can reliably operate the UI using semantic names instead of CSS selectors.
 
-**Target directory:** $ARGUMENTS (default: current directory)
+**Target:** $ARGUMENTS (space-separated paths, globs, or files — default: current directory)
+
+### Path scoping
+
+`$ARGUMENTS` accepts one or more space-separated values:
+
+- **No arguments** — annotate the entire project (full route tree scan, as before)
+- **Folder(s)** (e.g., `src/pages/billing`) — only find and annotate UI files in that subtree. Trace routes only for components reachable from those files.
+- **File(s)** (e.g., `src/components/InvoiceForm.tsx src/pages/billing/index.tsx`) — annotate only those specific files
+- **Globs** (e.g., `src/pages/billing/**/*.tsx`) — expand the glob and annotate matching files
+
+When paths are provided:
+1. **Route tracing is scoped** — only trace routes that lead to components under the given paths. Do NOT scan the entire route tree.
+2. **Manifest is merged** — if a manifest already exists, merge new action entries into it. Do not remove entries for actions outside the scoped paths.
+3. **Pages section** — only add/update page entries for routes whose components are within the scoped paths.
+
+When no arguments are given, behave exactly as before (full site annotation).
 
 ## Step 0: Detect project type
 
@@ -27,6 +43,8 @@ Note the dev server port (check `vite.config.*`, `package.json` scripts, or `.en
 2. For each route, follow the imports to the page/layout component
 3. From each page component, follow imports to the child components that contain forms, tables, buttons, etc.
 4. Only annotate components that are reachable from the route tree
+
+**When paths are scoped** (arguments provided): Only trace routes whose page/layout components live under the given paths. For example, if the argument is `src/pages/billing`, find which routes point to components in `src/pages/billing/` and trace only those routes and their child components. Skip all routes outside the scope.
 
 **CRITICAL — Do not annotate dead or legacy components.** Projects often have old components (e.g., `ChangePassword.tsx`) that are no longer imported anywhere in the route tree — a newer component (e.g., `PasswordEditor.tsx`) replaced them. If you annotate the dead component, the annotations are invisible because the component never renders. Always verify a component is imported and used by a route before annotating it.
 
@@ -143,6 +161,38 @@ Most component libraries (HeroUI, Radix, Headless UI, Chakra) forward `data-*` a
 - Fields outside the action's DOM subtree need `data-agent-for-action="project.create"`
 - Each (action, field) pair must resolve to exactly **one** DOM element
 
+### Interactive controls (non-form actions)
+
+**Not all actions are form submissions.** Any interactive control that changes what the user sees — dropdowns, toggles, tabs, filters, sort controls — should also be annotated. If a user might ask an agent to interact with it, annotate it.
+
+Wrap the control in an action container and mark the interactive element as a field, just like a form field. The runtime will find the underlying `<select>`, `<input>`, or clickable element and interact with it:
+
+```tsx
+{/* A dropdown that changes page state (no form, no submit button) */}
+<div
+  data-agent-kind="action"
+  data-agent-action="chart.change_metric"
+  data-agent-scope="analytics.read"
+  data-agent-danger="none"
+  data-agent-confirm="never"
+>
+  <div data-agent-kind="field" data-agent-field="metric_type">
+    <Select onSelectionChange={handleChange}>
+      <SelectItem key="cost">Cost</SelectItem>
+      <SelectItem key="tokens">Tokens</SelectItem>
+    </Select>
+  </div>
+</div>
+```
+
+**Key differences from form actions:**
+- Use `data-agent-danger="none"` and `data-agent-confirm="never"` for read-only view controls
+- No submit button — the runtime triggers the control's change event directly
+- In the manifest, use `"risk": "none"` and `"confirmation": "never"`, and mark as `"idempotent": true`
+- Use `enum` in `inputSchema` to list valid values so the LLM picks correctly
+
+**What to scan for during annotation:** When tracing a page's components, look for `<Select>`, `<Dropdown>`, `<Switch>`, `<Tabs>`, `<RadioGroup>`, `<ToggleGroup>`, date pickers, sort controls, and similar interactive elements that are NOT inside forms. If changing the control changes what data is displayed or how it's rendered, annotate it.
+
 ### Danger and confirmation
 
 For destructive or risky actions, add `data-agent-danger` and `data-agent-confirm`:
@@ -159,8 +209,8 @@ For destructive or risky actions, add `data-agent-danger` and `data-agent-confir
 </button>
 ```
 
-- `data-agent-danger`: `"low"` | `"high"` (omit for none). **The manifest JSON calls this `"risk"` but the HTML attribute is `data-agent-danger`.**
-- `data-agent-confirm`: `"optional"` (auto-submit) | `"review"` (fill only, user submits) | `"required"` (blocked without consent)
+- `data-agent-danger`: `"none"` | `"low"` | `"high"`. **The manifest JSON calls this `"risk"` but the HTML attribute is `data-agent-danger`.**
+- `data-agent-confirm`: `"never"` | `"optional"` (auto-submit) | `"review"` (fill only, user submits) | `"required"` (blocked without consent)
 
 ### Data tables and lists
 
@@ -232,7 +282,9 @@ For `<a>` tags, the target is derived from `href`. For non-anchor elements, `dat
 
 ## Step 4: Generate the manifest
 
-Create `public/.well-known/agent-manifest.json`.
+Create or update `public/.well-known/agent-manifest.json`.
+
+**When paths are scoped:** If a manifest already exists, read it first and merge. Add/update entries for actions discovered in the scoped files, but leave existing entries for other actions untouched. This enables incremental annotation — annotate one section at a time without losing previous work.
 
 **Before writing the manifest, read these source-of-truth files.** If running inside the AAF repo, use the local paths. Otherwise, fetch from GitHub:
 
@@ -271,7 +323,7 @@ After annotating, verify correctness by checking these rules yourself (do NOT re
 7. **No duplicate fields** — each (action, field) pair appears in exactly one place
 8. **Action identifiers** use `lowercase.dot.notation` (e.g., `project.create`, not `ProjectCreate`)
 9. **Field identifiers** use `snake_case` (e.g., `customer_email`, not `customerEmail`)
-10. **Danger attributes are valid**: `data-agent-danger` is `"low"` or `"high"`, `data-agent-confirm` is `"optional"`, `"review"`, or `"required"`
+10. **Danger attributes are valid**: `data-agent-danger` is `"none"`, `"low"`, or `"high"`, `data-agent-confirm` is `"never"`, `"optional"`, `"review"`, or `"required"`
 11. **Non-anchor links** (`<button>`, `<div>`) with `data-agent-kind="link"` have a `data-agent-page` attribute
 
 Report any issues found and fix them.

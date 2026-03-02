@@ -1,6 +1,7 @@
 #!/usr/bin/env npx tsx
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import { resolve, extname } from 'path';
+import { execSync } from 'child_process';
 import { lintHTML } from './html-linter.js';
 import { lintManifest } from './manifest-linter.js';
 import { checkAlignment } from './alignment-checker.js';
@@ -8,6 +9,33 @@ import { auditHTML, scoreSummary } from './accessibility-auditor.js';
 import { renderURL } from './renderer.js';
 import { crawlSite } from './crawler.js';
 import type { AuditResult } from './types.js';
+
+/** File extensions that aaf-lint can process */
+const UI_EXTENSIONS = new Set(['.html', '.htm', '.jsx', '.tsx', '.js', '.ts', '.vue', '.svelte']);
+
+function isUIFile(filePath: string): boolean {
+  return UI_EXTENSIONS.has(extname(filePath).toLowerCase());
+}
+
+function readStdin(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    process.stdin.setEncoding('utf-8');
+    process.stdin.on('data', (chunk) => { data += chunk; });
+    process.stdin.on('end', () => resolve(data));
+    process.stdin.on('error', reject);
+  });
+}
+
+function getChangedFiles(ref?: string): string[] {
+  const base = ref || 'HEAD';
+  try {
+    const output = execSync(`git diff --name-only ${base}`, { encoding: 'utf-8' });
+    return output.trim().split('\n').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
 
 function printAuditReport(result: ReturnType<typeof auditHTML>): void {
   console.log('\n=== Agent Accessibility Audit ===\n');
@@ -85,6 +113,10 @@ async function main() {
   let render = false;
   let crawl = false;
   let safety = false;
+  let useStdin = false;
+  let changedFlag = false;
+  let changedRef: string | undefined;
+  const positionalFiles: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -98,12 +130,73 @@ async function main() {
     else if (arg === '--render') render = true;
     else if (arg === '--crawl') crawl = true;
     else if (arg === '--safety') safety = true;
+    else if (arg === '--stdin') useStdin = true;
+    else if (arg === '--changed') {
+      changedFlag = true;
+      if (hasValue) changedRef = args[++i];
+    } else if (!arg.startsWith('-')) {
+      positionalFiles.push(arg);
+    }
+  }
+
+  // --changed: get files from git diff
+  if (changedFlag) {
+    const files = getChangedFiles(changedRef).filter(isUIFile);
+    if (files.length === 0) {
+      console.log('No changed UI files found.');
+      process.exit(0);
+    }
+    positionalFiles.push(...files);
+  }
+
+  // --stdin: read file list from stdin
+  if (useStdin) {
+    const input = await readStdin();
+    const files = input.trim().split('\n').filter(Boolean).filter(isUIFile);
+    positionalFiles.push(...files);
+  }
+
+  // Positional file args mode: lint each file individually
+  if (positionalFiles.length > 0) {
+    let hasErrors = false;
+    let totalIssues = 0;
+
+    for (const file of positionalFiles) {
+      if (!existsSync(resolve(file))) {
+        console.error(`[error] File not found: ${file}`);
+        hasErrors = true;
+        continue;
+      }
+      const html = readFileSync(resolve(file), 'utf-8');
+      const results = lintHTML(html, file);
+      for (const r of results) {
+        const loc = r.line ? `:${r.line}` : '';
+        console.log(`[${r.severity}] ${r.source}${loc}: ${r.message}`);
+        if (r.severity === 'error') hasErrors = true;
+        totalIssues++;
+      }
+    }
+
+    if (totalIssues === 0) {
+      console.log(`Linted ${positionalFiles.length} file(s) — no issues found.`);
+    } else {
+      console.log(`\nLinted ${positionalFiles.length} file(s), ${totalIssues} issue(s).`);
+    }
+
+    if (hasErrors) process.exit(1);
+    return;
   }
 
   if (!htmlPath && !manifestPath && !auditPath) {
-    console.error('Usage: aaf-lint --html <path|url> [--render] --manifest <path> [--schema <path>]');
+    console.error('Usage: aaf-lint [files...] [--stdin] [--changed [ref]]');
+    console.error('       aaf-lint --html <path|url> [--render] --manifest <path> [--schema <path>]');
     console.error('       aaf-lint --audit <path|url> [--render] [--crawl] [--safety] [--manifest <path>]');
-    console.error('\n  --render  Use headless Chromium to render JavaScript (requires playwright)');
+    console.error('\nFile modes:');
+    console.error('  aaf-lint file1.html file2.tsx     Lint specific files');
+    console.error('  aaf-lint --stdin                  Read file list from stdin (pipe git diff)');
+    console.error('  aaf-lint --changed [ref]          Lint files changed since ref (default: HEAD)');
+    console.error('\nOptions:');
+    console.error('  --render  Use headless Chromium to render JavaScript (requires playwright)');
     console.error('  --crawl   Follow same-origin links on the entry page and audit each (URL only)');
     console.error('  --safety  Include safety checks (dangerous button annotations)');
     process.exit(1);

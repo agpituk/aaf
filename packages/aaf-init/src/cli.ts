@@ -3,7 +3,17 @@
  * aaf-init — Scaffold an AAF manifest from existing HTML files.
  *
  * Usage:
- *   npx aaf-init [directory] [--name <name>] [--origin <url>]
+ *   npx aaf-init [directory] [paths...] [--name <name>] [--origin <url>]
+ *
+ * When paths are provided, only scans those files/subtrees instead of the
+ * entire directory. The first positional arg is the project root directory;
+ * additional positional args are include paths (relative to the root).
+ *
+ * Examples:
+ *   npx aaf-init                              # scan entire current directory
+ *   npx aaf-init ./my-app                     # scan entire ./my-app
+ *   npx aaf-init . src/pages/billing          # only scan src/pages/billing subtree
+ *   npx aaf-init . src/pages/billing src/pages/settings --name "My App"
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -31,6 +41,8 @@ const args = process.argv.slice(2);
 let directory = '.';
 let siteName = '';
 let siteOrigin = '';
+const includePaths: string[] = [];
+let seenDirectory = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--name' && args[i + 1]) {
@@ -38,7 +50,12 @@ for (let i = 0; i < args.length; i++) {
   } else if (args[i] === '--origin' && args[i + 1]) {
     siteOrigin = args[++i];
   } else if (!args[i].startsWith('-')) {
-    directory = args[i];
+    if (!seenDirectory) {
+      directory = args[i];
+      seenDirectory = true;
+    } else {
+      includePaths.push(args[i]);
+    }
   }
 }
 
@@ -53,7 +70,11 @@ const projectType = detectProjectType(dir);
 log('detect', `Project type: ${projectType}`);
 
 // ─── Find & scan HTML files ───────────────────────────────────────────
-const htmlFiles = findHtmlFiles(dir);
+const htmlFiles = findHtmlFiles(dir, includePaths.length > 0 ? includePaths : undefined);
+
+if (includePaths.length > 0) {
+  log('scope', `Scanning ${includePaths.length} path(s): ${includePaths.join(', ')}`);
+}
 
 if (htmlFiles.length === 0) {
   warn('No HTML files found.');

@@ -8,19 +8,43 @@ const UI_FILE_PATTERN = /\.(html?|[jt]sx?|vue|svelte)$/i;
 
 /**
  * Recursively find all HTML files in a directory, skipping common output/vendored dirs.
+ * When `paths` is provided, only returns files under those paths (files or directories).
  */
-export function findHtmlFiles(dir: string): string[] {
-  const results: string[] = [];
-  walk(dir, results, /\.html?$/i);
-  return results;
+export function findHtmlFiles(dir: string, paths?: string[]): string[] {
+  return findFilesWithPattern(dir, /\.html?$/i, paths);
 }
 
 /**
  * Recursively find all UI files (HTML, JSX, TSX, Vue, Svelte) that may contain AAF annotations.
+ * When `paths` is provided, only returns files under those paths (files or directories).
  */
-export function findUIFiles(dir: string): string[] {
+export function findUIFiles(dir: string, paths?: string[]): string[] {
+  return findFilesWithPattern(dir, UI_FILE_PATTERN, paths);
+}
+
+function findFilesWithPattern(dir: string, pattern: RegExp, paths?: string[]): string[] {
+  if (!paths || paths.length === 0) {
+    const results: string[] = [];
+    walk(dir, results, pattern);
+    return results;
+  }
+
   const results: string[] = [];
-  walk(dir, results, UI_FILE_PATTERN);
+  for (const p of paths) {
+    const resolved = path.resolve(dir, p);
+    try {
+      const stat = fs.statSync(resolved);
+      if (stat.isFile()) {
+        if (pattern.test(resolved)) {
+          results.push(resolved);
+        }
+      } else if (stat.isDirectory()) {
+        walk(resolved, results, pattern);
+      }
+    } catch {
+      // Path doesn't exist — skip silently
+    }
+  }
   return results;
 }
 
