@@ -4,6 +4,26 @@ function stripTags(html: string): string {
   return html.replace(/<[^>]+>/g, '').trim();
 }
 
+/** Extract a human-readable identifier from an element tag string. */
+function describeInput(tag: string): string {
+  const tagName = tag.match(/^<(\w+)/)?.[1] ?? 'element';
+  const name = tag.match(/\bname\s*=\s*"([^"]*)"/)?.[1];
+  const ariaLabel = tag.match(/\baria-label\s*=\s*"([^"]*)"/)?.[1];
+  const placeholder = tag.match(/\bplaceholder\s*=\s*"([^"]*)"/)?.[1];
+  const type = tag.match(/\btype\s*=\s*"([^"]*)"/)?.[1];
+
+  if (name) return `<${tagName} name="${name}">`;
+  if (ariaLabel) return `<${tagName}> with label "${ariaLabel}"`;
+  if (placeholder) return `<${tagName} placeholder="${placeholder}">`;
+  if (type) return `<${tagName} type="${type}">`;
+  return `<${tagName}>`;
+}
+
+function describeAnchor(tag: string): string {
+  const href = tag.match(/\bhref\s*=\s*"([^"]*)"/)?.[1];
+  return href ? `<a href="${href}">` : '<a>';
+}
+
 export interface AuditOptions {
   manifest?: Record<string, unknown>;
   /** Include safety checks (dangerous button annotations). Off by default. */
@@ -25,11 +45,12 @@ const FORM_REGEX = /<form\b[^>]*>/gi;
 const FORM_WITH_ACTION_REGEX = /<form\b[^>]*data-agent-action="[^"]*"[^>]*>/gi;
 
 const INPUT_REGEX = /<(?:input|select|textarea)\b[^>]*>/gi;
-const HIDDEN_OR_SUBMIT_REGEX = /type\s*=\s*"(?:hidden|submit)"/i;
+const HIDDEN_OR_INTERNAL_REGEX = /type\s*=\s*"(?:hidden|submit|checkbox|radio)"/i;
+const ARIA_HIDDEN_REGEX = /aria-hidden\s*=\s*"true"/i;
 const INPUT_WITH_FIELD_REGEX = /data-agent-field="[^"]*"/i;
 
 const BUTTON_REGEX = /<button\b[^>]*>([\s\S]*?)<\/button>/gi;
-const BUTTON_WITH_ACTION_REGEX = /data-agent-action="[^"]*"/i;
+const BUTTON_WITH_ACTION_REGEX = /data-agent-(?:action|kind)="[^"]*"/i;
 const BUTTON_WITH_DANGER_REGEX = /data-agent-danger="[^"]*"/i;
 const BUTTON_WITH_CONFIRM_REGEX = /data-agent-confirm="[^"]*"/i;
 
@@ -75,7 +96,7 @@ function auditForms(html: string): CategoryScore {
 function auditFields(html: string): CategoryScore {
   const checks: AuditCheck[] = [];
   const allInputs = html.match(INPUT_REGEX) || [];
-  const relevantInputs = allInputs.filter((tag) => !HIDDEN_OR_SUBMIT_REGEX.test(tag));
+  const relevantInputs = allInputs.filter((tag) => !HIDDEN_OR_INTERNAL_REGEX.test(tag) && !ARIA_HIDDEN_REGEX.test(tag));
 
   if (relevantInputs.length === 0) {
     checks.push({
@@ -88,6 +109,7 @@ function auditFields(html: string): CategoryScore {
   }
 
   const annotated = relevantInputs.filter((tag) => INPUT_WITH_FIELD_REGEX.test(tag));
+  const unannotated = relevantInputs.filter((tag) => !INPUT_WITH_FIELD_REGEX.test(tag));
   const ratio = annotated.length / relevantInputs.length;
 
   if (ratio === 1) {
@@ -99,11 +121,13 @@ function auditFields(html: string): CategoryScore {
     });
   } else {
     const missing = relevantInputs.length - annotated.length;
+    const details = unannotated.map((tag) => `${describeInput(tag)} — no data-agent-field`);
     checks.push({
       category: 'fields',
       check: 'fields_annotated',
       status: missing === relevantInputs.length ? 'fail' : 'warning',
       message: `${missing} of ${relevantInputs.length} field(s) missing data-agent-field`,
+      details,
     });
   }
 
@@ -134,6 +158,7 @@ function auditActions(html: string): CategoryScore {
   }
 
   const annotated = actionButtons.filter((b) => BUTTON_WITH_ACTION_REGEX.test(b.tag));
+  const unannotatedButtons = actionButtons.filter((b) => !BUTTON_WITH_ACTION_REGEX.test(b.tag));
   const ratio = annotated.length / actionButtons.length;
 
   if (ratio === 1) {
@@ -145,11 +170,13 @@ function auditActions(html: string): CategoryScore {
     });
   } else {
     const missing = actionButtons.length - annotated.length;
+    const details = unannotatedButtons.map((b) => `<button> "${b.text}" — no data-agent-action`);
     checks.push({
       category: 'actions',
       check: 'buttons_annotated',
       status: missing === actionButtons.length ? 'fail' : 'warning',
       message: `${missing} of ${actionButtons.length} button(s) missing data-agent-action`,
+      details,
     });
   }
 
@@ -162,7 +189,7 @@ const ANCHOR_WITH_LINK_KIND_REGEX = /<a\b[^>]*data-agent-kind="link"[^>]*>/gi;
 function auditNavigation(html: string): CategoryScore {
   const checks: AuditCheck[] = [];
   const allAnchors = html.match(ANCHOR_REGEX) || [];
-  const annotatedAnchors = html.match(ANCHOR_WITH_LINK_KIND_REGEX) || [];
+  const annotatedSet = new Set(html.match(ANCHOR_WITH_LINK_KIND_REGEX) || []);
 
   if (allAnchors.length === 0) {
     checks.push({
@@ -174,7 +201,12 @@ function auditNavigation(html: string): CategoryScore {
     return { category: 'navigation', score: 100, checks, empty: true };
   }
 
-  const ratio = annotatedAnchors.length / allAnchors.length;
+  // Identify unannotated anchors by checking each against the annotated regex individually
+  const unannotatedAnchors = allAnchors.filter(
+    (tag) => !/data-agent-kind="link"/i.test(tag),
+  );
+  const annotatedCount = allAnchors.length - unannotatedAnchors.length;
+  const ratio = annotatedCount / allAnchors.length;
 
   if (ratio === 1) {
     checks.push({
@@ -184,12 +216,14 @@ function auditNavigation(html: string): CategoryScore {
       message: `All ${allAnchors.length} link(s) have data-agent-kind="link"`,
     });
   } else {
-    const missing = allAnchors.length - annotatedAnchors.length;
+    const missing = unannotatedAnchors.length;
+    const details = unannotatedAnchors.map((tag) => `${describeAnchor(tag)} — no data-agent-kind="link"`);
     checks.push({
       category: 'navigation',
       check: 'links_annotated',
       status: missing === allAnchors.length ? 'fail' : 'warning',
       message: `${missing} of ${allAnchors.length} link(s) missing data-agent-kind="link"`,
+      details,
     });
   }
 

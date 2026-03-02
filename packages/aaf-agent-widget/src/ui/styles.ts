@@ -352,4 +352,123 @@ export const widgetStyles = `
     padding: 20px;
     text-align: center;
   }
+
+  /* Model selector */
+  .aaf-model-select {
+    font-size: 11px;
+    padding: 2px 4px;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+    max-width: 150px;
+    font-family: inherit;
+    outline: none;
+  }
+
+  .aaf-model-select:focus {
+    border-color: #2563eb;
+  }
+
+  .aaf-model-select:hover {
+    border-color: #999;
+  }
+
+  /* Retry button (inline in error messages) */
+  .aaf-retry-btn {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #2563eb;
+    background: #fff;
+    border: 1px solid #2563eb;
+    border-radius: 4px;
+    cursor: pointer;
+    vertical-align: middle;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .aaf-retry-btn:hover {
+    background: #2563eb;
+    color: #fff;
+  }
+
+  /* Debug toggle & panel */
+  .aaf-header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .aaf-debug-toggle {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+    opacity: 0.4;
+    transition: opacity 0.15s, border-color 0.15s;
+  }
+
+  .aaf-debug-toggle:hover {
+    opacity: 0.7;
+  }
+
+  .aaf-debug-toggle.active {
+    opacity: 1;
+    border-color: #2563eb;
+  }
+
+  .aaf-debug {
+    display: none;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .aaf-debug-on .aaf-debug {
+    display: block;
+  }
+
+  .aaf-debug summary {
+    cursor: pointer;
+    font-size: 11px;
+    color: #888;
+    padding: 4px 0;
+    user-select: none;
+  }
+
+  .aaf-debug summary:hover {
+    color: #555;
+  }
+
+  .aaf-debug-section {
+    margin: 4px 0;
+  }
+
+  .aaf-debug-section strong {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 2px;
+  }
+
+  .aaf-debug-section pre {
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0;
+  }
 `;

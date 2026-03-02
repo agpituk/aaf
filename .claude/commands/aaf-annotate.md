@@ -359,27 +359,46 @@ Create or update `public/.well-known/agent-manifest.json`.
 - String fields: include `pattern`, `minLength`, `maxLength` from validation rules
 - For modal forms: the action belongs to the page route where the modal trigger lives
 
-## Step 5: Self-validate
+## Step 5: Automated verification loop
 
-After annotating, verify correctness by checking these rules yourself (do NOT rely on external tools):
+After annotating all files and generating the manifest, verify against the **rendered DOM** using the AAF linter. This catches issues that source-code inspection misses: component libraries stripping `data-*` attributes, unannotated interactive elements, and missing manifest entries.
 
-1. **Every annotated element has `data-agent-kind`** — grep the annotated files for `data-agent-action=`, `data-agent-field=`, `data-agent-output=` and confirm each one also has `data-agent-kind=` on the same element. Elements without `data-agent-kind` are invisible to the runtime.
-2. **No `data-agent-risk` anywhere** — grep for `data-agent-risk`. If found, replace with `data-agent-danger`. The attribute `data-agent-risk` does not exist.
-3. **Every action in the manifest** has a corresponding `data-agent-action` attribute in the UI files
-4. **Every field in `inputSchema.properties`** has a corresponding `data-agent-field` attribute in the UI files
-5. **Every collection/data view** has `data-agent-kind="collection"` — not just `data-agent-action`
-6. **Every action maps to a page** in the manifest `pages` section
-7. **No duplicate fields** — each (action, field) pair appears in exactly one place
-8. **Action identifiers** use `lowercase.dot.notation` (e.g., `project.create`, not `ProjectCreate`)
-9. **Field identifiers** use `snake_case` (e.g., `customer_email`, not `customerEmail`)
-10. **Danger attributes are valid**: `data-agent-danger` is `"none"`, `"low"`, or `"high"`, `data-agent-confirm` is `"never"`, `"optional"`, `"review"`, or `"required"`
-11. **Non-anchor links** (`<button>`, `<div>`) with `data-agent-kind="link"` have a `data-agent-page` attribute
+1. **Ensure the dev server is running** (or start it with the project's dev command).
 
-Report any issues found and fix them.
+2. **Run the per-page audit.** If running inside the AAF repo, use the local linter path. Otherwise, use the path to wherever `aaf-lint` is installed:
+   ```bash
+   npx tsx packages/aaf-lint/src/cli.ts \
+     --audit-pages <dev-server-url> \
+     --manifest <project>/public/.well-known/agent-manifest.json \
+     --safety
+   ```
+   This renders each static page from the manifest with Playwright, runs the accessibility audit on the rendered HTML, and checks that every action/field listed in the manifest for that page actually exists in the DOM.
+
+3. **For each page with issues, fix the root cause:**
+   - **Unannotated fields** (`<select>`, `<input>`, `<textarea>` without `data-agent-field`): Add `data-agent-*` annotations. If the component library strips `data-*` props (the source looks correct but the rendered DOM has nothing), wrap the component in a `<div>` with the attributes instead.
+   - **Missing manifest entries**: Add actions/fields to the manifest's `pages` section, or remove stale entries that reference actions no longer on that page.
+   - **Unannotated links** (`<a>` without `data-agent-kind="link"`): Add `data-agent-kind="link"` and `data-agent-page` where needed.
+   - **Safety issues** (dangerous buttons without `data-agent-danger` + `data-agent-confirm`): Add both attributes.
+
+4. **Re-run step 2.** Repeat until all pages pass (or only parameterized routes remain, which are skipped).
+
+5. **Final sanity check** — grep for common mistakes that the linter may not catch:
+   - `data-agent-risk` (should be `data-agent-danger`)
+   - `data-agent-action` without `data-agent-kind` on the same element
+   - Duplicate `data-agent-field` values within the same action scope
 
 ## Step 6: Verify the rendered DOM
 
-After annotation, start the dev server and instruct the user to check in browser dev tools that the rendered HTML contains the expected `data-agent-*` attributes. Component libraries sometimes strip unknown props. If a `data-agent-*` attribute is missing from the DOM:
+Step 5's `--audit-pages` mode already renders each page with Playwright and checks the DOM programmatically. If all pages pass, no further manual verification is needed.
+
+For **parameterized routes** (e.g., `/projects/:projectId`) that `--audit-pages` skips, or if you want to spot-check a specific page, you can audit a single rendered URL:
+```bash
+npx tsx packages/aaf-lint/src/cli.ts \
+  --audit <url> --render --safety \
+  --manifest <project>/public/.well-known/agent-manifest.json
+```
+
+If a `data-agent-*` attribute is present in source but missing from the rendered DOM:
 1. Check if the component forwards `data-*` props (most do — HeroUI, Radix, Headless UI all work)
 2. If not, wrap the component in a `<div>` with the agent attributes instead
 3. For MUI, use `inputProps` / `slotProps` to reach the DOM element

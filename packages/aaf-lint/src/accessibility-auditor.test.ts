@@ -165,6 +165,100 @@ describe('auditHTML', () => {
     expect(navCategory!.score).toBe(50);
   });
 
+  describe('details reporting', () => {
+    it('includes details for unannotated fields with name/label/placeholder', () => {
+      const html = `
+        <form data-agent-action="test.action">
+          <input type="email" name="email" />
+          <select aria-label="Provider">
+            <option>OpenAI</option>
+          </select>
+          <textarea placeholder="Notes"></textarea>
+          <input type="number" />
+        </form>
+      `;
+      const result = auditHTML(html);
+      const fieldsCategory = result.categories.find((c) => c.category === 'fields');
+      expect(fieldsCategory!.score).toBe(0);
+      const check = fieldsCategory!.checks.find((c) => c.check === 'fields_annotated');
+      expect(check!.details).toBeDefined();
+      expect(check!.details).toHaveLength(4);
+      expect(check!.details![0]).toContain('<input name="email">');
+      expect(check!.details![0]).toContain('no data-agent-field');
+      expect(check!.details![1]).toContain('with label "Provider"');
+      expect(check!.details![2]).toContain('placeholder="Notes"');
+      expect(check!.details![3]).toContain('<input type="number">');
+    });
+
+    it('has no details for fully annotated fields', () => {
+      const html = `
+        <form data-agent-action="test.action">
+          <input type="email" data-agent-field="email" name="email" />
+          <select data-agent-field="provider" aria-label="Provider">
+            <option>OpenAI</option>
+          </select>
+        </form>
+      `;
+      const result = auditHTML(html);
+      const fieldsCategory = result.categories.find((c) => c.category === 'fields');
+      expect(fieldsCategory!.score).toBe(100);
+      const check = fieldsCategory!.checks.find((c) => c.check === 'fields_annotated');
+      expect(check!.details).toBeUndefined();
+    });
+
+    it('includes details for unannotated buttons with text', () => {
+      const html = `
+        <button>Export CSV</button>
+        <button>Save Draft</button>
+        <button data-agent-action="form.submit">Submit</button>
+      `;
+      const result = auditHTML(html);
+      const actionsCategory = result.categories.find((c) => c.category === 'actions');
+      const check = actionsCategory!.checks.find((c) => c.check === 'buttons_annotated');
+      expect(check!.details).toBeDefined();
+      expect(check!.details).toHaveLength(2);
+      expect(check!.details![0]).toContain('"Export CSV"');
+      expect(check!.details![0]).toContain('no data-agent-action');
+      expect(check!.details![1]).toContain('"Save Draft"');
+    });
+
+    it('has no details for fully annotated buttons', () => {
+      const html = `
+        <button data-agent-action="form.submit">Submit</button>
+        <button data-agent-action="form.cancel">Cancel</button>
+      `;
+      const result = auditHTML(html);
+      const actionsCategory = result.categories.find((c) => c.category === 'actions');
+      const check = actionsCategory!.checks.find((c) => c.check === 'buttons_annotated');
+      expect(check!.details).toBeUndefined();
+    });
+
+    it('includes details for unannotated links with href', () => {
+      const html = `
+        <a href="/projects/abc-123">My Project</a>
+        <a href="/settings/" data-agent-kind="link">Settings</a>
+      `;
+      const result = auditHTML(html);
+      const navCategory = result.categories.find((c) => c.category === 'navigation');
+      const check = navCategory!.checks.find((c) => c.check === 'links_annotated');
+      expect(check!.details).toBeDefined();
+      expect(check!.details).toHaveLength(1);
+      expect(check!.details![0]).toContain('<a href="/projects/abc-123">');
+      expect(check!.details![0]).toContain('no data-agent-kind="link"');
+    });
+
+    it('has no details for fully annotated links', () => {
+      const html = `
+        <a href="/projects/" data-agent-kind="link">Projects</a>
+        <a href="/settings/" data-agent-kind="link">Settings</a>
+      `;
+      const result = auditHTML(html);
+      const navCategory = result.categories.find((c) => c.category === 'navigation');
+      const check = navCategory!.checks.find((c) => c.check === 'links_annotated');
+      expect(check!.details).toBeUndefined();
+    });
+  });
+
   it('computes a weighted overall score', () => {
     // All categories at 100 should yield 100
     const result = auditHTML('<div>No forms, fields, or buttons</div>', {

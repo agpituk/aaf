@@ -50,4 +50,26 @@ export class OllamaBackend implements LlmBackend {
   name(): string {
     return 'Ollama';
   }
+
+  /** Fetch all locally available model names from Ollama. */
+  async listModels(): Promise<string[]> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.models || []).map((m: { name: string }) => m.name);
+    } catch {
+      return [];
+    }
+  }
+
+  /** Switch to a different model at runtime. */
+  setModel(model: string): void {
+    this.model = model;
+  }
+
+  /** Return the currently active model name. */
+  currentModel(): string {
+    return this.model;
+  }
 }

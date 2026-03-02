@@ -9,4 +9,10 @@ export interface LlmBackend {
   isAvailable(): Promise<boolean>;
   /** Human-readable display name for the backend (e.g. "Ollama", "OpenAI"). */
   name(): string;
+  /** List available models (if supported by the backend). */
+  listModels?(): Promise<string[]>;
+  /** Switch to a different model at runtime. */
+  setModel?(model: string): void;
+  /** Return the currently active model name. */
+  currentModel?(): string;
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { lintHTML } from './html-linter.js';
 import { lintManifest } from './manifest-linter.js';
-import { checkAlignment } from './alignment-checker.js';
+import { checkAlignment, checkPageAlignment } from './alignment-checker.js';
 import schema from '../../../schemas/agent-manifest.schema.json';
 
 describe('lintHTML', () => {
@@ -426,5 +426,91 @@ describe('checkAlignment', () => {
     };
     const results = checkAlignment(html, manifest);
     expect(results.some((r) => r.message.includes('missing_field'))).toBe(true);
+  });
+});
+
+describe('checkPageAlignment', () => {
+  it('reports missing actions for a page', () => {
+    const html = `<div>No actions here</div>`;
+    const manifest = {
+      actions: {
+        'project.create': { inputSchema: { properties: { name: {} } } },
+      },
+      pages: {
+        '/projects/': { title: 'Projects', actions: ['project.create'] },
+      },
+    };
+    const results = checkPageAlignment(html, manifest, '/projects/');
+    expect(results.some((r) =>
+      r.message.includes('project.create') && r.message.includes('not found in rendered DOM'),
+    )).toBe(true);
+  });
+
+  it('reports missing fields for a page action', () => {
+    const html = `
+      <form data-agent-action="project.create">
+        <button data-agent-action="project.create.submit">Create</button>
+      </form>
+    `;
+    const manifest = {
+      actions: {
+        'project.create': {
+          inputSchema: { properties: { name: {}, description: {} } },
+        },
+      },
+      pages: {
+        '/projects/': { title: 'Projects', actions: ['project.create'] },
+      },
+    };
+    const results = checkPageAlignment(html, manifest, '/projects/');
+    expect(results.some((r) => r.message.includes('field "name"'))).toBe(true);
+    expect(results.some((r) => r.message.includes('field "description"'))).toBe(true);
+  });
+
+  it('passes when all page actions and fields are present', () => {
+    const html = `
+      <form data-agent-action="project.create">
+        <input data-agent-field="name" />
+        <input data-agent-field="description" />
+        <button data-agent-action="project.create.submit">Create</button>
+      </form>
+    `;
+    const manifest = {
+      actions: {
+        'project.create': {
+          inputSchema: { properties: { name: {}, description: {} } },
+        },
+      },
+      pages: {
+        '/projects/': { title: 'Projects', actions: ['project.create'] },
+      },
+    };
+    const results = checkPageAlignment(html, manifest, '/projects/');
+    expect(results).toHaveLength(0);
+  });
+
+  it('returns empty for unknown page route', () => {
+    const manifest = {
+      actions: {},
+      pages: { '/projects/': { title: 'Projects' } },
+    };
+    const results = checkPageAlignment('<div></div>', manifest, '/unknown/');
+    expect(results).toHaveLength(0);
+  });
+
+  it('accepts sub-actions matching the page action', () => {
+    const html = `
+      <button data-agent-action="project.create.submit">Create</button>
+    `;
+    const manifest = {
+      actions: {
+        'project.create': { inputSchema: { properties: {} } },
+      },
+      pages: {
+        '/projects/': { title: 'Projects', actions: ['project.create'] },
+      },
+    };
+    const results = checkPageAlignment(html, manifest, '/projects/');
+    expect(results).toHaveLength(0);
   });
 });

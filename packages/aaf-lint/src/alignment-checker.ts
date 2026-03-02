@@ -122,3 +122,63 @@ export function checkAlignment(html: string, manifest: ManifestActions): LintRes
 
   return results;
 }
+
+/**
+ * Check alignment between rendered page HTML and a single page entry in the manifest.
+ * Verifies that every action and field listed for the page actually exists in the DOM.
+ */
+export function checkPageAlignment(
+  html: string,
+  manifest: ManifestActions,
+  pageRoute: string,
+): LintResult[] {
+  const results: LintResult[] = [];
+  const page = manifest.pages?.[pageRoute];
+  if (!page) return results;
+
+  // Extract actions and fields from rendered HTML
+  const htmlActions = new Set<string>();
+  const htmlFields = new Set<string>();
+
+  let match: RegExpExecArray | null;
+
+  const actionRe = new RegExp(ACTION_RE.source, ACTION_RE.flags);
+  while ((match = actionRe.exec(html)) !== null) {
+    htmlActions.add(match[1]);
+  }
+
+  const fieldRe = new RegExp(FIELD_RE.source, FIELD_RE.flags);
+  while ((match = fieldRe.exec(html)) !== null) {
+    htmlFields.add(match[1]);
+  }
+
+  // Check each action listed on this page
+  for (const actionId of page.actions ?? []) {
+    // Look for action or sub-action (e.g., project.create or project.create.submit)
+    const found = [...htmlActions].some(
+      (a) => a === actionId || a.startsWith(actionId + '.'),
+    );
+    if (!found) {
+      results.push({
+        severity: 'warning',
+        message: `Page "${pageRoute}": action "${actionId}" listed in manifest but not found in rendered DOM`,
+      });
+    }
+
+    // Check fields for this action
+    const action = manifest.actions[actionId];
+    if (action) {
+      const fieldNames = Object.keys(action.inputSchema?.properties || {});
+      for (const field of fieldNames) {
+        if (!htmlFields.has(field)) {
+          results.push({
+            severity: 'warning',
+            message: `Page "${pageRoute}": field "${field}" of action "${actionId}" not found in rendered DOM`,
+          });
+        }
+      }
+    }
+  }
+
+  return results;
+}

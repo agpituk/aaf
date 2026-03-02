@@ -59,7 +59,7 @@ describe('OllamaPlanner', () => {
       return new Response('', { status: 404 });
     });
 
-    const result = await planner.plan('Create an invoice for alice@test.com for 100 EUR', mockCatalog);
+    const { result } = await planner.plan('Create an invoice for alice@test.com for 100 EUR', mockCatalog);
 
     expect(result.kind).toBe('action');
     if (result.kind !== 'action') throw new Error('unexpected');
@@ -96,7 +96,7 @@ describe('OllamaPlanner', () => {
       return new Response('', { status: 404 });
     });
 
-    const result = await planner.plan('Create invoice', mockCatalog);
+    const { result } = await planner.plan('Create invoice', mockCatalog);
     expect(result.kind).toBe('action');
     if (result.kind !== 'action') throw new Error('unexpected');
     expect(result.request.action).toBe('invoice.create');
@@ -277,7 +277,7 @@ describe('OllamaPlanner', () => {
         return new Response('', { status: 404 });
       });
 
-      const result = await planner.planSiteAware('Delete my workspace', mockCatalog, otherPageActions, pages);
+      const { result } = await planner.planSiteAware('Delete my workspace', mockCatalog, otherPageActions, pages);
 
       expect(result.kind).toBe('action');
       if (result.kind !== 'action') throw new Error('unexpected');
@@ -347,7 +347,7 @@ describe('OllamaPlanner', () => {
         return new Response('', { status: 404 });
       });
 
-      const result = await planner.planSiteAware('Delete workspace', mockCatalog, otherPageActions, pages);
+      const { result } = await planner.planSiteAware('Delete workspace', mockCatalog, otherPageActions, pages);
       expect(result.kind).toBe('action');
       expect(generateCallCount).toBe(2);
       fetchSpy.mockRestore();

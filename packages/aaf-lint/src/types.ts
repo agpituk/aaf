@@ -14,6 +14,8 @@ export interface AuditCheck {
   check: string;
   status: 'pass' | 'fail' | 'warning';
   message: string;
+  /** Specific element descriptions (e.g., which inputs are unannotated) */
+  details?: string[];
 }
 
 export interface CategoryScore {

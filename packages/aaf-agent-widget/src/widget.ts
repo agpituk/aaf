@@ -9,7 +9,7 @@ import {
   type ActionCatalog,
   type ExecutionResult,
 } from '@agent-accessibility-framework/runtime-core';
-import { WidgetPlanner } from './widget-planner.js';
+import { WidgetPlanner, PlannerError } from './widget-planner.js';
 import { readConfig, detectAvailableBackend } from './config.js';
 import { ChatUI } from './ui/chat.js';
 import { showConfirmation } from './ui/confirmation.js';
@@ -357,9 +357,23 @@ async function init(): Promise<void> {
   const history: ConversationTurn[] = [];
   let lastPlan: { action: string; args: Record<string, unknown> } | null = null;
   let pendingReview: { action: string; args: Record<string, unknown> } | null = null;
+  let lastUserMessage = '';
 
   const chat = new ChatUI({
     onSubmit: (text) => handleUserMessage(text),
+    onRetry: () => {
+      if (lastUserMessage) {
+        handleUserMessage(lastUserMessage);
+      }
+    },
+    onModelChange: (model) => {
+      if (backend?.setModel) {
+        backend.setModel(model);
+        const label = backend.currentModel ? backend.currentModel() : model;
+        chat.setBadge(label, true);
+        chat.addMessage('system', `Switched to model: ${model}`);
+      }
+    },
   });
 
   chat.mount();
@@ -374,7 +388,17 @@ async function init(): Promise<void> {
     return;
   }
   const planner = new WidgetPlanner(backend);
-  chat.setBadge(backend.name(), true);
+  const currentModel = backend.currentModel ? backend.currentModel() : '';
+  chat.setBadge(currentModel || backend.name(), true);
+
+  // Populate model selector if backend supports listing models
+  if (backend.listModels) {
+    backend.listModels().then((models) => {
+      if (models.length > 0) {
+        chat.setModels(models, currentModel);
+      }
+    });
+  }
 
   // Load manifest
   manifest = await fetchManifest();
@@ -444,6 +468,8 @@ async function init(): Promise<void> {
   }
 
   async function handleUserMessage(text: string): Promise<void> {
+    lastUserMessage = text;
+
     // Skip adding user message when re-sending after navigation (already restored from history)
     if (!isNavigationResend) {
       chat.addMessage('user', text);
@@ -505,9 +531,25 @@ async function init(): Promise<void> {
 
       // Plan — use site-aware prompt when off-page context exists
       chat.addMessage('system', 'Planning...');
-      const planResult = hasSiteContext
+      const { result: planResult, debug: planDebug } = hasSiteContext
         ? await planner.planSiteAware(contextualMessage, enrichedCatalog, otherPageActions, pageSummaries, pageData, dataViews, discoveredLinks)
         : await planner.plan(contextualMessage, enrichedCatalog, pageData);
+
+      // Compute valid routes (same logic as planner uses)
+      const validRoutes = [
+        ...pageSummaries.filter((p) => !p.route.includes(':')).map((p) => p.route),
+        ...discoveredLinks.map((l) => l.page),
+      ];
+
+      // Emit debug block with planner + widget context
+      chat.addDebugBlock({
+        ...planDebug,
+        parsedResult: planResult,
+        discoveredActions: catalog.actions.map((a) => a.action),
+        discoveredLinks: discoveredLinks.map((l) => l.page),
+        validRoutes,
+        pageDataPreview: (pageData ?? '').slice(0, 500),
+      });
 
       // Handle navigation-only responses (route already validated by parseResponse)
       if (planResult.kind === 'navigate') {
@@ -587,6 +629,7 @@ async function init(): Promise<void> {
 
       if (!manifest) {
         chat.addMessage('error', 'No manifest available — cannot execute.');
+        lastPlan = null;
         chat.setEnabled(true);
         return;
       }
@@ -599,6 +642,7 @@ async function init(): Promise<void> {
         const targetPage = getPageForAction(manifest, request.action);
         if (!targetPage) {
           chat.addMessage('error', `Action "${request.action}" not mapped to any page in manifest.`);
+          lastPlan = null;
           chat.setEnabled(true);
           return;
         }
@@ -626,6 +670,7 @@ async function init(): Promise<void> {
           }
 
           chat.addMessage('error', `Action "${request.action}" not found after navigation — aborting to prevent loop.`);
+          lastPlan = null;
           chat.setEnabled(true);
           return;
         }
@@ -665,18 +710,35 @@ async function init(): Promise<void> {
       if (result.status === 'completed') {
         const msg = result.result || 'Action completed successfully.';
         chat.addMessage('assistant', msg);
-        history.push({ role: 'assistant', text: msg });
-        // Clear plan after successful execution
+        // Clear plan and history after successful execution so completed
+        // action details (e.g. login credentials) don't pollute context
+        // for the next unrelated request — small LLMs latch onto stale actions.
         lastPlan = null;
+        history.length = 0;
       } else {
         const msg = `${result.status}: ${result.error || 'Unknown error'}`;
         chat.addMessage('error', msg);
         history.push({ role: 'error', text: msg });
+        lastPlan = null;
       }
     } catch (err) {
       const msg = (err as Error).message;
       chat.addMessage('error', msg);
       history.push({ role: 'error', text: msg });
+      lastPlan = null;
+
+      // Show debug block on planner failures so users can inspect prompts/responses
+      if (err instanceof PlannerError) {
+        chat.enableDebug();
+        chat.addDebugBlock({
+          ...err.debug,
+          parsedResult: { error: msg },
+          discoveredActions: [],
+          discoveredLinks: [],
+          validRoutes: [],
+          pageDataPreview: '',
+        });
+      }
     }
 
     chat.setEnabled(true);
@@ -726,9 +788,32 @@ async function init(): Promise<void> {
   }
 }
 
-// Auto-init when DOM is ready
+// Auto-init when DOM is ready.
+// For SPAs, the initial DOM may be empty (e.g. <div id="root"></div>) when this
+// script runs.  If `init()` bails because no [data-agent-kind] elements exist,
+// we watch for mutations until they appear (up to 15 seconds).
+function initWithSPARetry(): void {
+  const hasAAF = () => document.querySelectorAll('[data-agent-kind]').length > 0;
+
+  if (hasAAF()) {
+    init();
+    return;
+  }
+
+  // No AAF elements yet — observe the DOM for SPA hydration
+  const timeout = setTimeout(() => { observer.disconnect(); }, 15_000);
+  const observer = new MutationObserver(() => {
+    if (hasAAF()) {
+      observer.disconnect();
+      clearTimeout(timeout);
+      init();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', initWithSPARetry);
 } else {
-  init();
+  initWithSPARetry();
 }

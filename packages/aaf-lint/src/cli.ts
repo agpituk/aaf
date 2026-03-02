@@ -4,9 +4,9 @@ import { resolve, extname } from 'path';
 import { execSync } from 'child_process';
 import { lintHTML } from './html-linter.js';
 import { lintManifest } from './manifest-linter.js';
-import { checkAlignment } from './alignment-checker.js';
+import { checkAlignment, checkPageAlignment } from './alignment-checker.js';
 import { auditHTML, scoreSummary } from './accessibility-auditor.js';
-import { renderURL } from './renderer.js';
+import { renderURL, type RenderOptions } from './renderer.js';
 import { crawlSite } from './crawler.js';
 import type { AuditResult } from './types.js';
 
@@ -45,6 +45,11 @@ function printAuditReport(result: ReturnType<typeof auditHTML>): void {
     for (const check of cat.checks) {
       const icon = check.status === 'pass' ? '+' : check.status === 'fail' ? '-' : '~';
       console.log(`    [${icon}] ${check.message}`);
+      if (check.details) {
+        for (const detail of check.details) {
+          console.log(`        ${detail}`);
+        }
+      }
     }
   }
   console.log(`\n  OVERALL: ${result.overallScore}/100 — ${result.summary}\n`);
@@ -98,8 +103,8 @@ function looksLikeSPA(html: string): boolean {
   return bodyText.length < 50;
 }
 
-function readHTML(pathOrUrl: string, render = false): string | Promise<string> {
-  if (isURL(pathOrUrl) && render) return renderURL(pathOrUrl);
+function readHTML(pathOrUrl: string, render = false, renderOpts?: RenderOptions): string | Promise<string> {
+  if (isURL(pathOrUrl) && render) return renderURL(pathOrUrl, renderOpts);
   if (isURL(pathOrUrl)) return fetchHTML(pathOrUrl);
   return readFileSync(resolve(pathOrUrl), 'utf-8');
 }
@@ -110,12 +115,15 @@ async function main() {
   let manifestPath = '';
   let schemaPath = '';
   let auditPath = '';
+  let auditPagesUrl = '';
   let render = false;
   let crawl = false;
   let safety = false;
   let useStdin = false;
   let changedFlag = false;
   let changedRef: string | undefined;
+  let stripDevTools = true;
+  const excludeSelectors: string[] = [];
   const positionalFiles: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -127,10 +135,13 @@ async function main() {
     else if (arg === '--manifest' && hasValue) manifestPath = args[++i];
     else if (arg === '--schema' && hasValue) schemaPath = args[++i];
     else if (arg === '--audit' && hasValue) auditPath = args[++i];
+    else if (arg === '--audit-pages' && hasValue) auditPagesUrl = args[++i];
     else if (arg === '--render') render = true;
     else if (arg === '--crawl') crawl = true;
     else if (arg === '--safety') safety = true;
     else if (arg === '--stdin') useStdin = true;
+    else if (arg === '--exclude' && hasValue) excludeSelectors.push(args[++i]);
+    else if (arg === '--no-strip-devtools') stripDevTools = false;
     else if (arg === '--changed') {
       changedFlag = true;
       if (hasValue) changedRef = args[++i];
@@ -138,6 +149,11 @@ async function main() {
       positionalFiles.push(arg);
     }
   }
+
+  const renderOpts: RenderOptions = {
+    stripDevTools,
+    excludeSelectors: excludeSelectors.length > 0 ? excludeSelectors : undefined,
+  };
 
   // --changed: get files from git diff
   if (changedFlag) {
@@ -187,18 +203,22 @@ async function main() {
     return;
   }
 
-  if (!htmlPath && !manifestPath && !auditPath) {
+  if (!htmlPath && !manifestPath && !auditPath && !auditPagesUrl) {
     console.error('Usage: aaf-lint [files...] [--stdin] [--changed [ref]]');
     console.error('       aaf-lint --html <path|url> [--render] --manifest <path> [--schema <path>]');
     console.error('       aaf-lint --audit <path|url> [--render] [--crawl] [--safety] [--manifest <path>]');
+    console.error('       aaf-lint --audit-pages <url> --manifest <path> [--safety]');
     console.error('\nFile modes:');
     console.error('  aaf-lint file1.html file2.tsx     Lint specific files');
     console.error('  aaf-lint --stdin                  Read file list from stdin (pipe git diff)');
     console.error('  aaf-lint --changed [ref]          Lint files changed since ref (default: HEAD)');
     console.error('\nOptions:');
-    console.error('  --render  Use headless Chromium to render JavaScript (requires playwright)');
-    console.error('  --crawl   Follow same-origin links on the entry page and audit each (URL only)');
-    console.error('  --safety  Include safety checks (dangerous button annotations)');
+    console.error('  --render              Use headless Chromium to render JavaScript (requires playwright)');
+    console.error('  --crawl               Follow same-origin links on the entry page and audit each (URL only)');
+    console.error('  --safety              Include safety checks (dangerous button annotations)');
+    console.error('  --audit-pages         Audit each static page from manifest via Playwright rendering');
+    console.error('  --exclude <selector>  CSS selector of elements to remove before auditing (repeatable)');
+    console.error('  --no-strip-devtools   Keep dev tools (TanStack, React Query) in the rendered DOM');
     process.exit(1);
   }
 
@@ -225,6 +245,99 @@ async function main() {
     }
   }
 
+  // --audit-pages: per-page manifest-driven audit via Playwright rendering
+  if (auditPagesUrl) {
+    if (!manifestPath) {
+      console.error('Error: --audit-pages requires --manifest <path>');
+      process.exit(1);
+    }
+
+    const manifest = JSON.parse(readFileSync(resolve(manifestPath), 'utf-8'));
+    const pages = manifest.pages as Record<string, { title?: string; actions?: string[]; data?: string[] }> | undefined;
+
+    if (!pages || Object.keys(pages).length === 0) {
+      console.error('Error: Manifest has no pages section.');
+      process.exit(1);
+    }
+
+    // Filter to static routes (no : parameters)
+    const staticRoutes = Object.entries(pages).filter(([route]) => !route.includes(':'));
+
+    if (staticRoutes.length === 0) {
+      console.log('No static page routes found in manifest (all routes are parameterized).');
+      process.exit(0);
+    }
+
+    console.log('\n=== Per-Page Agent Accessibility Audit ===\n');
+
+    let totalScore = 0;
+    let hasIssues = false;
+
+    for (const [route, page] of staticRoutes) {
+      const url = auditPagesUrl.replace(/\/$/, '') + route;
+      const title = page.title || route;
+
+      let html: string;
+      try {
+        html = await renderURL(url, renderOpts);
+      } catch (err) {
+        console.log(`PAGE: ${route} (${title})`);
+        console.log(`  [error] Failed to render: ${(err as Error).message}\n`);
+        hasIssues = true;
+        continue;
+      }
+
+      const auditResult = auditHTML(html, { manifest, safety });
+      const alignResults = checkPageAlignment(html, manifest, route);
+
+      const catScores = auditResult.categories
+        .map((c) => `${c.category.toUpperCase()} ${c.empty ? '-' : `${c.score}/100`}`)
+        .join('  ');
+      const manifestAlignLabel = alignResults.length === 0 ? 'MANIFEST 100/100' : `MANIFEST 0/100`;
+
+      console.log(`PAGE: ${route} (${title})`);
+      console.log(`  ${catScores}  ${manifestAlignLabel}`);
+
+      let pageHasIssues = false;
+
+      // Print audit check details
+      for (const cat of auditResult.categories) {
+        for (const check of cat.checks) {
+          if (check.status !== 'pass') {
+            const icon = check.status === 'fail' ? '-' : '~';
+            console.log(`  [${icon}] ${check.message}`);
+            if (check.details) {
+              for (const detail of check.details) {
+                console.log(`      ${detail}`);
+              }
+            }
+            pageHasIssues = true;
+          }
+        }
+      }
+
+      // Print alignment issues
+      for (const r of alignResults) {
+        console.log(`  [~] ${r.message}`);
+        pageHasIssues = true;
+      }
+
+      if (!pageHasIssues) {
+        console.log('  All checks passed.');
+      }
+      console.log('');
+
+      totalScore += auditResult.overallScore;
+      if (pageHasIssues) hasIssues = true;
+    }
+
+    const avg = Math.round(totalScore / staticRoutes.length);
+    console.log(`SITE OVERALL: ${avg}/100 (${staticRoutes.length} pages) — ${scoreSummary(avg)}\n`);
+
+    if (avg < 50) process.exit(1);
+    return;
+  }
+
   if (auditPath) {
     // Auto-discover manifest if auditing a URL and no --manifest provided
     const manifest = manifestPath
@@ -234,7 +347,7 @@ async function main() {
         : undefined;
 
     if (crawl && isURL(auditPath)) {
-      const pages = await crawlSite(auditPath, (url) => readHTML(url, render) as Promise<string>);
+      const pages = await crawlSite(auditPath, (url) => readHTML(url, render, renderOpts) as Promise<string>);
       if (pages.length > 0) hintSPAIfNeeded(pages[0].html, auditPath);
       const pageResults = pages.map((page) => ({
         url: page.url,
@@ -246,7 +359,7 @@ async function main() {
       );
       if (avg < 50) process.exit(1);
     } else {
-      const html = await readHTML(auditPath, render);
+      const html = await readHTML(auditPath, render, renderOpts);
       hintSPAIfNeeded(html, auditPath);
       const result = auditHTML(html, { manifest, safety });
       printAuditReport(result);
@@ -256,7 +369,7 @@ async function main() {
   }
 
   if (htmlPath) {
-    const html = await readHTML(htmlPath, render);
+    const html = await readHTML(htmlPath, render, renderOpts);
     hintSPAIfNeeded(html, htmlPath);
     const htmlResults = lintHTML(html, htmlPath);
     if (htmlResults.length === 0) {
@@ -280,7 +393,7 @@ async function main() {
   }
 
   if (htmlPath && manifestPath) {
-    const html = await readHTML(htmlPath, render);
+    const html = await readHTML(htmlPath, render, renderOpts);
     const manifest = JSON.parse(readFileSync(resolve(manifestPath), 'utf-8'));
     const alignResults = checkAlignment(html, manifest);
     for (const r of alignResults) {
