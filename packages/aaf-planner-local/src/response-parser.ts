@@ -13,7 +13,7 @@ export interface ParseResponseOptions {
  * Throws a descriptive error listing valid routes if no match is found.
  */
 function validateRoute(page: string, validRoutes: string[]): void {
-  const normalize = (p: string) => p.replace(/\/+$/, '');
+  const normalize = (p: string) => p.replace(/\/+$/, '') || '/';
   const normalizedPage = normalize(page);
 
   for (const route of validRoutes) {

@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { AgentManifest } from '@agent-accessibility-framework/runtime-core';
+import type { AgentManifest, ActionCatalog } from '@agent-accessibility-framework/runtime-core';
 import {
   buildSiteActions,
   buildSiteDataViews,
   buildPageSummaries,
+  enrichCatalogWithSchema,
   persistNavigation,
   checkPendingNavigation,
   NAV_STORAGE_KEY,
@@ -338,6 +339,264 @@ describe('persistNavigation / checkPendingNavigation', () => {
       removeItem: () => { throw new Error('SecurityError'); },
     });
     expect(() => persistNavigation('/settings/', 'test', [])).not.toThrow();
+  });
+});
+
+// --- enrichCatalogWithSchema ---
+
+function makeCatalog(actions: ActionCatalog['actions']): ActionCatalog {
+  return { actions, url: 'http://localhost/', timestamp: '2024-01-01T00:00:00.000Z' };
+}
+
+const ENRICH_MANIFEST: AgentManifest = {
+  version: '1.0',
+  site: { name: 'Test', origin: 'http://localhost' },
+  actions: {
+    'usage_metric.change': {
+      title: 'Set usage chart metric',
+      description: 'Set which metric the usage chart displays.',
+      scope: 'usage.read',
+      risk: 'none',
+      confirmation: 'never',
+      idempotent: true,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          metric_type: {
+            type: 'string',
+            enum: ['cost', 'input_tokens', 'output_tokens', 'time_to_first_token_ms', 'duration_per_1k_tokens'],
+          },
+        },
+        required: ['metric_type'],
+        additionalProperties: false,
+      },
+      outputSchema: {},
+    },
+  },
+  pages: {},
+};
+
+describe('enrichCatalogWithSchema', () => {
+  it('enriches fields with type, required, and enum from manifest', () => {
+    const catalog = makeCatalog([
+      {
+        action: 'usage_metric.change',
+        kind: 'action',
+        fields: [{ field: 'metric_type', tagName: 'div' }],
+        statuses: [],
+      },
+    ]);
+
+    const result = enrichCatalogWithSchema(catalog, ENRICH_MANIFEST);
+
+    const field = result.actions[0].fields[0];
+    expect(field.schemaType).toBe('string');
+    expect(field.required).toBe(true);
+    expect(field.enumValues).toEqual([
+      'cost', 'input_tokens', 'output_tokens', 'time_to_first_token_ms', 'duration_per_1k_tokens',
+    ]);
+  });
+
+  it('adds title and description from manifest action', () => {
+    const catalog = makeCatalog([
+      {
+        action: 'usage_metric.change',
+        kind: 'action',
+        fields: [{ field: 'metric_type', tagName: 'div' }],
+        statuses: [],
+      },
+    ]);
+
+    const result = enrichCatalogWithSchema(catalog, ENRICH_MANIFEST);
+
+    expect(result.actions[0].title).toBe('Set usage chart metric');
+    expect(result.actions[0].description).toBe('Set which metric the usage chart displays.');
+  });
+
+  it('sets strictFields when additionalProperties is false', () => {
+    const catalog = makeCatalog([
+      {
+        action: 'usage_metric.change',
+        kind: 'action',
+        fields: [{ field: 'metric_type', tagName: 'div' }],
+        statuses: [],
+      },
+    ]);
+
+    const result = enrichCatalogWithSchema(catalog, ENRICH_MANIFEST);
+
+    expect(result.actions[0].strictFields).toBe(true);
+  });
+
+  it('preserves DOM-scraped options when no schema enum exists', () => {
+    const manifest: AgentManifest = {
+      ...ENRICH_MANIFEST,
+      actions: {
+        'form.submit': {
+          title: 'Submit form',
+          scope: 'write',
+          risk: 'low',
+          confirmation: 'review',
+          idempotent: false,
+          inputSchema: {
+            type: 'object',
+            properties: {
+              country: { type: 'string' },
+            },
+          },
+          outputSchema: {},
+        },
+      },
+    };
+    const catalog = makeCatalog([
+      {
+        action: 'form.submit',
+        kind: 'action',
+        fields: [{ field: 'country', tagName: 'select', options: ['US', 'UK', 'CA'] }],
+        statuses: [],
+      },
+    ]);
+
+    const result = enrichCatalogWithSchema(catalog, manifest);
+
+    const field = result.actions[0].fields[0];
+    expect(field.schemaType).toBe('string');
+    expect(field.enumValues).toBeUndefined();
+    expect(field.options).toEqual(['US', 'UK', 'CA']);
+  });
+
+  it('returns catalog unchanged when manifest has no matching action', () => {
+    const catalog = makeCatalog([
+      {
+        action: 'unknown.action',
+        kind: 'action',
+        fields: [{ field: 'foo', tagName: 'input' }],
+        statuses: [],
+      },
+    ]);
+
+    const result = enrichCatalogWithSchema(catalog, ENRICH_MANIFEST);
+
+    expect(result.actions[0]).toEqual(catalog.actions[0]);
+  });
+
+  it('handles actions with no inputSchema properties', () => {
+    const manifest: AgentManifest = {
+      ...ENRICH_MANIFEST,
+      actions: {
+        'simple.action': {
+          title: 'Simple',
+          scope: 'read',
+          risk: 'none',
+          confirmation: 'never',
+          idempotent: true,
+          inputSchema: { type: 'object' },
+          outputSchema: {},
+        },
+      },
+    };
+    const catalog = makeCatalog([
+      {
+        action: 'simple.action',
+        kind: 'action',
+        fields: [{ field: 'name', tagName: 'input' }],
+        statuses: [],
+      },
+    ]);
+
+    const result = enrichCatalogWithSchema(catalog, manifest);
+
+    expect(result.actions[0].title).toBe('Simple');
+    expect(result.actions[0].fields[0].schemaType).toBeUndefined();
+    expect(result.actions[0].fields[0].tagName).toBe('input');
+  });
+
+  it('enriches format annotation from schema', () => {
+    const manifest: AgentManifest = {
+      ...ENRICH_MANIFEST,
+      actions: {
+        'user.invite': {
+          title: 'Invite user',
+          scope: 'admin',
+          risk: 'low',
+          confirmation: 'review',
+          idempotent: false,
+          inputSchema: {
+            type: 'object',
+            properties: {
+              email: { type: 'string', format: 'email' },
+            },
+            required: ['email'],
+          },
+          outputSchema: {},
+        },
+      },
+    };
+    const catalog = makeCatalog([
+      {
+        action: 'user.invite',
+        kind: 'action',
+        fields: [{ field: 'email', tagName: 'input' }],
+        statuses: [],
+      },
+    ]);
+
+    const result = enrichCatalogWithSchema(catalog, manifest);
+
+    const field = result.actions[0].fields[0];
+    expect(field.schemaType).toBe('string');
+    expect(field.format).toBe('email');
+    expect(field.required).toBe(true);
+  });
+
+  it('does not mutate the original catalog', () => {
+    const catalog = makeCatalog([
+      {
+        action: 'usage_metric.change',
+        kind: 'action',
+        fields: [{ field: 'metric_type', tagName: 'div' }],
+        statuses: [],
+      },
+    ]);
+
+    const originalField = catalog.actions[0].fields[0];
+    enrichCatalogWithSchema(catalog, ENRICH_MANIFEST);
+
+    expect(originalField.schemaType).toBeUndefined();
+    expect(originalField.enumValues).toBeUndefined();
+    expect(catalog.actions[0].title).toBeUndefined();
+  });
+
+  it('does not set strictFields when additionalProperties is not false', () => {
+    const manifest: AgentManifest = {
+      ...ENRICH_MANIFEST,
+      actions: {
+        'open.action': {
+          title: 'Open',
+          scope: 'read',
+          risk: 'none',
+          confirmation: 'never',
+          idempotent: true,
+          inputSchema: {
+            type: 'object',
+            properties: { name: { type: 'string' } },
+          },
+          outputSchema: {},
+        },
+      },
+    };
+    const catalog = makeCatalog([
+      {
+        action: 'open.action',
+        kind: 'action',
+        fields: [{ field: 'name', tagName: 'input' }],
+        statuses: [],
+      },
+    ]);
+
+    const result = enrichCatalogWithSchema(catalog, manifest);
+
+    expect(result.actions[0].strictFields).toBeUndefined();
   });
 });
 

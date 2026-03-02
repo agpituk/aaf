@@ -79,6 +79,21 @@ describe('LocalPlanner', () => {
     expect(mockGenerate).toHaveBeenCalledTimes(1);
   });
 
+  it('includes CORRECTION context in retry prompt after validation failure', async () => {
+    mockGenerate
+      .mockResolvedValueOnce('{"action": "InvalidAction", "args": {}}')
+      .mockResolvedValue('{"action": "invoice.create", "args": {"customer_email": "a@b.com", "amount": 1, "currency": "EUR"}}');
+
+    const result = await planner.plan('Create invoice', CATALOG);
+    expect(result.kind).toBe('action');
+    expect(mockGenerate).toHaveBeenCalledTimes(2);
+
+    const [retryPrompt] = mockGenerate.mock.calls[1];
+    expect(retryPrompt).toContain('CORRECTION:');
+    expect(retryPrompt).toContain('Your previous response was rejected');
+    expect(retryPrompt).toContain('Create invoice');
+  });
+
   it('passes system prompt with action catalog to Ollama', async () => {
     mockGenerate.mockResolvedValue('{"action": "invoice.create", "args": {"customer_email": "a@b.com", "amount": 1, "currency": "EUR"}}');
 

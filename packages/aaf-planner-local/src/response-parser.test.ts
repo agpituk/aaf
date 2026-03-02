@@ -174,7 +174,15 @@ describe('parseResponse', () => {
 });
 
 describe('parseResponse with validRoutes', () => {
-  const validRoutes = ['/invoices/', '/invoices/new', '/settings/', '/settings/appearance'];
+  const validRoutes = ['/invoices/', '/invoices/new', '/settings/', '/settings/appearance', '/dashboard'];
+
+  it('accepts root path "/" when it is a valid route', () => {
+    const routesWithRoot = ['/', '/dashboard', '/settings/'];
+    const result = parseResponse('{"navigate": "/"}', { validRoutes: routesWithRoot });
+    expect(result.kind).toBe('navigate');
+    if (result.kind !== 'navigate') throw new Error('unexpected');
+    expect(result.page).toBe('/');
+  });
 
   it('accepts a valid route', () => {
     const result = parseResponse('{"navigate": "/settings/"}', { validRoutes });

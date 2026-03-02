@@ -68,6 +68,12 @@ export interface DiscoveredAction {
   fields: DiscoveredField[];
   statuses: DiscoveredStatus[];
   submitAction?: string;
+  /** Human-readable title from the manifest action. */
+  title?: string;
+  /** Human-readable description from the manifest action. */
+  description?: string;
+  /** True when the manifest schema sets additionalProperties: false. */
+  strictFields?: boolean;
 }
 
 export interface DiscoveredField {
@@ -76,6 +82,14 @@ export interface DiscoveredField {
   forAction?: string;
   /** Available options for select/radio fields, scraped from the DOM. */
   options?: string[];
+  /** JSON Schema type from the manifest (e.g. "string", "number"). */
+  schemaType?: string;
+  /** Whether this field is in the schema's `required` array. */
+  required?: boolean;
+  /** Enum values from the manifest schema (overrides DOM-scraped options). */
+  enumValues?: string[];
+  /** Format hint from the manifest schema (e.g. "email"). */
+  format?: string;
 }
 
 export interface DiscoveredStatus {

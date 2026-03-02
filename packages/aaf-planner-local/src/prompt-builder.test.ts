@@ -256,4 +256,182 @@ describe('buildSiteAwarePrompt', () => {
     expect(prompt).toContain('VALID ROUTES');
     expect(prompt).toContain('rejected as invalid');
   });
+
+  it('separates parameterized routes from static routes', () => {
+    const pagesWithParams: PageSummary[] = [
+      { route: '/dashboard', title: 'Dashboard', hasActions: false, hasData: true },
+      { route: '/projects/:projectId/', title: 'Project Detail', hasActions: true, hasData: true },
+    ];
+    const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], pagesWithParams);
+
+    expect(prompt).toContain('VALID ROUTES');
+    expect(prompt).toContain('/dashboard');
+    expect(prompt).toContain('PARAMETERIZED ROUTES');
+    expect(prompt).toContain('/projects/:projectId/');
+    expect(prompt).toContain('cannot navigate directly');
+  });
+
+  it('explains to use links for parameterized routes in rule 12', () => {
+    const pagesWithParams: PageSummary[] = [
+      { route: '/projects/:projectId/', title: 'Project Detail', hasActions: true, hasData: false },
+    ];
+    const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], pagesWithParams);
+
+    expect(prompt).toContain('Routes with parameters like ":id" are templates');
+    expect(prompt).toContain('find its concrete URL in the Links list');
+  });
+
+  it('puts discovered links under heading mentioning specific items', () => {
+    const links = [
+      { page: '/projects/abc-123', tagName: 'a', textContent: 'My Project' },
+    ];
+    const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], [], undefined, undefined, links);
+
+    expect(prompt).toContain('Links visible on this page (use these for navigation to specific items)');
+    expect(prompt).toContain('/projects/abc-123');
+    expect(prompt).toContain('"My Project"');
+  });
+});
+
+// --- Schema-enriched action descriptions ---
+
+describe('describeAction with schema enrichment', () => {
+  it('shows (required, string) and enum values for schema-enriched fields', () => {
+    const catalog: ActionCatalog = {
+      actions: [
+        {
+          action: 'usage_metric.change',
+          kind: 'action',
+          confirm: 'never',
+          scope: 'usage.read',
+          title: 'Set usage chart metric',
+          description: 'Set which metric the usage chart displays.',
+          strictFields: true,
+          fields: [
+            {
+              field: 'metric_type',
+              tagName: 'div',
+              schemaType: 'string',
+              required: true,
+              enumValues: ['cost', 'input_tokens', 'output_tokens'],
+            },
+          ],
+          statuses: [],
+        },
+      ],
+      url: 'http://localhost/',
+      timestamp: '2024-01-01T00:00:00.000Z',
+    };
+
+    const prompt = buildSystemPrompt(catalog);
+
+    expect(prompt).toContain('Set usage chart metric — Set which metric the usage chart displays.');
+    expect(prompt).toContain('metric_type (required, string)');
+    expect(prompt).toContain('values: "cost" | "input_tokens" | "output_tokens"');
+    expect(prompt).toContain('Only these fields accepted.');
+  });
+
+  it('shows format annotation for email fields', () => {
+    const catalog: ActionCatalog = {
+      actions: [
+        {
+          action: 'user.invite',
+          kind: 'action',
+          fields: [
+            {
+              field: 'email',
+              tagName: 'input',
+              schemaType: 'string',
+              required: true,
+              format: 'email',
+            },
+          ],
+          statuses: [],
+        },
+      ],
+      url: 'http://localhost/',
+      timestamp: '2024-01-01T00:00:00.000Z',
+    };
+
+    const prompt = buildSystemPrompt(catalog);
+
+    expect(prompt).toContain('email (required, string, email)');
+  });
+
+  it('falls back to tagName when no schemaType is present', () => {
+    const catalog: ActionCatalog = {
+      actions: [
+        {
+          action: 'form.fill',
+          kind: 'action',
+          fields: [
+            { field: 'name', tagName: 'input' },
+          ],
+          statuses: [],
+        },
+      ],
+      url: 'http://localhost/',
+      timestamp: '2024-01-01T00:00:00.000Z',
+    };
+
+    const prompt = buildSystemPrompt(catalog);
+
+    expect(prompt).toContain('name (input)');
+  });
+
+  it('falls back to DOM options when no enumValues present', () => {
+    const catalog: ActionCatalog = {
+      actions: [
+        {
+          action: 'form.fill',
+          kind: 'action',
+          fields: [
+            { field: 'country', tagName: 'select', options: ['US', 'UK'] },
+          ],
+          statuses: [],
+        },
+      ],
+      url: 'http://localhost/',
+      timestamp: '2024-01-01T00:00:00.000Z',
+    };
+
+    const prompt = buildSystemPrompt(catalog);
+
+    expect(prompt).toContain('country (select) [options: US, UK]');
+  });
+
+  it('does not show "Only these fields accepted" when strictFields is not set', () => {
+    const catalog: ActionCatalog = {
+      actions: [
+        {
+          action: 'form.fill',
+          kind: 'action',
+          fields: [{ field: 'name', tagName: 'input' }],
+          statuses: [],
+        },
+      ],
+      url: 'http://localhost/',
+      timestamp: '2024-01-01T00:00:00.000Z',
+    };
+
+    const prompt = buildSystemPrompt(catalog);
+
+    expect(prompt).not.toContain('Only these fields accepted');
+  });
+});
+
+// --- AAF context paragraph ---
+
+describe('AAF context paragraph', () => {
+  it('includes AAF context in buildSystemPrompt', () => {
+    const prompt = buildSystemPrompt(CATALOG);
+    expect(prompt).toContain('Agent Accessibility Framework');
+    expect(prompt).toContain('enum values must match exactly');
+  });
+
+  it('includes AAF context in buildSiteAwarePrompt', () => {
+    const prompt = buildSiteAwarePrompt(CURRENT_PAGE_CATALOG, [], []);
+    expect(prompt).toContain('Agent Accessibility Framework');
+    expect(prompt).toContain('enum values must match exactly');
+  });
 });

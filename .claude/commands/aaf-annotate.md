@@ -42,7 +42,8 @@ Note the dev server port (check `vite.config.*`, `package.json` scripts, or `.en
 1. Find the router entry point (see Step 2 table below)
 2. For each route, follow the imports to the page/layout component
 3. From each page component, follow imports to the child components that contain forms, tables, buttons, etc.
-4. Only annotate components that are reachable from the route tree
+4. **Also trace layout/shell components** (root layout, navbar, sidebar, footer) for global actions: logout, theme toggle, notification controls, help menus, etc. These are available on every page and need annotation.
+5. Only annotate components that are reachable from the route tree
 
 **When paths are scoped** (arguments provided): Only trace routes whose page/layout components live under the given paths. For example, if the argument is `src/pages/billing`, find which routes point to components in `src/pages/billing/` and trace only those routes and their child components. Skip all routes outside the scope.
 
@@ -247,6 +248,32 @@ Add a status element near the form that reflects mutation state:
 </div>
 ```
 
+### Global actions (navbar, layout)
+
+Actions that live in persistent layout elements (navbar, sidebar, footer) and are available on every page. Common examples: **logout**, **theme toggle**, **notification dismiss**, **help toggle**.
+
+```tsx
+{/* Logout button in navbar */}
+<Button
+  onPress={logout}
+  data-agent-kind="action"
+  data-agent-action="session.logout"
+  data-agent-scope="session.write"
+  data-agent-confirm="never"
+  data-agent-idempotent="true"
+>
+  Logout
+</Button>
+```
+
+**What to scan for:** When tracing the route tree, also check layout/shell components (root layout, navbar, sidebar, footer). Look for logout buttons, theme switchers, notification controls, user menu actions, and any other interactive elements that appear on every page.
+
+**Manifest rules for global actions:**
+- Add the action to the manifest `actions` section like any other action
+- No need to add it to every page's `actions` array — the semantic parser discovers it from the DOM on whatever page the user is currently on
+- Use `"risk": "none"`, `"confirmation": "never"`, `"idempotent": true` for session/toggle actions
+- Use `"additionalProperties": false` with empty `properties` for zero-field actions (like logout)
+
 ### Navigation links
 
 ```tsx
@@ -264,6 +291,28 @@ Add a status element near the form that reflects mutation state:
 ```
 
 For `<a>` tags, the target is derived from `href`. For non-anchor elements, `data-agent-page` is required.
+
+**CRITICAL — Keep link text clean for LLM matching.** Place `data-agent-kind="link"` on the element whose `textContent` is the item's name, NOT on a wrapper that includes extra stats or metadata. The LLM matches user requests like "go to my default project" against the link's text. Noisy text (e.g., "default 1,234 tokens 100% 50 events") makes matching unreliable for small models.
+
+```tsx
+{/* GOOD — link text is just the project name */}
+<Link to={`/projects/${id}`}>
+  <Card>
+    <span data-agent-kind="link" data-agent-page={`/projects/${id}`}>
+      {project.name}
+    </span>
+    <span>{project.stats}</span>  {/* not included in link text */}
+  </Card>
+</Link>
+
+{/* BAD — link text includes all card content */}
+<Link to={`/projects/${id}`} data-agent-kind="link">
+  <Card>
+    <span>{project.name}</span>
+    <span>{project.stats}</span>  {/* pollutes link text */}
+  </Card>
+</Link>
+```
 
 ### Plain HTML example (for reference)
 

@@ -30,7 +30,10 @@ export class WidgetPlanner {
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const raw = await this.backend.generate(userPrompt, systemPrompt, { json: true });
+        const prompt = attempt === 0 || !lastError
+          ? userPrompt
+          : `${userPrompt}\n\nCORRECTION: Your previous response was rejected: ${lastError.message}. Respond with valid JSON using only the actions and routes listed above.`;
+        const raw = await this.backend.generate(prompt, systemPrompt, { json: true });
         return parseResponse(raw);
       } catch (err) {
         lastError = err as Error;
@@ -63,7 +66,10 @@ export class WidgetPlanner {
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const raw = await this.backend.generate(userPrompt, systemPrompt, { json: true });
+        const prompt = attempt === 0 || !lastError
+          ? userPrompt
+          : `${userPrompt}\n\nCORRECTION: Your previous response was rejected: ${lastError.message}. Respond with valid JSON using only the actions and routes listed above.`;
+        const raw = await this.backend.generate(prompt, systemPrompt, { json: true });
         return parseResponse(raw, parseOpts);
       } catch (err) {
         lastError = err as Error;

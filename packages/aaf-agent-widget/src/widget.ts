@@ -13,7 +13,7 @@ import { WidgetPlanner } from './widget-planner.js';
 import { readConfig, detectAvailableBackend } from './config.js';
 import { ChatUI } from './ui/chat.js';
 import { showConfirmation } from './ui/confirmation.js';
-import { buildSiteActions, buildSiteDataViews, buildPageSummaries, persistNavigation, checkPendingNavigation } from './navigation.js';
+import { buildSiteActions, buildSiteDataViews, buildPageSummaries, enrichCatalogWithSchema, persistNavigation, checkPendingNavigation } from './navigation.js';
 
 const MANIFEST_PATH = '/.well-known/agent-manifest.json';
 
@@ -130,17 +130,129 @@ async function executeOnDOM(
     const actionRoot = document.querySelector(
       `[data-agent-kind="action"][data-agent-action="${actionName}"]`,
     );
-    const findFieldElement = (fieldName: string): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null => {
+    const findFieldElement = (fieldName: string): Element | null => {
       const escaped = (window.CSS && typeof window.CSS.escape === 'function')
         ? window.CSS.escape(fieldName)
         : fieldName;
       const nested = actionRoot?.querySelector(
         `[data-agent-kind="field"][data-agent-field="${escaped}"]`,
-      ) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+      );
       if (nested) return nested;
       return document.querySelector(
         `[data-agent-kind="field"][data-agent-field="${escaped}"][data-agent-for-action="${actionName}"]`,
-      ) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+      );
+    };
+
+    /**
+     * Resolve a field wrapper to the actual interactive element inside it.
+     * Component libraries (HeroUI, Radix, etc.) wrap native elements in divs.
+     * Skips hidden elements (aria-hidden, hidden attribute) since those are
+     * decorative native elements that don't drive React state.
+     */
+    const resolveInteractiveElement = (el: Element): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null => {
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'select' || tag === 'textarea') {
+        return el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      }
+      // Look inside the wrapper for a VISIBLE native form element
+      const candidates = el.querySelectorAll('select, input, textarea');
+      for (const candidate of candidates) {
+        const isHidden = candidate.getAttribute('aria-hidden') === 'true'
+          || candidate.hasAttribute('hidden')
+          || (candidate as HTMLElement).style.display === 'none'
+          || candidate.classList.contains('hidden');
+        if (!isHidden) {
+          return candidate as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+        }
+      }
+      return null;
+    };
+
+    /**
+     * Simulate a realistic press on an element (pointerdown + pointerup + click).
+     * React Aria's usePress requires pointer events with realistic properties
+     * (pointerType, pointerId, button) to properly register the interaction.
+     */
+    const simulatePress = (el: HTMLElement): void => {
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const shared = {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 1,
+        pointerType: 'mouse' as const,
+        clientX: cx,
+        clientY: cy,
+        button: 0,
+        buttons: 1,
+      };
+      el.dispatchEvent(new PointerEvent('pointerdown', shared));
+      el.dispatchEvent(new PointerEvent('pointerup', { ...shared, buttons: 0 }));
+      el.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        clientX: cx,
+        clientY: cy,
+        button: 0,
+      }));
+    };
+
+    /**
+     * Fill a component-library select (HeroUI, Radix, etc.) by clicking the trigger
+     * and selecting the matching option from the opened listbox.
+     */
+    const fillComponentSelect = async (wrapper: Element, value: string): Promise<boolean> => {
+      // Find the trigger button (HeroUI/React Aria pattern)
+      const trigger = wrapper.querySelector('button[data-slot="trigger"], button[role="combobox"], button[aria-haspopup="listbox"]')
+        || wrapper.querySelector('button');
+      if (!trigger) return false;
+
+      // Press to open the dropdown
+      simulatePress(trigger as HTMLElement);
+      // Wait for the listbox to render (may be in a portal)
+      await new Promise((r) => setTimeout(r, 150));
+
+      // Find the listbox (may be in a portal outside the wrapper)
+      const listboxId = trigger.getAttribute('aria-controls');
+      const listbox = listboxId
+        ? document.getElementById(listboxId)
+        : document.querySelector('[role="listbox"]');
+      if (!listbox) {
+        // Close the dropdown if we can't find the listbox
+        simulatePress(trigger as HTMLElement);
+        return false;
+      }
+
+      // Find the matching option by data-key, value, or text content
+      const options = listbox.querySelectorAll('[role="option"]');
+      let matched: HTMLElement | null = null;
+      for (const opt of options) {
+        const key = opt.getAttribute('data-key') || opt.getAttribute('data-value') || '';
+        if (key === value) {
+          matched = opt as HTMLElement;
+          break;
+        }
+      }
+      // Fallback: match by text content (case-insensitive)
+      if (!matched) {
+        for (const opt of options) {
+          if (opt.textContent?.trim().toLowerCase() === value.toLowerCase()) {
+            matched = opt as HTMLElement;
+            break;
+          }
+        }
+      }
+
+      if (matched) {
+        simulatePress(matched);
+        await new Promise((r) => setTimeout(r, 50));
+        return true;
+      }
+
+      // No match found — close the dropdown
+      simulatePress(trigger as HTMLElement);
+      return false;
     };
     const findStatusElement = (): Element | null => {
       const nested = actionRoot?.querySelector('[data-agent-kind="status"]');
@@ -153,28 +265,43 @@ async function executeOnDOM(
       const value = coercedArgs[field.field];
       if (value === undefined) continue;
 
-      const el = findFieldElement(field.field);
-      if (!el) continue;
+      const wrapper = findFieldElement(field.field);
+      if (!wrapper) continue;
 
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype, 'value',
-      )?.set;
-      const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(
-        window.HTMLTextAreaElement.prototype, 'value',
-      )?.set;
+      // Check for component-library select FIRST (HeroUI, Radix, etc.)
+      // These wrap native elements in divs and use trigger+listbox patterns.
+      // Setting a native input/select value inside them does NOT update React state.
+      const hasComponentTrigger = wrapper.querySelector(
+        'button[data-slot="trigger"], button[role="combobox"], button[aria-haspopup="listbox"]',
+      );
 
-      const tagName = el.tagName.toLowerCase();
-      if (tagName === 'select') {
-        (el as HTMLSelectElement).value = String(value);
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      } else if (tagName === 'textarea' && nativeTextAreaValueSetter) {
-        nativeTextAreaValueSetter.call(el, String(value));
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      } else if (nativeInputValueSetter) {
-        nativeInputValueSetter.call(el, String(value));
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
+      if (hasComponentTrigger) {
+        await fillComponentSelect(wrapper, String(value));
+      } else {
+        const el = resolveInteractiveElement(wrapper);
+        if (el) {
+          // Native form element found — use setter approach
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype, 'value',
+          )?.set;
+          const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLTextAreaElement.prototype, 'value',
+          )?.set;
+
+          const tagName = el.tagName.toLowerCase();
+          if (tagName === 'select') {
+            (el as HTMLSelectElement).value = String(value);
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          } else if (tagName === 'textarea' && nativeTextAreaValueSetter) {
+            nativeTextAreaValueSetter.call(el, String(value));
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          } else if (nativeInputValueSetter) {
+            nativeInputValueSetter.call(el, String(value));
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
       }
 
       logger.fill(field.field, value);
@@ -333,6 +460,11 @@ async function init(): Promise<void> {
         timestamp: new Date().toISOString(),
       };
 
+      // Enrich on-page actions with manifest schema data (type, enum, required)
+      const enrichedCatalog = manifest
+        ? enrichCatalogWithSchema(catalog, manifest)
+        : catalog;
+
       // Build off-page actions, queryable data views, and navigable page summaries from manifest
       const currentActionNames = catalog.actions.map((a) => a.action);
       const otherPageActions = manifest
@@ -349,7 +481,7 @@ async function init(): Promise<void> {
 
       const hasSiteContext = otherPageActions.length > 0 || pageSummaries.length > 0 || dataViews.length > 0 || discoveredLinks.length > 0;
 
-      if (catalog.actions.length === 0 && !hasSiteContext) {
+      if (enrichedCatalog.actions.length === 0 && !hasSiteContext) {
         // No actions anywhere and no pages to navigate to — try data chat mode
         const pageData = scrapePageData();
         if (pageData) {
@@ -374,8 +506,8 @@ async function init(): Promise<void> {
       // Plan — use site-aware prompt when off-page context exists
       chat.addMessage('system', 'Planning...');
       const planResult = hasSiteContext
-        ? await planner.planSiteAware(contextualMessage, catalog, otherPageActions, pageSummaries, pageData, dataViews, discoveredLinks)
-        : await planner.plan(contextualMessage, catalog, pageData);
+        ? await planner.planSiteAware(contextualMessage, enrichedCatalog, otherPageActions, pageSummaries, pageData, dataViews, discoveredLinks)
+        : await planner.plan(contextualMessage, enrichedCatalog, pageData);
 
       // Handle navigation-only responses (route already validated by parseResponse)
       if (planResult.kind === 'navigate') {

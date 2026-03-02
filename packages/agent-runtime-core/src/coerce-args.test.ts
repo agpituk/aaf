@@ -145,9 +145,10 @@ describe('coerceArgs', () => {
     expect(result.coercions).toHaveLength(0);
   });
 
-  it('passes through fields not in schema properties', () => {
+  it('strips fields not in schema properties', () => {
     const result = coerceArgs({ unknown_field: 'hello' }, invoiceSchema);
-    expect(result.args.unknown_field).toBe('hello');
-    expect(result.coercions).toHaveLength(0);
+    expect(result.args.unknown_field).toBeUndefined();
+    expect(result.coercions).toHaveLength(1);
+    expect(result.coercions[0].rule).toBe('unknown→delete');
   });
 });

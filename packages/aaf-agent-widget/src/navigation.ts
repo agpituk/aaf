@@ -1,4 +1,4 @@
-import type { AgentManifest } from '@agent-accessibility-framework/runtime-core';
+import type { AgentManifest, ActionCatalog, DiscoveredAction, DiscoveredField } from '@agent-accessibility-framework/runtime-core';
 import { getPageForAction } from '@agent-accessibility-framework/runtime-core';
 import type { ManifestActionSummary, PageSummary } from '@agent-accessibility-framework/planner-local';
 import type { FieldSummary, DataViewSummary } from '@agent-accessibility-framework/planner-local';
@@ -134,6 +134,75 @@ export function buildSiteDataViews(manifest: AgentManifest): DataViewSummary[] {
   }
 
   return results;
+}
+
+/**
+ * Enrich on-page discovered actions with type/enum/required info from the manifest's inputSchema.
+ * Returns a new catalog — the original is not mutated.
+ */
+export function enrichCatalogWithSchema(
+  catalog: ActionCatalog,
+  manifest: AgentManifest,
+): ActionCatalog {
+  const enrichedActions: DiscoveredAction[] = catalog.actions.map((discovered) => {
+    const manifestAction = manifest.actions[discovered.action];
+    if (!manifestAction) return discovered;
+
+    const schema = manifestAction.inputSchema as Record<string, unknown> | undefined;
+    const properties = (schema?.properties ?? {}) as Record<string, Record<string, unknown>>;
+    const requiredFields = (schema?.required ?? []) as string[];
+    const additionalProps = schema?.additionalProperties;
+
+    const enrichedFields: DiscoveredField[] = discovered.fields.map((field) => {
+      const propSchema = properties[field.field];
+      if (!propSchema) return field;
+
+      const enriched: DiscoveredField = { ...field };
+
+      const schemaType = propSchema.type;
+      if (typeof schemaType === 'string') {
+        enriched.schemaType = schemaType;
+      }
+
+      if (requiredFields.includes(field.field)) {
+        enriched.required = true;
+      }
+
+      const enumValues = propSchema.enum;
+      if (Array.isArray(enumValues) && enumValues.length > 0) {
+        enriched.enumValues = enumValues.map(String);
+      }
+
+      const format = propSchema.format;
+      if (typeof format === 'string') {
+        enriched.format = format;
+      }
+
+      return enriched;
+    });
+
+    const enrichedAction: DiscoveredAction = {
+      ...discovered,
+      fields: enrichedFields,
+    };
+
+    if (manifestAction.title) {
+      enrichedAction.title = manifestAction.title;
+    }
+    if (manifestAction.description) {
+      enrichedAction.description = manifestAction.description;
+    }
+    if (additionalProps === false) {
+      enrichedAction.strictFields = true;
+    }
+
+    return enrichedAction;
+  });
+
+  return {
+    ...catalog,
+    actions: enrichedActions,
+  };
 }
 
 /** Persist navigation intent to sessionStorage so the widget can resume after page load. */

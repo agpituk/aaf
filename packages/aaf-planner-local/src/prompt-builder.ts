@@ -35,6 +35,7 @@ export function buildSystemPrompt(catalog: ActionCatalog, pageData?: string): st
     : '';
 
   return `You are an agent that helps users interact with web applications.
+This application uses the Agent Accessibility Framework (AAF). Actions are semantic operations with typed fields. Use the exact field values from the schema — enum values must match exactly. Do not add fields not listed in the action.
 You MUST respond with a single JSON object. No text before or after the JSON.
 
 Available actions on this page:
@@ -55,23 +56,40 @@ RULES:
 }
 
 function describeAction(action: DiscoveredAction): string {
+  const titleLine = action.title
+    ? `\n  ${action.title}${action.description ? ` — ${action.description}` : ''}`
+    : '';
+
   const meta: string[] = [];
   if (action.danger) meta.push(`risk: ${action.danger}`);
   if (action.confirm) meta.push(`confirmation: ${action.confirm}`);
   if (action.scope) meta.push(`scope: ${action.scope}`);
-  if (action.idempotent) meta.push(`idempotent: ${action.idempotent}`);
+  if (action.idempotent) meta.push(`idempotent`);
 
   const fields = action.fields
     .map((f) => {
-      const opts = f.options?.length ? ` [options: ${f.options.join(', ')}]` : '';
-      return `    - ${f.field} (${f.tagName})${opts}`;
+      // Prefer schema type info over raw tagName
+      const typeAnnotation = f.schemaType
+        ? `${f.required ? 'required, ' : ''}${f.schemaType}${f.format ? `, ${f.format}` : ''}`
+        : f.tagName;
+
+      // Prefer schema enum values over DOM-scraped options
+      const values = f.enumValues?.length
+        ? ` values: ${f.enumValues.map((v) => `"${v}"`).join(' | ')}`
+        : f.options?.length
+          ? ` [options: ${f.options.join(', ')}]`
+          : '';
+
+      return `    - ${f.field} (${typeAnnotation})${values}`;
     })
     .join('\n');
 
-  return `ACTION: ${action.action}
+  const strictLine = action.strictFields ? '\n  Only these fields accepted.' : '';
+
+  return `ACTION: ${action.action}${titleLine}
   ${meta.join(' | ')}
   Fields:
-${fields || '    (none)'}`;
+${fields || '    (none)'}${strictLine}`;
 }
 
 /**
@@ -114,15 +132,26 @@ export function buildSiteAwarePrompt(
     ? `\n\nQueryable data views (use {"action": "<data_view_name>", "args": {<query_params>}} to query):\n\n${dataViews.map(describeDataView).join('\n\n')}`
     : '';
 
-  const pageListBlock = pages.length > 0
-    ? '\n\nVALID ROUTES (use one of these exactly):\n' + pages.map(describePageSummary).join('\n')
+  // Split routes into static (navigable) and parameterized (templates)
+  const staticPages = pages.filter((p) => !p.route.includes(':'));
+  const paramPages = pages.filter((p) => p.route.includes(':'));
+
+  const staticPageBlock = staticPages.length > 0
+    ? '\n\nVALID ROUTES (use one of these exactly):\n' + staticPages.map(describePageSummary).join('\n')
     : '';
 
+  const paramPageBlock = paramPages.length > 0
+    ? '\n\nPARAMETERIZED ROUTES (cannot navigate directly — use a link from the Links list below):\n' + paramPages.map(describePageSummary).join('\n')
+    : '';
+
+  const pageListBlock = staticPageBlock + paramPageBlock;
+
   const linksBlock = discoveredLinks && discoveredLinks.length > 0
-    ? '\n\nLinks visible on this page:\n' + discoveredLinks.map(describeLinkSummary).join('\n')
+    ? '\n\nLinks visible on this page (use these for navigation to specific items):\n' + discoveredLinks.map(describeLinkSummary).join('\n')
     : '';
 
   return `You are an agent that helps users interact with web applications.
+This application uses the Agent Accessibility Framework (AAF). Actions are semantic operations with typed fields. Use the exact field values from the schema — enum values must match exactly. Do not add fields not listed in the action.
 You MUST respond with a single JSON object. No text before or after the JSON.
 
 Available actions on this page:
@@ -141,8 +170,9 @@ RULES:
 9. For destructive actions (high risk), include "confirmed": false in your response.
 10. If the context says a form is awaiting review and the user wants to submit/send/confirm it, respond with the same action, same args, and "confirmed": true.
 11. If the requested action is on another page, still return it. The runtime handles navigation automatically.
-12. If the user only wants to navigate to a page without executing an action (e.g. "go to invoices", "show me settings", "take me to the invoice form"), respond with: {"navigate": "<route>"}. The <route> MUST be copied exactly from the VALID ROUTES list or Links list. Any route not in those lists will be rejected as invalid.
-13. For queryable data views, use the same format: {"action": "<data_view_name>", "args": {<query_params>}}. Only include query params the user specified. The runtime navigates to the data view page with filters applied.`;
+12. If the user only wants to navigate to a page without executing an action (e.g. "go to invoices", "show me settings", "take me to the invoice form"), respond with: {"navigate": "<route>"}. The <route> MUST be copied exactly from the VALID ROUTES list or Links list. Routes with parameters like ":id" are templates — you CANNOT navigate to them directly. To navigate to a specific item (e.g. a specific project), find its concrete URL in the Links list and use that. Any route not in those lists will be rejected as invalid.
+13. For queryable data views, use the same format: {"action": "<data_view_name>", "args": {<query_params>}}. Only include query params the user specified. The runtime navigates to the data view page with filters applied.
+14. When the user says "my X", "the X", or "go to X", match X by name against the Links list. "my default project" means the link whose text contains "default". Never navigate to "/" — always pick the best matching link.`;
 }
 
 function describePageSummary(page: PageSummary): string {

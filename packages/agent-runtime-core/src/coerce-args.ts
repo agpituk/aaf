@@ -58,7 +58,14 @@ export function coerceArgs(
       continue;
     }
 
-    if (!prop || value === undefined) continue;
+    // Strip unknown properties not defined in the schema (LLM hallucinated fields)
+    if (!prop) {
+      delete coerced[key];
+      coercions.push({ field: key, from: value, to: undefined, rule: 'unknown→delete' });
+      continue;
+    }
+
+    if (value === undefined) continue;
 
     // string → number
     if (prop.type === 'number' && typeof value === 'string') {
