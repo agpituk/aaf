@@ -13,6 +13,10 @@ export interface PendingNavigation {
   timestamp: number;
   /** True when the user's intent was navigation only (no action to execute on arrival). */
   navigateOnly?: boolean;
+  /** Pre-planned action to execute after navigation (avoids re-planning). */
+  plannedAction?: string;
+  /** Pre-planned args to pass to the action after navigation. */
+  plannedArgs?: Record<string, unknown>;
 }
 
 /**
@@ -211,6 +215,8 @@ export function persistNavigation(
   userMessage: string,
   history: Array<{ role: string; text: string }>,
   navigateOnly?: boolean,
+  plannedAction?: string,
+  plannedArgs?: Record<string, unknown>,
 ): void {
   try {
     const pending: PendingNavigation = {
@@ -219,6 +225,8 @@ export function persistNavigation(
       targetPage,
       timestamp: Date.now(),
       navigateOnly,
+      plannedAction,
+      plannedArgs,
     };
     sessionStorage.setItem(NAV_STORAGE_KEY, JSON.stringify(pending));
   } catch {

@@ -71,6 +71,39 @@ async function fetchManifest(): Promise<AgentManifest | null> {
   }
 }
 
+/**
+ * Wait for an action element to appear in the DOM.
+ * SPA pages may still be hydrating, loading feature flags, or fetching data
+ * when the widget starts — so the action element may not exist yet.
+ * Returns the element if found within the timeout, or null.
+ */
+function waitForActionElement(actionName: string, timeoutMs: number): Promise<Element | null> {
+  return new Promise((resolve) => {
+    const selector = `[data-agent-kind="action"][data-agent-action="${actionName}"]`;
+    const existing = document.querySelector(selector);
+    if (existing) {
+      resolve(existing);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      observer.disconnect();
+      resolve(null);
+    }, timeoutMs);
+
+    const observer = new MutationObserver(() => {
+      const el = document.querySelector(selector);
+      if (el) {
+        observer.disconnect();
+        clearTimeout(timeout);
+        resolve(el);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+}
+
 /** Fill fields, click submit, read status — same logic as DomAdapter.execute() */
 async function executeOnDOM(
   actionName: string,
@@ -280,26 +313,44 @@ async function executeOnDOM(
       } else {
         const el = resolveInteractiveElement(wrapper);
         if (el) {
-          // Native form element found — use setter approach
-          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-            window.HTMLInputElement.prototype, 'value',
-          )?.set;
-          const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(
-            window.HTMLTextAreaElement.prototype, 'value',
-          )?.set;
-
           const tagName = el.tagName.toLowerCase();
-          if (tagName === 'select') {
+          const inputEl = el as HTMLInputElement;
+
+          // Checkbox / switch — click to toggle instead of setting value.
+          // HeroUI Switch renders a hidden checkbox with role="switch".
+          // React ignores programmatic value changes on checkboxes; only
+          // a click dispatches the synthetic onChange / onValueChange.
+          if (tagName === 'input' && (inputEl.type === 'checkbox' || inputEl.getAttribute('role') === 'switch')) {
+            const wantChecked = value === true || value === 'true' || value === '1';
+            if (inputEl.checked !== wantChecked) {
+              // Click the wrapper label / switch element (not the hidden input)
+              // so React Aria / HeroUI picks up the interaction.
+              const clickTarget = wrapper.querySelector('label, [data-slot="wrapper"], span[role="switch"]')
+                || wrapper;
+              simulatePress(clickTarget as HTMLElement);
+              await new Promise((r) => setTimeout(r, 100));
+            }
+          } else if (tagName === 'select') {
             (el as HTMLSelectElement).value = String(value);
             el.dispatchEvent(new Event('change', { bubbles: true }));
-          } else if (tagName === 'textarea' && nativeTextAreaValueSetter) {
-            nativeTextAreaValueSetter.call(el, String(value));
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          } else if (nativeInputValueSetter) {
-            nativeInputValueSetter.call(el, String(value));
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
+          } else {
+            // Text input / textarea — use native setter approach
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype, 'value',
+            )?.set;
+            const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLTextAreaElement.prototype, 'value',
+            )?.set;
+
+            if (tagName === 'textarea' && nativeTextAreaValueSetter) {
+              nativeTextAreaValueSetter.call(el, String(value));
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (nativeInputValueSetter) {
+              nativeInputValueSetter.call(el, String(value));
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
           }
         }
       }
@@ -311,6 +362,9 @@ async function executeOnDOM(
     if (action.confirmation === 'review') {
       return { status: 'awaiting_review', log: logger.toLog() };
     }
+
+    // Allow React to re-render after field fills (e.g. conditionally rendered submit buttons)
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     // Click submit
     const submitSelector = discovered.submitAction
@@ -419,8 +473,56 @@ async function init(): Promise<void> {
     if (pendingNav.navigateOnly) {
       // Navigation was the goal — don't re-plan. Just show the page.
       chat.setEnabled(true);
+    } else if (pendingNav.plannedAction && manifest) {
+      // We have a pre-planned action from before navigation — wait for the
+      // DOM element to appear (SPA pages may still be hydrating / loading data)
+      // then execute directly without re-planning.
+      const actionName = pendingNav.plannedAction;
+      const actionArgs = pendingNav.plannedArgs ?? {};
+
+      chat.addMessage('system', `Waiting for page to load...`);
+      chat.setEnabled(false);
+
+      const actionEl = await waitForActionElement(actionName, 10_000);
+      if (actionEl) {
+        chat.addMessage('system', `Executing ${actionName}...`);
+        const result = await executeOnDOM(actionName, actionArgs, false, manifest);
+
+        if (result.status === 'needs_confirmation' && result.confirmation_metadata) {
+          const confirmed = await showConfirmation(chat.shadow, result.confirmation_metadata);
+          if (confirmed) {
+            const confirmedResult = await executeOnDOM(actionName, actionArgs, true, manifest);
+            const msg = confirmedResult.status === 'completed'
+              ? (confirmedResult.result || 'Action completed successfully.')
+              : `${confirmedResult.status}: ${confirmedResult.error || 'Unknown error'}`;
+            chat.addMessage(confirmedResult.status === 'completed' ? 'assistant' : 'error', msg);
+          } else {
+            chat.addMessage('system', 'Action cancelled by user.');
+          }
+        } else if (result.status === 'awaiting_review') {
+          const msg = 'Form filled — review and submit when ready, or say "submit" to send.';
+          chat.addMessage('assistant', msg);
+          pendingReview = { action: actionName, args: { ...actionArgs } };
+        } else if (result.status === 'completed') {
+          const msg = result.result || 'Action completed successfully.';
+          chat.addMessage('assistant', msg);
+          lastPlan = null;
+          history.length = 0;
+        } else {
+          const msg = `${result.status}: ${result.error || 'Unknown error'}`;
+          chat.addMessage('error', msg);
+          lastPlan = null;
+        }
+      } else {
+        // Action element didn't appear within timeout — fall back to re-planning
+        chat.addMessage('system', `Action element not found on page, re-planning...`);
+        isNavigationResend = true;
+        handleUserMessage(pendingNav.userMessage);
+        return;
+      }
+      chat.setEnabled(true);
     } else {
-      // Re-send the original user message to plan against the new page.
+      // No pre-planned action — re-send the original user message to plan against the new page.
       // Flag prevents handleUserMessage from re-adding the user message to chat/history.
       isNavigationResend = true;
       handleUserMessage(pendingNav.userMessage);
@@ -676,7 +778,7 @@ async function init(): Promise<void> {
         }
 
         chat.addMessage('system', `Navigating to ${targetPage}...`);
-        persistNavigation(targetPage, text, history);
+        persistNavigation(targetPage, text, history, false, request.action, request.args);
         window.location.href = targetPage;
         return;
       }
