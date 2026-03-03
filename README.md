@@ -109,7 +109,7 @@ The docs site covers attributes, manifests, execution flow, tooling, and example
 
 ## What's in the repo
 
-The prototype includes a core runtime (parser, validator, policy engine, logger), a Playwright testing adapter, a conformance linter, a code generator, typed planner/runtime contracts, a local LLM planner (Ollama), an embeddable agent chat widget, framework bindings (React, Vue), and supporting tooling (ESLint plugin, Vite plugin, CLI). See [`CLAUDE.md`](CLAUDE.md) for the full monorepo layout.
+The prototype includes a core runtime (parser, validator, policy engine, logger), a Playwright testing adapter, a conformance linter, a code generator, typed planner/runtime contracts, a local LLM planner (Ollama), an embeddable agent chat widget, framework adapters (Next.js, SvelteKit, React, Vue), a WebMCP bridge (auto-registers AAF actions as browser-native MCP tools on Chrome 146+), and supporting tooling (ESLint plugin, Vite plugin, CLI, llms.txt generator). See [`CLAUDE.md`](CLAUDE.md) for the full monorepo layout.
 
 ## Quick start
 
@@ -183,7 +183,7 @@ npx agentgen --manifest samples/billing-app/public/.well-known/agent-manifest.js
 
 This is the test I find most convincing. **Semantic automation survives UI refactors that break selector-based automation.**
 
-`tests/falsification/` contains two copies of the billing app HTML — the original and a refactored version with completely different CSS classes, IDs, and layout, but identical `data-agent-*` attributes.
+`tests/falsification/` contains 10 fixture pairs — each with an original HTML page and a refactored version using completely different CSS classes, IDs, and layout, but identical `data-agent-*` attributes. The fixtures cover forms, modals, date pickers, selects, inline edits, file uploads, pagination, nested forms, and dynamic fields.
 
 ```bash
 npx vitest run tests/falsification
@@ -191,11 +191,12 @@ npx vitest run tests/falsification
 
 | Approach | Original app | Refactored app | Survives refactor? |
 |----------|-------------|----------------|-------------------|
-| CSS selectors | 4/4 pass | 0/4 pass | No |
-| AAF semantic | 2/2 pass | 2/2 pass | **Yes** |
+| CSS selectors | 20/20 pass | 0/20 pass | No |
+| AAF semantic | 10/10 pass | 10/10 pass | **Yes** |
 
 The benchmark also tests:
-- **Safety**: high-risk actions without confirmation are blocked
+- **Safety**: high-risk actions without confirmation are blocked (9 tests across 3 actions)
+- **Scope enforcement**: actions outside granted scopes are rejected (9 tests across 3 scoped actions)
 - **Drift detection**: linter catches broken `data-agent-*` attributes
 - **Missing fields**: required field omission produces clear errors
 
@@ -220,6 +221,13 @@ Actions declare risk and confirmation requirements. The runtime enforces them �
 - The runtime returns `needs_confirmation` with metadata (action name, risk, scope)
 - The widget shows a confirmation dialog; only on user approval does it re-execute with `confirmed: true`
 
+The PolicyEngine also enforces:
+- **Arg safety** — rejects CSS selectors, XPath, and pseudo-class patterns in LLM-generated args
+- **Origin trust** — validates the manifest was served from the same origin as the current page
+- **Scope enforcement** — blocks actions outside the agent's granted scopes (configurable per widget instance)
+
+See [`docs/06-security-threat-model.md`](docs/06-security-threat-model.md) for the full threat model.
+
 ## Execution flow
 
 ```
@@ -229,7 +237,7 @@ User message
   -> LLM plans: { action: "invoice.create", args: { ... } }
   -> If action is on another page: persist conversation, navigate, resume
   -> Validate args against manifest schema (ManifestValidator)
-  -> Check policy: risk, confirmation, required fields (PolicyEngine)
+  -> Check policy: risk, confirmation, required fields, arg safety, origin, scope (PolicyEngine)
   -> Execute: fill fields, click submit, read status (AAFAdapter)
   -> Return structured result + semantic log
 ```
@@ -242,21 +250,29 @@ See [`docs/`](docs/) for the full proposal:
 |----------|-------|
 | [01 - Vision and Goals](docs/01-vision-and-goals.md) | The problem and why this approach |
 | [02 - Standard Spec](docs/02-standard-spec.md) | Proposed DOM attributes and manifest format |
-| [04 - Security](docs/04-security-and-conformance.md) | Safety rules and conformance |
-| [06 - Design Principles](docs/06-design-principles.md) | Scope and principles |
-| [07 - Future](docs/07-future-and-appendices.md) | Open questions and future directions |
+| [03 - Security and Conformance](docs/03-security-and-conformance.md) | Safety rules and conformance levels |
+| [04 - Design Principles](docs/04-design-principles.md) | Scope and principles |
+| [05 - Future](docs/05-future-and-appendices.md) | Open questions and future directions |
+| [06 - Security Threat Model](docs/06-security-threat-model.md) | 6 enumerated threats with mitigations |
+| [08 - HTML Standard Proposal](docs/08-html-standard-proposal.md) | W3C-style position paper with browser implementation roadmap |
+| [09 - Multi-Agent Handoff](docs/09-multi-agent-handoff.md) | Cross-site action chaining protocol |
 
 ## Status
 
 This is a working prototype — I built it to prove (or disprove) the idea, not to ship a production framework. The prototype includes:
 
-- Core runtime (parser, validator, policy engine, logger, arg coercion)
-- Agent widget — embeddable `<script>` for any AAF page with Ollama LLM
+- Core runtime (parser, validator, policy engine with security hardening, logger, arg coercion)
+- Agent widget — embeddable `<script>` for any AAF page with Ollama/OpenAI-compatible LLM
 - Local planner (Ollama), prompt builder, response parser
-- Linter, code generator, falsification benchmark
+- Linter, code generator, falsification benchmark (10 fixture pairs, 60+ tests)
 - Typed planner/runtime contracts with selector rejection
-- React and Vue bindings, ESLint plugin, Vite plugin
+- Framework adapters — Next.js (`AgentForm`, `withAgentAction`), SvelteKit (`AgentAction.svelte`, server hook), React, Vue
+- WebMCP bridge — auto-registers AAF actions as `navigator.modelContext` tools on Chrome 146+
+- Multi-agent handoff protocol — cross-site action chaining with trust model
+- `llms.txt` generator — AI crawler discovery from manifest
+- ESLint plugin, Vite plugin
 - Interactive docs site (data chat mode — you can ask it questions about AAF)
+- Real-world sample app (ProjectHub — 5 pages, 5 actions, 3 data views)
 
 The widget demonstrates the full loop — chat, plan, validate, execute, confirm — running directly on any annotated page. It supports **cross-page navigation**: if the user requests an action that exists on a different page, the widget auto-navigates there and resumes the conversation. On pages with only data collections (no actions), it enters **data chat mode** where you can ask questions about the visible content.
 

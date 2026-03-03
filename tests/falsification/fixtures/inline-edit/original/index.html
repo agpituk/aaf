@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Inline Edit — Original</title></head>
+<body>
+  <div id="profile-page">
+    <form
+      id="profile-form"
+      class="profile-edit-form"
+      data-agent-kind="action"
+      data-agent-action="profile.update"
+      data-agent-scope="profile.write"
+      data-agent-danger="none"
+      data-agent-confirm="optional"
+      data-agent-idempotent="true"
+    >
+      <table id="profile-table" class="data-table">
+        <tr>
+          <td class="label-cell">Display Name</td>
+          <td class="edit-cell">
+            <input type="text" id="display_name" class="inline-input" data-agent-kind="field" data-agent-field="display_name" />
+          </td>
+        </tr>
+        <tr>
+          <td class="label-cell">Bio</td>
+          <td class="edit-cell">
+            <textarea id="bio" class="inline-textarea" data-agent-kind="field" data-agent-field="bio"></textarea>
+          </td>
+        </tr>
+        <tr>
+          <td class="label-cell">Location</td>
+          <td class="edit-cell">
+            <input type="text" id="location" class="inline-input" data-agent-kind="field" data-agent-field="location" />
+          </td>
+        </tr>
+      </table>
+      <button type="submit" id="save-profile" class="btn btn-save" data-agent-kind="action" data-agent-action="profile.update.submit">Save</button>
+      <div id="profile-status" class="status" data-agent-kind="status" data-agent-output="profile.update.status"></div>
+    </form>
+  </div>
+</body>
+</html>

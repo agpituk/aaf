@@ -165,6 +165,30 @@
         "outputSchema": {
           "type": "object",
           "description": "JSON Schema for action output."
+        },
+        "handoff": {
+          "type": "object",
+          "description": "Cross-site action handoff configuration. Maps output fields to a target action on another site.",
+          "required": ["target", "targetAction", "fieldMap"],
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string",
+              "format": "uri",
+              "description": "URL of the target site's agent-manifest.json."
+            },
+            "targetAction": {
+              "type": "string",
+              "description": "Action identifier on the target site.",
+              "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*$"
+            },
+            "fieldMap": {
+              "type": "object",
+              "description": "Maps source output field names to target input field names.",
+              "additionalProperties": { "type": "string" },
+              "minProperties": 1
+            }
+          }
         }
       }
     },

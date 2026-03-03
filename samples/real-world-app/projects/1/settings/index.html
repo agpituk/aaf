@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — Marketing Website — ProjectHub</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">ProjectHub</span>
+    <a href="/projects/" data-agent-kind="link">Projects</a>
+    <a href="/projects/new" data-agent-kind="link">New Project</a>
+    <a href="/invites/" data-agent-kind="link">Team</a>
+  </nav>
+  <main>
+    <h1>Marketing Website — Settings</h1>
+    <a href="/projects/1/tasks" data-agent-kind="link">Back to Tasks</a>
+
+    <div class="danger-zone card">
+      <h2>Delete Project</h2>
+      <p class="warning">This action is permanent and cannot be undone. All tasks and members will be removed.</p>
+      <form
+        id="delete-project-form"
+        data-agent-kind="action"
+        data-agent-action="project.delete"
+        data-agent-scope="projects.admin"
+        data-agent-danger="high"
+        data-agent-confirm="required"
+        data-agent-idempotent="false"
+      >
+        <label for="confirm_project_name">Type the project name to confirm</label>
+        <input
+          type="text"
+          id="confirm_project_name"
+          name="confirm_project_name"
+          required
+          aria-label="Type the project name to confirm"
+          data-agent-kind="field"
+          data-agent-field="confirm_project_name"
+        />
+
+        <button
+          type="submit"
+          class="btn-danger"
+          data-agent-kind="action"
+          data-agent-action="project.delete.submit"
+        >
+          Delete Project Permanently
+        </button>
+
+        <div
+          id="delete-project-status"
+          role="status"
+          aria-live="polite"
+          data-agent-kind="status"
+          data-agent-output="project.delete.status"
+        ></div>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

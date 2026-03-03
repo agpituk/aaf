@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Multi-Field Delete — Original</title></head>
+<body>
+  <div id="danger-zone" class="danger-zone">
+    <form
+      id="delete-account-form"
+      class="delete-form"
+      data-agent-kind="action"
+      data-agent-action="account.delete"
+      data-agent-scope="account.admin"
+      data-agent-danger="high"
+      data-agent-confirm="required"
+      data-agent-idempotent="false"
+    >
+      <h2 class="danger-title">Delete Account</h2>
+      <p class="danger-warning">This action is permanent. Type your email and "DELETE" to confirm.</p>
+      <div class="form-group">
+        <label for="confirm_email">Your Email</label>
+        <input type="email" id="confirm_email" class="form-control" data-agent-kind="field" data-agent-field="confirm_email" />
+      </div>
+      <div class="form-group">
+        <label for="confirm_text">Type DELETE</label>
+        <input type="text" id="confirm_text" class="form-control danger-input" data-agent-kind="field" data-agent-field="confirm_text" />
+      </div>
+      <div class="form-group">
+        <label for="reason">Reason (optional)</label>
+        <textarea id="reason" class="form-control" data-agent-kind="field" data-agent-field="reason"></textarea>
+      </div>
+      <button type="submit" id="delete-account-btn" class="btn btn-danger" data-agent-kind="action" data-agent-action="account.delete.submit">Delete My Account</button>
+      <div id="delete-status" class="status danger" data-agent-kind="status" data-agent-output="account.delete.status"></div>
+    </form>
+  </div>
+</body>
+</html>

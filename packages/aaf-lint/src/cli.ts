@@ -8,6 +8,7 @@ import { checkAlignment, checkPageAlignment } from './alignment-checker.js';
 import { auditHTML, scoreSummary } from './accessibility-auditor.js';
 import { renderURL, type RenderOptions } from './renderer.js';
 import { crawlSite } from './crawler.js';
+import { checkLlmsTxt } from './llms-txt-checker.js';
 import type { AuditResult } from './types.js';
 
 /** File extensions that aaf-lint can process */
@@ -119,6 +120,7 @@ async function main() {
   let render = false;
   let crawl = false;
   let safety = false;
+  let checkLlmsTxtFlag = false;
   let useStdin = false;
   let changedFlag = false;
   let changedRef: string | undefined;
@@ -139,6 +141,7 @@ async function main() {
     else if (arg === '--render') render = true;
     else if (arg === '--crawl') crawl = true;
     else if (arg === '--safety') safety = true;
+    else if (arg === '--check-llms-txt') checkLlmsTxtFlag = true;
     else if (arg === '--stdin') useStdin = true;
     else if (arg === '--exclude' && hasValue) excludeSelectors.push(args[++i]);
     else if (arg === '--no-strip-devtools') stripDevTools = false;
@@ -218,6 +221,7 @@ async function main() {
     console.error('  --safety              Include safety checks (dangerous button annotations)');
     console.error('  --audit-pages         Audit each static page from manifest via Playwright rendering');
     console.error('  --exclude <selector>  CSS selector of elements to remove before auditing (repeatable)');
+    console.error('  --check-llms-txt      Check that llms.txt exists and is valid (URL audit targets only)');
     console.error('  --no-strip-devtools   Keep dev tools (TanStack, React Query) in the rendered DOM');
     process.exit(1);
   }
@@ -365,6 +369,25 @@ async function main() {
       printAuditReport(result);
       if (result.overallScore < 50) process.exit(1);
     }
+
+    // Check llms.txt if requested and target is a URL
+    if (checkLlmsTxtFlag && isURL(auditPath)) {
+      const origin = new URL(auditPath).origin;
+      const llmsResult = await checkLlmsTxt(origin);
+      console.log('\n=== llms.txt Check ===\n');
+      if (llmsResult.valid) {
+        console.log('  [+] llms.txt found and valid');
+      } else {
+        for (const err of llmsResult.errors) {
+          console.log(`  [-] ${err}`);
+        }
+      }
+      if (llmsResult.referencesManifest) {
+        console.log('  [+] References agent-manifest.json');
+      }
+      console.log('');
+    }
+
     return;
   }
 

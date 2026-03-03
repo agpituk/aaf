@@ -8,6 +8,8 @@ export interface AAFWidgetConfig {
     model?: string;
     apiKey?: string;
   };
+  /** Scopes granted to the widget agent. If set, actions outside these scopes are blocked. */
+  agentScopes?: string[];
 }
 
 declare global {
@@ -33,6 +35,7 @@ export function readConfig(): AAFWidgetConfig {
     const scripts = document.querySelectorAll('script[data-llm-provider]');
     if (scripts.length > 0) {
       const script = scripts[scripts.length - 1] as HTMLScriptElement;
+      const scopesAttr = script.dataset.agentScopes;
       return {
         llm: {
           provider: script.dataset.llmProvider,
@@ -40,6 +43,7 @@ export function readConfig(): AAFWidgetConfig {
           model: script.dataset.llmModel,
           apiKey: script.dataset.llmApiKey,
         },
+        ...(scopesAttr ? { agentScopes: scopesAttr.split(',').map((s) => s.trim()) } : {}),
       };
     }
   }

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tasks — Marketing Website — ProjectHub</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">ProjectHub</span>
+    <a href="/projects/" data-agent-kind="link">Projects</a>
+    <a href="/projects/new" data-agent-kind="link">New Project</a>
+    <a href="/invites/" data-agent-kind="link">Team</a>
+  </nav>
+  <main>
+    <h1>Marketing Website — Tasks</h1>
+    <a href="/projects/1/settings" data-agent-kind="link" class="settings-link">Project Settings</a>
+
+    <!-- Task creation form -->
+    <div class="card">
+      <h2>Create Task</h2>
+      <form
+        id="create-task-form"
+        data-agent-kind="action"
+        data-agent-action="task.create"
+        data-agent-scope="tasks.write"
+        data-agent-danger="none"
+        data-agent-confirm="optional"
+        data-agent-idempotent="false"
+      >
+        <label for="task_title">Task Title</label>
+        <input
+          type="text"
+          id="task_title"
+          name="task_title"
+          required
+          aria-label="Task title"
+          data-agent-kind="field"
+          data-agent-field="task_title"
+        />
+
+        <label for="assignee_email">Assignee Email</label>
+        <input
+          type="email"
+          id="assignee_email"
+          name="assignee_email"
+          aria-label="Assignee email"
+          data-agent-kind="field"
+          data-agent-field="assignee_email"
+        />
+
+        <label for="priority">Priority</label>
+        <select
+          id="priority"
+          name="priority"
+          aria-label="Priority"
+          data-agent-kind="field"
+          data-agent-field="priority"
+        >
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+
+        <label for="due_date">Due Date</label>
+        <input
+          type="date"
+          id="due_date"
+          name="due_date"
+          aria-label="Due date"
+          data-agent-kind="field"
+          data-agent-field="due_date"
+        />
+
+        <button
+          type="submit"
+          class="btn-primary"
+          data-agent-kind="action"
+          data-agent-action="task.create.submit"
+        >
+          Create Task
+        </button>
+
+        <div
+          id="task-create-status"
+          role="status"
+          aria-live="polite"
+          data-agent-kind="status"
+          data-agent-output="task.create.status"
+        ></div>
+      </form>
+    </div>
+
+    <!-- Task list -->
+    <h2>Current Tasks</h2>
+    <div data-agent-kind="collection" class="task-list">
+      <div data-agent-kind="item" class="task-row">
+        <span class="task-title">Design homepage mockup</span>
+        <span class="task-assignee">alice@example.com</span>
+        <span class="task-priority high">High</span>
+        <span class="task-status">In Progress</span>
+      </div>
+      <div data-agent-kind="item" class="task-row">
+        <span class="task-title">Write copy for landing page</span>
+        <span class="task-assignee">bob@example.com</span>
+        <span class="task-priority medium">Medium</span>
+        <span class="task-status">Open</span>
+      </div>
+      <div data-agent-kind="item" class="task-row">
+        <span class="task-title">Set up CI/CD pipeline</span>
+        <span class="task-assignee">carol@example.com</span>
+        <span class="task-priority low">Low</span>
+        <span class="task-status">Done</span>
+      </div>
+    </div>
+
+    <!-- Task delete (dangerous) -->
+    <div class="danger-zone card">
+      <h2>Delete Task</h2>
+      <form
+        id="delete-task-form"
+        data-agent-kind="action"
+        data-agent-action="task.delete"
+        data-agent-scope="tasks.write"
+        data-agent-danger="high"
+        data-agent-confirm="required"
+        data-agent-idempotent="false"
+      >
+        <label for="confirm_text">Type DELETE to confirm</label>
+        <input
+          type="text"
+          id="confirm_text"
+          name="confirm_text"
+          required
+          aria-label="Type DELETE to confirm"
+          data-agent-kind="field"
+          data-agent-field="confirm_text"
+        />
+
+        <button
+          type="submit"
+          class="btn-danger"
+          data-agent-kind="action"
+          data-agent-action="task.delete.submit"
+        >
+          Delete Task
+        </button>
+
+        <div
+          id="task-delete-status"
+          role="status"
+          aria-live="polite"
+          data-agent-kind="status"
+          data-agent-output="task.delete.status"
+        ></div>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

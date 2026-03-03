@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Money Transfer — Redesigned</title></head>
+<body>
+  <main class="payment-flow">
+    <form
+      class="send-money-form card-elevated"
+      data-agent-kind="action"
+      data-agent-action="transfer.initiate"
+      data-agent-scope="transfers.write"
+      data-agent-danger="low"
+      data-agent-confirm="review"
+      data-agent-idempotent="false"
+    >
+      <div class="row-field">
+        <span class="caption">To</span>
+        <input type="text" class="input-field" data-agent-kind="field" data-agent-field="recipient" />
+      </div>
+      <div class="row-field">
+        <span class="caption">Type</span>
+        <select class="select-field" data-agent-kind="field" data-agent-field="category">
+          <optgroup label="Personal">
+            <option value="rent">Rent</option>
+            <option value="utilities">Utilities</option>
+          </optgroup>
+          <optgroup label="Business">
+            <option value="payroll">Payroll</option>
+            <option value="vendor">Vendor Payment</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="row-field">
+        <span class="caption">How much</span>
+        <input type="number" class="input-field" data-agent-kind="field" data-agent-field="amount" />
+      </div>
+      <button type="submit" class="submit-action orange" data-agent-kind="action" data-agent-action="transfer.initiate.submit">Transfer</button>
+      <output class="msg" data-agent-kind="status" data-agent-output="transfer.initiate.status"></output>
+    </form>
+  </main>
+</body>
+</html>

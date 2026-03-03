@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Modal Action — Original</title></head>
+<body>
+  <div id="app-container">
+    <div id="invite-modal" class="modal" role="dialog">
+      <div class="modal-content">
+        <h2 class="modal-title">Invite Member</h2>
+        <form
+          id="invite-form"
+          class="modal-form"
+          data-agent-kind="action"
+          data-agent-action="member.invite"
+          data-agent-scope="members.write"
+          data-agent-danger="none"
+          data-agent-confirm="optional"
+          data-agent-idempotent="true"
+        >
+          <div class="form-group">
+            <label for="member_email">Email</label>
+            <input type="email" id="member_email" class="form-input" data-agent-kind="field" data-agent-field="member_email" />
+          </div>
+          <div class="form-group">
+            <label for="role">Role</label>
+            <select id="role" class="form-select" data-agent-kind="field" data-agent-field="role">
+              <option value="viewer">Viewer</option>
+              <option value="editor">Editor</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <button type="submit" id="invite-btn" class="btn btn-success" data-agent-kind="action" data-agent-action="member.invite.submit">Send Invite</button>
+          <div id="invite-status" class="alert" data-agent-kind="status" data-agent-output="member.invite.status"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

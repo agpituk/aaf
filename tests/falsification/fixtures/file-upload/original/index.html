@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>File Upload — Original</title></head>
+<body>
+  <div id="upload-page">
+    <form
+      id="upload-form"
+      class="upload-form"
+      enctype="multipart/form-data"
+      data-agent-kind="action"
+      data-agent-action="document.upload"
+      data-agent-scope="documents.write"
+      data-agent-danger="none"
+      data-agent-confirm="optional"
+      data-agent-idempotent="false"
+    >
+      <div class="form-group">
+        <label for="doc_title">Document Title</label>
+        <input type="text" id="doc_title" class="form-control" data-agent-kind="field" data-agent-field="doc_title" />
+      </div>
+      <div class="form-group">
+        <label for="file">File</label>
+        <input type="file" id="file" class="form-control file-input" data-agent-kind="field" data-agent-field="file" />
+        <div id="file-preview" class="preview-area"></div>
+      </div>
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" class="form-control" data-agent-kind="field" data-agent-field="description"></textarea>
+      </div>
+      <button type="submit" id="upload-btn" class="btn btn-upload" data-agent-kind="action" data-agent-action="document.upload.submit">Upload</button>
+      <div id="upload-status" class="upload-status" data-agent-kind="status" data-agent-output="document.upload.status"></div>
+    </form>
+  </div>
+</body>
+</html>

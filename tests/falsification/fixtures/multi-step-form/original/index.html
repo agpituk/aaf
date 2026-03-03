@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Multi-Step Form — Original</title></head>
+<body>
+  <div id="wizard-container" class="wizard">
+    <form
+      id="onboarding-form"
+      class="onboarding-wizard"
+      data-agent-kind="action"
+      data-agent-action="onboarding.complete"
+      data-agent-scope="account.write"
+      data-agent-danger="none"
+      data-agent-confirm="optional"
+      data-agent-idempotent="false"
+    >
+      <div id="step-1" class="wizard-step active">
+        <h2 class="step-title">Step 1: Personal Info</h2>
+        <div class="form-group">
+          <label for="full_name">Full Name</label>
+          <input type="text" id="full_name" class="form-control" data-agent-kind="field" data-agent-field="full_name" />
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" class="form-control" data-agent-kind="field" data-agent-field="email" />
+        </div>
+      </div>
+      <div id="step-2" class="wizard-step">
+        <h2 class="step-title">Step 2: Company</h2>
+        <div class="form-group">
+          <label for="company_name">Company</label>
+          <input type="text" id="company_name" class="form-control" data-agent-kind="field" data-agent-field="company_name" />
+        </div>
+      </div>
+      <button type="submit" id="submit-wizard" class="btn btn-primary" data-agent-kind="action" data-agent-action="onboarding.complete.submit">Complete Setup</button>
+      <div id="wizard-status" class="status-msg" data-agent-kind="status" data-agent-output="onboarding.complete.status"></div>
+    </form>
+  </div>
+</body>
+</html>

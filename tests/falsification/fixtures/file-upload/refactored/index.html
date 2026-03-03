@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Upload Doc — Redesigned</title></head>
+<body>
+  <main class="docs-upload-view">
+    <form
+      class="dropzone-form"
+      enctype="multipart/form-data"
+      data-agent-kind="action"
+      data-agent-action="document.upload"
+      data-agent-scope="documents.write"
+      data-agent-danger="none"
+      data-agent-confirm="optional"
+      data-agent-idempotent="false"
+    >
+      <div class="field-stack">
+        <span class="tiny-label">Title</span>
+        <input type="text" class="modern-input" data-agent-kind="field" data-agent-field="doc_title" />
+      </div>
+      <div class="dropzone-area">
+        <span class="tiny-label">Attach file</span>
+        <input type="file" class="hidden-file-input" data-agent-kind="field" data-agent-field="file" />
+      </div>
+      <div class="field-stack">
+        <span class="tiny-label">Notes</span>
+        <textarea class="modern-input tall" data-agent-kind="field" data-agent-field="description"></textarea>
+      </div>
+      <button type="submit" class="flat-btn teal" data-agent-kind="action" data-agent-action="document.upload.submit">Send File</button>
+      <output class="toast-message" data-agent-kind="status" data-agent-output="document.upload.status"></output>
+    </form>
+  </main>
+</body>
+</html>

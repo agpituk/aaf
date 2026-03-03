@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Delivery Settings — Redesigned</title></head>
+<body>
+  <section class="delivery-configurator">
+    <form
+      class="delivery-form modern-card"
+      data-agent-kind="action"
+      data-agent-action="shipping.configure"
+      data-agent-scope="shipping.write"
+      data-agent-danger="none"
+      data-agent-confirm="optional"
+      data-agent-idempotent="true"
+    >
+      <div class="option-row">
+        <span class="option-label">Speed</span>
+        <select class="custom-select" data-agent-kind="field" data-agent-field="shipping_method">
+          <option value="standard">Standard</option>
+          <option value="express">Express</option>
+          <option value="overnight">Overnight</option>
+        </select>
+      </div>
+      <div class="option-row">
+        <span class="option-label">Ship to</span>
+        <input type="text" class="address-input" data-agent-kind="field" data-agent-field="address" />
+      </div>
+      <div class="option-row expandable">
+        <span class="option-label">Time slot</span>
+        <input type="time" class="time-input" data-agent-kind="field" data-agent-field="delivery_time" />
+      </div>
+      <button type="submit" class="confirm-btn green" data-agent-kind="action" data-agent-action="shipping.configure.submit">Set Delivery</button>
+      <output class="delivery-status" data-agent-kind="status" data-agent-output="shipping.configure.status"></output>
+    </form>
+  </section>
+</body>
+</html>

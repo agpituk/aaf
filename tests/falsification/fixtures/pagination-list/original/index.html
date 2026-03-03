@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Pagination List — Original</title></head>
+<body>
+  <div id="products-page">
+    <form
+      id="product-form"
+      class="product-form"
+      data-agent-kind="action"
+      data-agent-action="product.create"
+      data-agent-scope="products.write"
+      data-agent-danger="none"
+      data-agent-confirm="optional"
+      data-agent-idempotent="false"
+    >
+      <div class="form-group">
+        <label for="product_name">Product Name</label>
+        <input type="text" id="product_name" class="form-control" data-agent-kind="field" data-agent-field="product_name" />
+      </div>
+      <div class="form-group">
+        <label for="price">Price</label>
+        <input type="number" id="price" class="form-control" data-agent-kind="field" data-agent-field="price" />
+      </div>
+      <div class="form-group">
+        <label for="sku">SKU</label>
+        <input type="text" id="sku" class="form-control" data-agent-kind="field" data-agent-field="sku" />
+      </div>
+      <button type="submit" id="add-product-btn" class="btn btn-primary" data-agent-kind="action" data-agent-action="product.create.submit">Add Product</button>
+      <div id="product-status" class="status-bar" data-agent-kind="status" data-agent-output="product.create.status"></div>
+    </form>
+    <div id="product-list" class="list-container" data-agent-kind="collection">
+      <div class="product-row" data-agent-kind="item"><span>Widget A</span></div>
+      <div class="product-row" data-agent-kind="item"><span>Widget B</span></div>
+    </div>
+  </div>
+</body>
+</html>

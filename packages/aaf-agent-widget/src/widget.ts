@@ -104,12 +104,18 @@ function waitForActionElement(actionName: string, timeoutMs: number): Promise<El
   });
 }
 
+interface ExecuteOnDOMOptions {
+  manifestOrigin?: string;
+  agentScopes?: string[];
+}
+
 /** Fill fields, click submit, read status — same logic as DomAdapter.execute() */
 async function executeOnDOM(
   actionName: string,
   args: Record<string, unknown>,
   confirmed: boolean,
   manifest: AgentManifest,
+  securityOptions?: ExecuteOnDOMOptions,
 ): Promise<ExecutionResult> {
   const validator = new ManifestValidator();
   const policy = new PolicyEngine();
@@ -119,8 +125,16 @@ async function executeOnDOM(
   try {
     const action = validator.getAction(manifest, actionName);
 
-    // Policy check
-    const policyResult = policy.checkExecution(action, { confirmed, requiredFields: args });
+    // Policy check — includes arg safety, origin trust, and scope enforcement
+    const policyResult = policy.checkExecution(action, {
+      confirmed,
+      requiredFields: args,
+      args,
+      ...(securityOptions?.manifestOrigin
+        ? { manifestOrigin: securityOptions.manifestOrigin, pageOrigin: window.location.origin }
+        : {}),
+      ...(securityOptions?.agentScopes ? { agentScopes: securityOptions.agentScopes } : {}),
+    });
     if (!policyResult.allowed) {
       logger.policyCheck('BLOCKED', policyResult.reason);
 
@@ -457,6 +471,14 @@ async function init(): Promise<void> {
   // Load manifest
   manifest = await fetchManifest();
 
+  // Security context for PolicyEngine checks
+  const manifestOrigin = window.location.origin; // origin the manifest was fetched from
+  const agentScopes = config.agentScopes;
+  const securityOpts: ExecuteOnDOMOptions = {
+    ...(manifestOrigin ? { manifestOrigin } : {}),
+    ...(agentScopes ? { agentScopes } : {}),
+  };
+
   // Restore pending cross-page navigation
   if (pendingNav) {
     hasNavigatedThisSession = true;
@@ -486,12 +508,12 @@ async function init(): Promise<void> {
       const actionEl = await waitForActionElement(actionName, 10_000);
       if (actionEl) {
         chat.addMessage('system', `Executing ${actionName}...`);
-        const result = await executeOnDOM(actionName, actionArgs, false, manifest);
+        const result = await executeOnDOM(actionName, actionArgs, false, manifest, securityOpts);
 
         if (result.status === 'needs_confirmation' && result.confirmation_metadata) {
           const confirmed = await showConfirmation(chat.shadow, result.confirmation_metadata);
           if (confirmed) {
-            const confirmedResult = await executeOnDOM(actionName, actionArgs, true, manifest);
+            const confirmedResult = await executeOnDOM(actionName, actionArgs, true, manifest, securityOpts);
             const msg = confirmedResult.status === 'completed'
               ? (confirmedResult.result || 'Action completed successfully.')
               : `${confirmedResult.status}: ${confirmedResult.error || 'Unknown error'}`;
@@ -784,13 +806,13 @@ async function init(): Promise<void> {
       }
 
       // Execute (coercion happens inside executeOnDOM)
-      let result = await executeOnDOM(request.action, request.args, request.confirmed || false, manifest);
+      let result = await executeOnDOM(request.action, request.args, request.confirmed || false, manifest, securityOpts);
 
       // Handle confirmation
       if (result.status === 'needs_confirmation' && result.confirmation_metadata) {
         const confirmed = await showConfirmation(chat.shadow, result.confirmation_metadata);
         if (confirmed) {
-          result = await executeOnDOM(request.action, request.args, true, manifest);
+          result = await executeOnDOM(request.action, request.args, true, manifest, securityOpts);
         } else {
           chat.addMessage('system', 'Action cancelled by user.');
           history.push({ role: 'assistant', text: 'Action cancelled by user.' });

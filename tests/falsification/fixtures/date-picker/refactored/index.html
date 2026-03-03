@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Reservation — Redesigned</title></head>
+<body>
+  <section class="reservation-container">
+    <form
+      class="res-form shadow-md"
+      data-agent-kind="action"
+      data-agent-action="booking.create"
+      data-agent-scope="bookings.write"
+      data-agent-danger="low"
+      data-agent-confirm="optional"
+      data-agent-idempotent="false"
+    >
+      <div class="input-block">
+        <span class="lbl">Name</span>
+        <input type="text" class="text-input wide" data-agent-kind="field" data-agent-field="guest_name" />
+      </div>
+      <div class="date-range-picker">
+        <div class="input-block">
+          <span class="lbl">Arrival</span>
+          <input type="date" class="date-input" data-agent-kind="field" data-agent-field="check_in_date" />
+        </div>
+        <div class="input-block">
+          <span class="lbl">Departure</span>
+          <input type="date" class="date-input" data-agent-kind="field" data-agent-field="check_out_date" />
+        </div>
+      </div>
+      <button type="submit" class="primary-action-btn" data-agent-kind="action" data-agent-action="booking.create.submit">Reserve</button>
+      <output class="feedback" data-agent-kind="status" data-agent-output="booking.create.status"></output>
+    </form>
+  </section>
+</body>
+</html>

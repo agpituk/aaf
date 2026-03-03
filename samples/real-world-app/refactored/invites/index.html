@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Team — Redesigned ProjectHub</title></head>
+<body>
+  <header class="top-bar">
+    <div class="logo">PH</div>
+    <div class="nav-pills">
+      <a href="/projects/" data-agent-kind="link" class="pill">Projects</a>
+      <a href="/projects/new" data-agent-kind="link" class="pill">New</a>
+      <a href="/invites/" data-agent-kind="link" class="pill active">Team</a>
+    </div>
+  </header>
+  <div class="layout-grid">
+    <section class="main-panel">
+      <h2>People</h2>
+      <div class="floating-card">
+        <h3>Add Teammate</h3>
+        <form
+          class="quick-invite-form"
+          data-agent-kind="action"
+          data-agent-action="member.invite"
+          data-agent-scope="members.write"
+          data-agent-danger="low"
+          data-agent-confirm="optional"
+          data-agent-idempotent="true"
+        >
+          <div class="row"><span class="lbl">Email</span><input type="email" class="modern-input" data-agent-kind="field" data-agent-field="member_email" /></div>
+          <div class="row"><span class="lbl">Access</span>
+            <select class="modern-select" data-agent-kind="field" data-agent-field="role">
+              <option value="viewer">Viewer</option><option value="editor">Editor</option><option value="admin">Admin</option>
+            </select>
+          </div>
+          <button type="submit" class="rounded-cta green" data-agent-kind="action" data-agent-action="member.invite.submit">Invite</button>
+          <output class="toast" data-agent-kind="status" data-agent-output="member.invite.status"></output>
+        </form>
+      </div>
+
+      <ul class="people-grid" data-agent-kind="collection">
+        <li class="person-card" data-agent-kind="item"><span>alice@example.com — Admin</span></li>
+        <li class="person-card" data-agent-kind="item"><span>bob@example.com — Editor</span></li>
+        <li class="person-card" data-agent-kind="item"><span>carol@example.com — Viewer</span></li>
+      </ul>
+    </section>
+  </div>
+</body>
+</html>

@@ -340,10 +340,13 @@ Create or update `public/.well-known/agent-manifest.json`.
 1. **Schema** — The full JSON Schema defining all required/optional fields, types, and constraints for the manifest.
    - Local: `schemas/agent-manifest.schema.json`
    - GitHub: https://github.com/agpituk/aaf/blob/main/schemas/agent-manifest.schema.json
-2. **Reference example** — A complete working manifest showing actions, data views, pages, errors, and `x-semantic` usage.
+2. **Reference example (simple)** — A small working manifest with 2 actions and 1 data view.
    - Local: `samples/billing-app/public/.well-known/agent-manifest.json`
    - GitHub: https://github.com/agpituk/aaf/blob/main/samples/billing-app/public/.well-known/agent-manifest.json
-3. **Spec** — The full AAF standard including element resolution order (§6.1.1), risk/confirmation tiers, and conformance rules.
+3. **Reference example (comprehensive)** — A full manifest with 5 actions, 3 data views, 5 pages, handoff, and `x-semantic` usage.
+   - Local: `samples/real-world-app/public/.well-known/agent-manifest.json`
+   - GitHub: https://github.com/agpituk/aaf/blob/main/samples/real-world-app/public/.well-known/agent-manifest.json
+4. **Spec** — The full AAF standard including element resolution order (§6.1.1), risk/confirmation tiers, and conformance rules.
    - Local: `docs/02-standard-spec.md`
    - GitHub: https://github.com/agpituk/aaf/blob/main/docs/02-standard-spec.md
 
@@ -358,6 +361,32 @@ Create or update `public/.well-known/agent-manifest.json`.
 - Number fields: include `minimum`, `maximum`, `multipleOf` where validation rules exist
 - String fields: include `pattern`, `minLength`, `maxLength` from validation rules
 - For modal forms: the action belongs to the page route where the modal trigger lives
+
+**Cross-site handoff (optional):** If an action completes by handing off to an external service (e.g., creating a Stripe checkout session), add the `handoff` property:
+```json
+{
+  "handoff": {
+    "target": "https://checkout.stripe.com",
+    "targetAction": "checkout.complete",
+    "fieldMap": { "session_id": "session_id" }
+  }
+}
+```
+See `docs/09-multi-agent-handoff.md` for the full protocol and `schemas/agent-manifest.schema.json` for the schema.
+
+## Step 4b: Generate llms.txt (optional but recommended)
+
+Generate a `llms.txt` file so AI crawlers and agents can discover the site's capabilities:
+
+```bash
+# Inside the AAF repo:
+npx tsx packages/agentgen/src/cli.ts \
+  --manifest <project>/public/.well-known/agent-manifest.json \
+  --llms-txt \
+  --output <project>/public/
+```
+
+This creates `public/llms.txt` with action summaries, data view descriptions, and a link to the manifest. Deploy it at the site root (`/llms.txt`). See `packages/agentgen/src/llms-txt-generator.ts` for the format.
 
 ## Step 5: Automated verification loop
 
@@ -411,10 +440,15 @@ Read these files as needed for authoritative definitions. Use local paths inside
 |----------|-------|--------|
 | Manifest JSON Schema | `schemas/agent-manifest.schema.json` | [agent-manifest.schema.json](https://github.com/agpituk/aaf/blob/main/schemas/agent-manifest.schema.json) |
 | AAF Standard Spec | `docs/02-standard-spec.md` | [02-standard-spec.md](https://github.com/agpituk/aaf/blob/main/docs/02-standard-spec.md) |
-| Reference manifest | `samples/billing-app/public/.well-known/agent-manifest.json` | [agent-manifest.json](https://github.com/agpituk/aaf/blob/main/samples/billing-app/public/.well-known/agent-manifest.json) |
+| Security Threat Model | `docs/06-security-threat-model.md` | [06-security-threat-model.md](https://github.com/agpituk/aaf/blob/main/docs/06-security-threat-model.md) |
+| Reference manifest (simple) | `samples/billing-app/public/.well-known/agent-manifest.json` | [agent-manifest.json](https://github.com/agpituk/aaf/blob/main/samples/billing-app/public/.well-known/agent-manifest.json) |
+| Reference manifest (full) | `samples/real-world-app/public/.well-known/agent-manifest.json` | [agent-manifest.json](https://github.com/agpituk/aaf/blob/main/samples/real-world-app/public/.well-known/agent-manifest.json) |
 | Form + fields example | `samples/billing-app/invoices-new.html` | [invoices-new.html](https://github.com/agpituk/aaf/blob/main/samples/billing-app/invoices-new.html) |
 | Data view example | `samples/billing-app/invoices.html` | [invoices.html](https://github.com/agpituk/aaf/blob/main/samples/billing-app/invoices.html) |
 | Dangerous action example | `samples/billing-app/settings.html` | [settings.html](https://github.com/agpituk/aaf/blob/main/samples/billing-app/settings.html) |
+| Multi-page app (5 pages, refactored) | `samples/real-world-app/` | [real-world-app](https://github.com/agpituk/aaf/tree/main/samples/real-world-app) |
+| Handoff protocol | `docs/09-multi-agent-handoff.md` | [09-multi-agent-handoff.md](https://github.com/agpituk/aaf/blob/main/docs/09-multi-agent-handoff.md) |
+| WebMCP bridge | `packages/aaf-webmcp-bridge/` | [aaf-webmcp-bridge](https://github.com/agpituk/aaf/tree/main/packages/aaf-webmcp-bridge) |
 
 ## Important constraints
 
@@ -426,3 +460,27 @@ Read these files as needed for authoritative definitions. Use local paths inside
 - **No duplicate fields**: each (action, field) pair must resolve to exactly one DOM element
 - Every action in the manifest must map to a page in `pages`
 - Every field in `inputSchema.properties` must have a corresponding annotated element in the UI
+
+## Optional: WebMCP bridge
+
+For sites targeting Chrome 146+ with `navigator.modelContext` (WebMCP), the AAF-to-WebMCP bridge auto-registers all manifest actions as MCP tools. Add the bridge script after the widget:
+
+```html
+<script type="module">
+  import { registerAAFTools } from '@agent-accessibility-framework/webmcp-bridge';
+  const manifest = await fetch('/.well-known/agent-manifest.json').then(r => r.json());
+  registerAAFTools(manifest);
+</script>
+```
+
+See `packages/aaf-webmcp-bridge/` for the API.
+
+## Conformance levels
+
+AAF defines three conformance tiers (see `docs/06-security-threat-model.md`):
+
+1. **Annotated (Level 1)** — `data-agent-*` attributes on all interactive elements. No manifest required.
+2. **Manifested (Level 2)** — Full `/.well-known/agent-manifest.json` with schemas, pages, and risk/confirmation metadata.
+3. **Certified (Level 3)** — Passes `aaf-lint --audit-pages --safety`, has `llms.txt`, origin trust configured.
+
+After completing annotation, the project should be at least Level 2. Run the linter audit (Step 5) to verify.

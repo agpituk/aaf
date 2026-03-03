@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Account Removal — Redesigned</title></head>
+<body>
+  <article class="destructive-actions-panel">
+    <form
+      class="removal-confirmation"
+      data-agent-kind="action"
+      data-agent-action="account.delete"
+      data-agent-scope="account.admin"
+      data-agent-danger="high"
+      data-agent-confirm="required"
+      data-agent-idempotent="false"
+    >
+      <h3>Remove Account Permanently</h3>
+      <p class="warning-text">This cannot be undone. Verify your identity below.</p>
+      <div class="verification-field">
+        <span class="field-caption">Email verification</span>
+        <input type="email" class="bordered-input" data-agent-kind="field" data-agent-field="confirm_email" />
+      </div>
+      <div class="verification-field">
+        <span class="field-caption">Confirmation phrase</span>
+        <input type="text" class="bordered-input red-border" data-agent-kind="field" data-agent-field="confirm_text" />
+      </div>
+      <div class="verification-field">
+        <span class="field-caption">Why are you leaving?</span>
+        <textarea class="bordered-input" data-agent-kind="field" data-agent-field="reason"></textarea>
+      </div>
+      <button type="submit" class="destructive-btn" data-agent-kind="action" data-agent-action="account.delete.submit">Confirm Deletion</button>
+      <output class="removal-result" data-agent-kind="status" data-agent-output="account.delete.status"></output>
+    </form>
+  </article>
+</body>
+</html>

@@ -1,6 +1,6 @@
 export { SemanticParser } from './semantic-parser.js';
 export { ManifestValidator, getPageForAction } from './manifest-validator.js';
-export { PolicyEngine } from './policy-engine.js';
+export { PolicyEngine, type CheckExecutionOptions } from './policy-engine.js';
 export { ExecutionLogger } from './execution-logger.js';
 export { coerceArgs, type CoerceResult, type Coercion } from './coerce-args.js';
 export type {

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Dynamic Field — Original</title></head>
+<body>
+  <div id="shipping-page">
+    <form
+      id="shipping-form"
+      class="shipping-form card"
+      data-agent-kind="action"
+      data-agent-action="shipping.configure"
+      data-agent-scope="shipping.write"
+      data-agent-danger="none"
+      data-agent-confirm="optional"
+      data-agent-idempotent="true"
+    >
+      <div class="form-group">
+        <label for="shipping_method">Shipping Method</label>
+        <select id="shipping_method" class="form-control" data-agent-kind="field" data-agent-field="shipping_method">
+          <option value="standard">Standard</option>
+          <option value="express">Express</option>
+          <option value="overnight">Overnight</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="address">Delivery Address</label>
+        <input type="text" id="address" class="form-control" data-agent-kind="field" data-agent-field="address" />
+      </div>
+      <div class="form-group conditional" id="express-options">
+        <label for="delivery_time">Preferred Delivery Time</label>
+        <input type="time" id="delivery_time" class="form-control" data-agent-kind="field" data-agent-field="delivery_time" />
+      </div>
+      <button type="submit" id="ship-btn" class="btn btn-primary" data-agent-kind="action" data-agent-action="shipping.configure.submit">Confirm Shipping</button>
+      <div id="shipping-status" class="status" data-agent-kind="status" data-agent-output="shipping.configure.status"></div>
+    </form>
+  </div>
+</body>
+</html>

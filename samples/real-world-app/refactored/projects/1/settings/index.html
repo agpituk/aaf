@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Settings — Redesigned ProjectHub</title></head>
+<body>
+  <header class="top-bar"><div class="logo">PH</div></header>
+  <div class="layout-grid">
+    <section class="main-panel">
+      <h2>Project Config</h2>
+      <a href="/projects/1/tasks" data-agent-kind="link" class="back-link">Tasks</a>
+      <div class="alert-zone floating-card">
+        <h3>Permanent Deletion</h3>
+        <p class="subtle-warning">All tasks and members will be lost.</p>
+        <form
+          class="destroy-form"
+          data-agent-kind="action"
+          data-agent-action="project.delete"
+          data-agent-scope="projects.admin"
+          data-agent-danger="high"
+          data-agent-confirm="required"
+          data-agent-idempotent="false"
+        >
+          <div class="row"><span class="lbl">Project name</span><input type="text" class="bordered-input red" data-agent-kind="field" data-agent-field="confirm_project_name" /></div>
+          <button type="submit" class="destructive-pill wide" data-agent-kind="action" data-agent-action="project.delete.submit">Destroy Project</button>
+          <output class="danger-toast" data-agent-kind="status" data-agent-output="project.delete.status"></output>
+        </form>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

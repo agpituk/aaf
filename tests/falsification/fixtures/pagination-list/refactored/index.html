@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Inventory — Redesigned</title></head>
+<body>
+  <main class="inventory-view">
+    <form
+      class="new-item-form elevated"
+      data-agent-kind="action"
+      data-agent-action="product.create"
+      data-agent-scope="products.write"
+      data-agent-danger="none"
+      data-agent-confirm="optional"
+      data-agent-idempotent="false"
+    >
+      <div class="inline-field"><span class="lbl">Item</span><input type="text" class="compact-input" data-agent-kind="field" data-agent-field="product_name" /></div>
+      <div class="inline-field"><span class="lbl">Cost</span><input type="number" class="compact-input" data-agent-kind="field" data-agent-field="price" /></div>
+      <div class="inline-field"><span class="lbl">Code</span><input type="text" class="compact-input" data-agent-kind="field" data-agent-field="sku" /></div>
+      <button type="submit" class="add-btn circle-icon" data-agent-kind="action" data-agent-action="product.create.submit">+</button>
+      <output class="inline-feedback" data-agent-kind="status" data-agent-output="product.create.status"></output>
+    </form>
+    <ul class="item-grid" data-agent-kind="collection">
+      <li class="grid-card" data-agent-kind="item"><span>Widget A</span></li>
+      <li class="grid-card" data-agent-kind="item"><span>Widget B</span></li>
+    </ul>
+  </main>
+</body>
+</html>

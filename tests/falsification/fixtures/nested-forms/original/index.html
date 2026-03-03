@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Nested Forms — Original</title></head>
+<body>
+  <div id="admin-page" class="admin-layout">
+    <div id="settings-drawer" class="drawer open">
+      <div id="settings-modal" class="modal-inside-drawer" role="dialog">
+        <div class="modal-body">
+          <form
+            id="api-key-form"
+            class="api-key-form"
+            data-agent-kind="action"
+            data-agent-action="apikey.create"
+            data-agent-scope="settings.admin"
+            data-agent-danger="low"
+            data-agent-confirm="review"
+            data-agent-idempotent="false"
+          >
+            <div class="form-group">
+              <label for="key_name">Key Name</label>
+              <input type="text" id="key_name" class="form-control" data-agent-kind="field" data-agent-field="key_name" />
+            </div>
+            <div class="form-group">
+              <label for="permissions">Permissions</label>
+              <select id="permissions" class="form-control" data-agent-kind="field" data-agent-field="permissions">
+                <option value="read">Read Only</option>
+                <option value="write">Read/Write</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="expires_in">Expires In (days)</label>
+              <input type="number" id="expires_in" class="form-control" data-agent-kind="field" data-agent-field="expires_in" />
+            </div>
+            <button type="submit" id="create-key-btn" class="btn btn-primary" data-agent-kind="action" data-agent-action="apikey.create.submit">Generate Key</button>
+            <div id="key-status" class="key-status" data-agent-kind="status" data-agent-output="apikey.create.status"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

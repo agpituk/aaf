@@ -1,0 +1,248 @@
+{
+  "@context": {
+    "schema": "https://schema.org/",
+    "aaf": "https://aaf.dev/vocab#"
+  },
+  "version": "0.1",
+  "site": {
+    "name": "ProjectHub",
+    "origin": "http://localhost:5174",
+    "description": "A project management application for managing projects, tasks, and team members."
+  },
+  "actions": {
+    "project.create": {
+      "title": "Create project",
+      "description": "Creates a new project with a name, description, and visibility setting.",
+      "scope": "projects.write",
+      "risk": "low",
+      "confirmation": "optional",
+      "idempotent": false,
+      "inputSchema": {
+        "type": "object",
+        "required": ["project_name"],
+        "properties": {
+          "project_name": { "type": "string", "x-semantic": "https://schema.org/name" },
+          "description": { "type": "string", "x-semantic": "https://schema.org/description" },
+          "visibility": { "type": "string", "enum": ["private", "public"], "x-semantic": "https://schema.org/accessMode" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["project_id", "status"],
+        "properties": {
+          "project_id": { "type": "string", "x-semantic": "https://schema.org/identifier" },
+          "status": { "type": "string", "enum": ["created"] }
+        }
+      }
+    },
+    "task.create": {
+      "title": "Create task",
+      "description": "Creates a new task within a project with title, assignee, priority, and optional due date.",
+      "scope": "tasks.write",
+      "risk": "none",
+      "confirmation": "optional",
+      "idempotent": false,
+      "inputSchema": {
+        "type": "object",
+        "required": ["task_title"],
+        "properties": {
+          "task_title": { "type": "string", "x-semantic": "https://schema.org/name" },
+          "assignee_email": { "type": "string", "format": "email", "x-semantic": "https://schema.org/email" },
+          "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "due_date": { "type": "string", "format": "date", "x-semantic": "https://schema.org/scheduledTime" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["task_id"],
+        "properties": {
+          "task_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["open"] }
+        }
+      }
+    },
+    "task.delete": {
+      "title": "Delete task",
+      "description": "Permanently deletes a task from the project. This cannot be undone.",
+      "scope": "tasks.write",
+      "risk": "high",
+      "confirmation": "required",
+      "idempotent": false,
+      "inputSchema": {
+        "type": "object",
+        "required": ["confirm_text"],
+        "properties": {
+          "confirm_text": { "type": "string", "const": "DELETE" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["deleted"],
+        "properties": {
+          "deleted": { "type": "boolean" }
+        }
+      }
+    },
+    "project.delete": {
+      "title": "Delete project",
+      "description": "Permanently deletes the project and all its tasks. This is irreversible.",
+      "scope": "projects.admin",
+      "risk": "high",
+      "confirmation": "required",
+      "idempotent": false,
+      "inputSchema": {
+        "type": "object",
+        "required": ["confirm_project_name"],
+        "properties": {
+          "confirm_project_name": { "type": "string" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["deleted"],
+        "properties": {
+          "deleted": { "type": "boolean" }
+        }
+      }
+    },
+    "member.invite": {
+      "title": "Invite member",
+      "description": "Invites a new member to the project by email with a specified role.",
+      "scope": "members.write",
+      "risk": "low",
+      "confirmation": "optional",
+      "idempotent": true,
+      "inputSchema": {
+        "type": "object",
+        "required": ["member_email", "role"],
+        "properties": {
+          "member_email": { "type": "string", "format": "email", "x-semantic": "https://schema.org/email" },
+          "role": { "type": "string", "enum": ["viewer", "editor", "admin"] }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["invite_id"],
+        "properties": {
+          "invite_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending"] }
+        }
+      }
+    }
+  },
+  "data": {
+    "project.list": {
+      "title": "List projects",
+      "description": "All projects with name, description, task count, and member count.",
+      "scope": "projects.read",
+      "outputSchema": {
+        "type": "object",
+        "required": ["projects"],
+        "properties": {
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "description": { "type": "string" },
+                "task_count": { "type": "number" },
+                "member_count": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "task.list": {
+      "title": "List tasks",
+      "description": "All tasks in a project with title, assignee, priority, status, and due date.",
+      "scope": "tasks.read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "status": { "type": "string", "enum": ["open", "in_progress", "done"] }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["tasks"],
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "title": { "type": "string" },
+                "assignee": { "type": "string" },
+                "priority": { "type": "string" },
+                "status": { "type": "string" },
+                "due_date": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "member.list": {
+      "title": "List members",
+      "description": "All members of the project with email, role, and join date.",
+      "scope": "members.read",
+      "outputSchema": {
+        "type": "object",
+        "required": ["members"],
+        "properties": {
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "email": { "type": "string" },
+                "role": { "type": "string" },
+                "joined": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "pages": {
+    "/projects/new": {
+      "title": "Create Project",
+      "description": "Form to create a new project with name, description, and visibility.",
+      "actions": ["project.create"]
+    },
+    "/projects/": {
+      "title": "Project List",
+      "description": "Overview of all projects.",
+      "data": ["project.list"]
+    },
+    "/projects/1/tasks": {
+      "title": "Project Tasks",
+      "description": "Task list and task creation form for a project.",
+      "actions": ["task.create", "task.delete"],
+      "data": ["task.list"]
+    },
+    "/projects/1/settings": {
+      "title": "Project Settings",
+      "description": "Project settings including the dangerous delete operation.",
+      "actions": ["project.delete"]
+    },
+    "/invites/": {
+      "title": "Team Invites",
+      "description": "Invite new members and view existing team members.",
+      "actions": ["member.invite"],
+      "data": ["member.list"]
+    }
+  },
+  "errors": {
+    "UNAUTHORIZED": { "message": "User is not authorized for this action" },
+    "VALIDATION_ERROR": { "message": "Input validation failed" },
+    "CONFIRMATION_REQUIRED": { "message": "Action requires explicit confirmation" },
+    "NOT_FOUND": { "message": "Resource not found" }
+  }
+}

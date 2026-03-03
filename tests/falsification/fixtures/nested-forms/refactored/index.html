@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>API Keys — Redesigned</title></head>
+<body>
+  <div class="admin-shell flex-layout">
+    <aside class="sidebar collapsed"></aside>
+    <main class="content-pane">
+      <section class="floating-sheet" aria-label="New API Key">
+        <form
+          class="key-creation-form"
+          data-agent-kind="action"
+          data-agent-action="apikey.create"
+          data-agent-scope="settings.admin"
+          data-agent-danger="low"
+          data-agent-confirm="review"
+          data-agent-idempotent="false"
+        >
+          <div class="stacked-field">
+            <span class="micro-label">Label</span>
+            <input type="text" class="rounded-input" data-agent-kind="field" data-agent-field="key_name" />
+          </div>
+          <div class="stacked-field">
+            <span class="micro-label">Access Level</span>
+            <select class="rounded-select" data-agent-kind="field" data-agent-field="permissions">
+              <option value="read">Read Only</option>
+              <option value="write">Read/Write</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="stacked-field">
+            <span class="micro-label">TTL (days)</span>
+            <input type="number" class="rounded-input" data-agent-kind="field" data-agent-field="expires_in" />
+          </div>
+          <button type="submit" class="pill-btn primary" data-agent-kind="action" data-agent-action="apikey.create.submit">Create</button>
+          <output class="key-result" data-agent-kind="status" data-agent-output="apikey.create.status"></output>
+        </form>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

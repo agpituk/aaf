@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Project — ProjectHub</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">ProjectHub</span>
+    <a href="/projects/" data-agent-kind="link">Projects</a>
+    <a href="/projects/new" data-agent-kind="link">New Project</a>
+    <a href="/invites/" data-agent-kind="link">Team</a>
+  </nav>
+  <main>
+    <h1>Create Project</h1>
+    <div class="card">
+      <form
+        id="create-project-form"
+        data-agent-kind="action"
+        data-agent-action="project.create"
+        data-agent-scope="projects.write"
+        data-agent-danger="low"
+        data-agent-confirm="optional"
+        data-agent-idempotent="false"
+      >
+        <label for="project_name">Project Name</label>
+        <input
+          type="text"
+          id="project_name"
+          name="project_name"
+          required
+          aria-label="Project name"
+          data-agent-kind="field"
+          data-agent-field="project_name"
+        />
+
+        <label for="description">Description</label>
+        <textarea
+          id="description"
+          name="description"
+          aria-label="Description"
+          data-agent-kind="field"
+          data-agent-field="description"
+        ></textarea>
+
+        <label for="visibility">Visibility</label>
+        <select
+          id="visibility"
+          name="visibility"
+          aria-label="Visibility"
+          data-agent-kind="field"
+          data-agent-field="visibility"
+        >
+          <option value="private">Private</option>
+          <option value="public">Public</option>
+        </select>
+
+        <button
+          type="submit"
+          class="btn-primary"
+          data-agent-kind="action"
+          data-agent-action="project.create.submit"
+        >
+          Create Project
+        </button>
+
+        <div
+          id="status"
+          role="status"
+          aria-live="polite"
+          data-agent-kind="status"
+          data-agent-output="project.create.status"
+        ></div>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

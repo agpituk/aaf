@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Team Invite — Redesigned</title></head>
+<body>
+  <div class="overlay-wrapper">
+    <div class="dialog-panel slide-in" aria-modal="true">
+      <header class="dialog-header"><h3>Add Teammate</h3></header>
+      <form
+        class="invite-sheet"
+        data-agent-kind="action"
+        data-agent-action="member.invite"
+        data-agent-scope="members.write"
+        data-agent-danger="none"
+        data-agent-confirm="optional"
+        data-agent-idempotent="true"
+      >
+        <div class="field-row">
+          <span class="field-label">Their email</span>
+          <input type="email" class="text-field rounded" data-agent-kind="field" data-agent-field="member_email" />
+        </div>
+        <div class="field-row">
+          <span class="field-label">Permission level</span>
+          <select class="dropdown-field" data-agent-kind="field" data-agent-field="role">
+            <option value="viewer">Viewer</option>
+            <option value="editor">Editor</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <button type="submit" class="cta-button green" data-agent-kind="action" data-agent-action="member.invite.submit">Invite</button>
+        <p class="result-text" data-agent-kind="status" data-agent-output="member.invite.status"></p>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

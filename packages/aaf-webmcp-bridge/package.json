@@ -1,0 +1,13 @@
+{
+  "name": "@agent-accessibility-framework/webmcp-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agent-accessibility-framework/contracts": "*"
+  }
+}

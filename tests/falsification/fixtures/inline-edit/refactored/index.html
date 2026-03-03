@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Edit Profile — Redesigned</title></head>
+<body>
+  <section class="user-settings">
+    <form
+      class="settings-grid"
+      data-agent-kind="action"
+      data-agent-action="profile.update"
+      data-agent-scope="profile.write"
+      data-agent-danger="none"
+      data-agent-confirm="optional"
+      data-agent-idempotent="true"
+    >
+      <div class="grid-row">
+        <span class="grid-label">Name</span>
+        <input type="text" class="editable-field" data-agent-kind="field" data-agent-field="display_name" />
+      </div>
+      <div class="grid-row">
+        <span class="grid-label">About</span>
+        <textarea class="editable-field tall" data-agent-kind="field" data-agent-field="bio"></textarea>
+      </div>
+      <div class="grid-row">
+        <span class="grid-label">Where</span>
+        <input type="text" class="editable-field" data-agent-kind="field" data-agent-field="location" />
+      </div>
+      <button type="submit" class="update-btn blue" data-agent-kind="action" data-agent-action="profile.update.submit">Update</button>
+      <output class="notification-bar" data-agent-kind="status" data-agent-output="profile.update.status"></output>
+    </form>
+  </section>
+</body>
+</html>

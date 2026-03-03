@@ -13,3 +13,4 @@ export {
   validateRuntimeResponse,
   type ValidationResult,
 } from './validators.js';
+export { type ActionHandoff, validateHandoff } from './handoff.js';

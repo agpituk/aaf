@@ -1,0 +1,26 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+nav { display: flex; gap: 1rem; align-items: center; padding: 1rem 2rem; background: #1a1a2e; color: white; }
+nav .brand { font-weight: bold; font-size: 1.2rem; margin-right: auto; }
+nav a { color: #a0c4ff; text-decoration: none; }
+main { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+h1 { margin-bottom: 1.5rem; }
+h2 { margin: 1.5rem 0 0.75rem; }
+.card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 500; }
+input, select, textarea { display: block; width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; margin-bottom: 0.5rem; }
+textarea { min-height: 80px; }
+.btn-primary { background: #2563eb; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-top: 0.5rem; }
+.btn-danger { background: #dc2626; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-top: 0.5rem; }
+.danger-zone { border: 2px solid #dc2626; }
+.danger-zone h2 { color: #dc2626; }
+.warning { color: #b91c1c; margin-bottom: 1rem; }
+.task-list, .member-list, .project-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.task-row, .member-row, .project-card { display: flex; gap: 1rem; align-items: center; padding: 0.75rem; background: white; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.meta { color: #666; font-size: 0.875rem; }
+.settings-link { color: #666; font-size: 0.875rem; }
+.quick-links { display: flex; gap: 1rem; margin-top: 1rem; }
+.quick-links .card { text-decoration: none; color: #2563eb; font-weight: 500; }
+[role="status"] { margin-top: 0.5rem; padding: 0.5rem; border-radius: 4px; min-height: 1.5rem; }
+.status.success { background: #d1fae5; color: #065f46; }
+.status.error { background: #fee2e2; color: #991b1b; }

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Date Picker — Original</title></head>
+<body>
+  <div id="booking-page">
+    <form
+      id="booking-form"
+      class="booking-form card"
+      data-agent-kind="action"
+      data-agent-action="booking.create"
+      data-agent-scope="bookings.write"
+      data-agent-danger="low"
+      data-agent-confirm="optional"
+      data-agent-idempotent="false"
+    >
+      <div class="form-group">
+        <label for="guest_name">Guest Name</label>
+        <input type="text" id="guest_name" class="form-control" data-agent-kind="field" data-agent-field="guest_name" />
+      </div>
+      <div class="form-group">
+        <label for="check_in">Check-in Date</label>
+        <input type="date" id="check_in" class="form-control datepicker" data-agent-kind="field" data-agent-field="check_in_date" />
+      </div>
+      <div class="form-group">
+        <label for="check_out">Check-out Date</label>
+        <input type="date" id="check_out" class="form-control datepicker" data-agent-kind="field" data-agent-field="check_out_date" />
+      </div>
+      <button type="submit" id="book-btn" class="btn btn-primary" data-agent-kind="action" data-agent-action="booking.create.submit">Book Now</button>
+      <div id="booking-status" class="status-message" data-agent-kind="status" data-agent-output="booking.create.status"></div>
+    </form>
+  </div>
+</body>
+</html>

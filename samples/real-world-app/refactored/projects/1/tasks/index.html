@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Tasks — Redesigned ProjectHub</title></head>
+<body>
+  <header class="top-bar">
+    <div class="logo">PH</div>
+    <div class="nav-pills">
+      <a href="/projects/" data-agent-kind="link" class="pill">Projects</a>
+      <a href="/projects/new" data-agent-kind="link" class="pill">New</a>
+      <a href="/invites/" data-agent-kind="link" class="pill">Team</a>
+    </div>
+  </header>
+  <div class="layout-grid">
+    <section class="main-panel">
+      <h2>Tasks</h2>
+      <a href="/projects/1/settings" data-agent-kind="link" class="text-link">Settings</a>
+
+      <div class="floating-card">
+        <h3>New Task</h3>
+        <form
+          class="inline-create-form"
+          data-agent-kind="action"
+          data-agent-action="task.create"
+          data-agent-scope="tasks.write"
+          data-agent-danger="none"
+          data-agent-confirm="optional"
+          data-agent-idempotent="false"
+        >
+          <div class="row"><span class="lbl">Title</span><input type="text" class="compact-field" data-agent-kind="field" data-agent-field="task_title" /></div>
+          <div class="row"><span class="lbl">Assign to</span><input type="email" class="compact-field" data-agent-kind="field" data-agent-field="assignee_email" /></div>
+          <div class="row"><span class="lbl">Urgency</span>
+            <select class="compact-select" data-agent-kind="field" data-agent-field="priority">
+              <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option>
+            </select>
+          </div>
+          <div class="row"><span class="lbl">When</span><input type="date" class="compact-field" data-agent-kind="field" data-agent-field="due_date" /></div>
+          <button type="submit" class="icon-btn green" data-agent-kind="action" data-agent-action="task.create.submit">+</button>
+          <output class="toast" data-agent-kind="status" data-agent-output="task.create.status"></output>
+        </form>
+      </div>
+
+      <ul class="task-board" data-agent-kind="collection">
+        <li class="task-tile" data-agent-kind="item"><span>Design homepage mockup</span></li>
+        <li class="task-tile" data-agent-kind="item"><span>Write copy for landing page</span></li>
+      </ul>
+
+      <div class="alert-zone floating-card">
+        <h3>Remove Task</h3>
+        <form
+          class="danger-form"
+          data-agent-kind="action"
+          data-agent-action="task.delete"
+          data-agent-scope="tasks.write"
+          data-agent-danger="high"
+          data-agent-confirm="required"
+          data-agent-idempotent="false"
+        >
+          <div class="row"><span class="lbl">Confirm</span><input type="text" class="compact-field red" data-agent-kind="field" data-agent-field="confirm_text" /></div>
+          <button type="submit" class="destructive-pill" data-agent-kind="action" data-agent-action="task.delete.submit">Delete</button>
+          <output class="danger-toast" data-agent-kind="status" data-agent-output="task.delete.status"></output>
+        </form>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

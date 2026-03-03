@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team — ProjectHub</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <nav>
+    <span class="brand">ProjectHub</span>
+    <a href="/projects/" data-agent-kind="link">Projects</a>
+    <a href="/projects/new" data-agent-kind="link">New Project</a>
+    <a href="/invites/" data-agent-kind="link">Team</a>
+  </nav>
+  <main>
+    <h1>Team Members</h1>
+
+    <!-- Invite form -->
+    <div class="card">
+      <h2>Invite Member</h2>
+      <form
+        id="invite-form"
+        data-agent-kind="action"
+        data-agent-action="member.invite"
+        data-agent-scope="members.write"
+        data-agent-danger="low"
+        data-agent-confirm="optional"
+        data-agent-idempotent="true"
+      >
+        <label for="member_email">Email Address</label>
+        <input
+          type="email"
+          id="member_email"
+          name="member_email"
+          required
+          aria-label="Member email"
+          data-agent-kind="field"
+          data-agent-field="member_email"
+        />
+
+        <label for="role">Role</label>
+        <select
+          id="role"
+          name="role"
+          aria-label="Role"
+          data-agent-kind="field"
+          data-agent-field="role"
+        >
+          <option value="viewer">Viewer</option>
+          <option value="editor">Editor</option>
+          <option value="admin">Admin</option>
+        </select>
+
+        <button
+          type="submit"
+          class="btn-primary"
+          data-agent-kind="action"
+          data-agent-action="member.invite.submit"
+        >
+          Send Invite
+        </button>
+
+        <div
+          id="invite-status"
+          role="status"
+          aria-live="polite"
+          data-agent-kind="status"
+          data-agent-output="member.invite.status"
+        ></div>
+      </form>
+    </div>
+
+    <!-- Member list -->
+    <h2>Current Members</h2>
+    <div data-agent-kind="collection" class="member-list">
+      <div data-agent-kind="item" class="member-row">
+        <span class="member-email">alice@example.com</span>
+        <span class="member-role">Admin</span>
+        <span class="member-joined">Jan 15, 2026</span>
+      </div>
+      <div data-agent-kind="item" class="member-row">
+        <span class="member-email">bob@example.com</span>
+        <span class="member-role">Editor</span>
+        <span class="member-joined">Feb 1, 2026</span>
+      </div>
+      <div data-agent-kind="item" class="member-row">
+        <span class="member-email">carol@example.com</span>
+        <span class="member-role">Viewer</span>
+        <span class="member-joined">Feb 20, 2026</span>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

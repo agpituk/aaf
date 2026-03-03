@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" data-agent-version="0.1">
+<head><meta charset="UTF-8" /><title>Setup Wizard — Redesigned</title></head>
+<body>
+  <main class="setup-flow">
+    <form
+      class="registration-stepper"
+      data-agent-kind="action"
+      data-agent-action="onboarding.complete"
+      data-agent-scope="account.write"
+      data-agent-danger="none"
+      data-agent-confirm="optional"
+      data-agent-idempotent="false"
+    >
+      <section class="stepper-panel current-panel">
+        <h3>Your Details</h3>
+        <div class="input-wrapper">
+          <span class="input-label">Name</span>
+          <input type="text" class="txt-input lg" data-agent-kind="field" data-agent-field="full_name" />
+        </div>
+        <div class="input-wrapper">
+          <span class="input-label">Email Address</span>
+          <input type="email" class="txt-input lg" data-agent-kind="field" data-agent-field="email" />
+        </div>
+      </section>
+      <section class="stepper-panel">
+        <h3>Organisation</h3>
+        <div class="input-wrapper">
+          <span class="input-label">Company</span>
+          <input type="text" class="txt-input lg" data-agent-kind="field" data-agent-field="company_name" />
+        </div>
+      </section>
+      <button type="submit" class="action-button accent" data-agent-kind="action" data-agent-action="onboarding.complete.submit">Finish</button>
+      <output class="feedback-area" data-agent-kind="status" data-agent-output="onboarding.complete.status"></output>
+    </form>
+  </main>
+</body>
+</html>
