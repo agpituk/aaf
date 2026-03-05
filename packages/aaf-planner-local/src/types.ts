@@ -1,3 +1,19 @@
+/** Tool definition for native function-calling / tool-use APIs. */
+export interface ToolDefinition {
+  type: 'function';
+  function: {
+    name: string;        // e.g. "invoice_create" (no dots — OpenAI constraint)
+    description: string;
+    parameters: Record<string, unknown>; // JSON Schema from inputSchema
+  };
+}
+
+/** Result from a tool-use / function-calling LLM call. */
+export interface ToolCallResult {
+  toolCall?: { name: string; arguments: Record<string, unknown> };
+  textResponse?: string;  // when LLM responds with text instead of calling a tool
+}
+
 /**
  * Common interface for LLM backends used by the AAF planner and widget.
  * Implementations wrap specific APIs (Ollama, OpenAI-compatible, etc.).
@@ -15,4 +31,10 @@ export interface LlmBackend {
   setModel?(model: string): void;
   /** Return the currently active model name. */
   currentModel?(): string;
+  /** Generate using native tool-use / function calling. */
+  generateWithTools?(
+    userPrompt: string,
+    systemPrompt: string,
+    tools: ToolDefinition[],
+  ): Promise<ToolCallResult>;
 }

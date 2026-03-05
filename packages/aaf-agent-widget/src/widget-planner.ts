@@ -2,6 +2,7 @@ import type { ActionCatalog, DiscoveredLink } from '@agent-accessibility-framewo
 import { buildSystemPrompt, buildUserPrompt, buildSiteAwarePrompt } from '@agent-accessibility-framework/planner-local';
 import type { ManifestActionSummary, PageSummary, DataViewSummary, LlmBackend } from '@agent-accessibility-framework/planner-local';
 import { parseResponse, type ParsedPlannerResult, type ParseResponseOptions } from '@agent-accessibility-framework/planner-local';
+import { catalogToTools, buildToolSystemPrompt, toolNameToActionName } from '@agent-accessibility-framework/planner-local';
 
 const MAX_RETRIES = 4;
 
@@ -175,6 +176,78 @@ export class WidgetPlanner {
       attempts: MAX_RETRIES + 1,
       latencyMs: Math.round(performance.now() - startTime),
     });
+  }
+
+  /**
+   * Plan using native tool-use / function calling.
+   * Falls back to the existing plan() method if the backend doesn't support tools
+   * or there are no actions to convert to tools.
+   */
+  async planWithTools(
+    userMessage: string,
+    catalog: ActionCatalog,
+    pageData?: string,
+  ): Promise<PlanResultWithDebug> {
+    // Fall back to prompt-based planning if backend doesn't support tools
+    if (!this.backend.generateWithTools) {
+      return this.plan(userMessage, catalog, pageData);
+    }
+
+    const tools = catalogToTools(catalog);
+
+    // Fall back if no actions to convert (e.g. data-only page)
+    if (tools.length === 0) {
+      return this.plan(userMessage, catalog, pageData);
+    }
+
+    const systemPrompt = buildToolSystemPrompt(pageData);
+    const startTime = performance.now();
+
+    try {
+      const result = await this.backend.generateWithTools(userMessage, systemPrompt, tools);
+      const latencyMs = Math.round(performance.now() - startTime);
+
+      if (result.toolCall) {
+        const actionName = toolNameToActionName(result.toolCall.name);
+        return {
+          result: {
+            kind: 'action',
+            request: {
+              action: actionName,
+              args: result.toolCall.arguments,
+            },
+          },
+          debug: {
+            systemPrompt,
+            userPrompt: userMessage,
+            rawResponse: JSON.stringify(result.toolCall),
+            attempts: 1,
+            latencyMs,
+          },
+        };
+      }
+
+      // Text response — return as answer
+      const text = result.textResponse || '';
+      return {
+        result: { kind: 'answer', text },
+        debug: {
+          systemPrompt,
+          userPrompt: userMessage,
+          rawResponse: text,
+          attempts: 1,
+          latencyMs,
+        },
+      };
+    } catch (err) {
+      // If tool-use fails (e.g. model doesn't support it), fall back to prompt-based
+      const isToolUnsupported = (err as Error).message.includes('does not support')
+        || (err as Error).message.includes('tool');
+      if (isToolUnsupported) {
+        return this.plan(userMessage, catalog, pageData);
+      }
+      throw err;
+    }
   }
 
   async query(question: string, context: string): Promise<string> {

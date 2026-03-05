@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OpenAiCompatibleBackend } from './openai-backend.js';
+import type { ToolDefinition } from './types.js';
 
 describe('OpenAiCompatibleBackend', () => {
   let backend: OpenAiCompatibleBackend;
@@ -106,5 +107,96 @@ describe('OpenAiCompatibleBackend', () => {
     expect(fetchSpy.mock.calls[0][0]).toBe('https://api.openai.com/v1/chat/completions');
 
     fetchSpy.mockRestore();
+  });
+
+  describe('generateWithTools', () => {
+    const tools: ToolDefinition[] = [
+      {
+        type: 'function',
+        function: {
+          name: 'invoice_create',
+          description: 'Create invoice',
+          parameters: { type: 'object', properties: { amount: { type: 'number' } } },
+        },
+      },
+    ];
+
+    it('sends tools parameter and returns tool call', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({
+          choices: [{
+            message: {
+              role: 'assistant',
+              tool_calls: [{
+                id: 'call_1',
+                type: 'function',
+                function: {
+                  name: 'invoice_create',
+                  arguments: '{"amount": 100}',
+                },
+              }],
+            },
+          }],
+        }), { status: 200 }),
+      );
+
+      const result = await backend.generateWithTools('create invoice', 'system', tools);
+
+      expect(result.toolCall).toBeDefined();
+      expect(result.toolCall!.name).toBe('invoice_create');
+      expect(result.toolCall!.arguments).toEqual({ amount: 100 });
+      expect(result.textResponse).toBeUndefined();
+
+      const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+      expect(body.tools).toEqual(tools);
+      expect(body.response_format).toBeUndefined(); // no JSON format with tools
+    });
+
+    it('returns text response when no tool called', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({
+          choices: [{
+            message: {
+              role: 'assistant',
+              content: 'Sure, I can help.',
+            },
+          }],
+        }), { status: 200 }),
+      );
+
+      const result = await backend.generateWithTools('hello', 'system', tools);
+
+      expect(result.textResponse).toBe('Sure, I can help.');
+      expect(result.toolCall).toBeUndefined();
+    });
+
+    it('handles pre-parsed arguments object', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({
+          choices: [{
+            message: {
+              tool_calls: [{
+                function: {
+                  name: 'invoice_create',
+                  arguments: { amount: 50 }, // already an object, not a string
+                },
+              }],
+            },
+          }],
+        }), { status: 200 }),
+      );
+
+      const result = await backend.generateWithTools('test', 'system', tools);
+      expect(result.toolCall!.arguments).toEqual({ amount: 50 });
+    });
+
+    it('throws on API error', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response('Unauthorized', { status: 401, statusText: 'Unauthorized' }),
+      );
+
+      await expect(backend.generateWithTools('test', 'system', tools))
+        .rejects.toThrow('OpenAI API error: 401 Unauthorized');
+    });
   });
 });

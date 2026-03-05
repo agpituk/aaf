@@ -13,7 +13,8 @@ import { WidgetPlanner, PlannerError } from './widget-planner.js';
 import { readConfig, detectAvailableBackend } from './config.js';
 import { ChatUI } from './ui/chat.js';
 import { showConfirmation } from './ui/confirmation.js';
-import { buildSiteActions, buildSiteDataViews, buildPageSummaries, enrichCatalogWithSchema, persistNavigation, checkPendingNavigation } from './navigation.js';
+import { enrichCatalogWithSchema, persistNavigation, checkPendingNavigation } from './navigation.js';
+import { matchIntentToPage } from './router.js';
 
 const MANIFEST_PATH = '/.well-known/agent-manifest.json';
 
@@ -591,6 +592,9 @@ async function init(): Promise<void> {
     return { status: 'completed', result: statusText, log: logger.toLog() };
   }
 
+  /** Pattern for user confirmations of a pending review (submit without LLM). */
+  const CONFIRM_PATTERN = /^(yes|submit|send|confirm|ok|go)\b/i;
+
   async function handleUserMessage(text: string): Promise<void> {
     lastUserMessage = text;
 
@@ -603,7 +607,28 @@ async function init(): Promise<void> {
     chat.setEnabled(false);
 
     try {
-      // Discover actions on current page
+      // Handle pending review without LLM — simple pattern match for confirmations
+      if (pendingReview && CONFIRM_PATTERN.test(text.trim())) {
+        chat.addMessage('system', 'Submitting...');
+        const result = await submitPendingAction(pendingReview.action);
+        const reviewAction = pendingReview.action;
+        pendingReview = null;
+        lastPlan = null;
+
+        if (result.status === 'completed') {
+          const msg = result.result || 'Action completed successfully.';
+          chat.addMessage('assistant', msg);
+          history.push({ role: 'assistant', text: msg });
+        } else {
+          const msg = `${result.status}: ${result.error || 'Unknown error'}`;
+          chat.addMessage('error', msg);
+          history.push({ role: 'error', text: msg });
+        }
+        chat.setEnabled(true);
+        return;
+      }
+
+      // Discover actions on current page only
       const catalog: ActionCatalog = {
         actions: parser.discoverActions(document.body),
         url: window.location.href,
@@ -615,24 +640,10 @@ async function init(): Promise<void> {
         ? enrichCatalogWithSchema(catalog, manifest)
         : catalog;
 
-      // Build off-page actions, queryable data views, and navigable page summaries from manifest
       const currentActionNames = catalog.actions.map((a) => a.action);
-      const otherPageActions = manifest
-        ? buildSiteActions(manifest, currentActionNames)
-        : [];
-      const pageSummaries = manifest
-        ? buildPageSummaries(manifest, window.location.pathname)
-        : [];
-      const dataViews = manifest
-        ? buildSiteDataViews(manifest)
-        : [];
-      // Discover links visible on the current page (supplements manifest pages with actual hrefs)
-      const discoveredLinks = parser.discoverLinks(document.body);
 
-      const hasSiteContext = otherPageActions.length > 0 || pageSummaries.length > 0 || dataViews.length > 0 || discoveredLinks.length > 0;
-
-      if (enrichedCatalog.actions.length === 0 && !hasSiteContext) {
-        // No actions anywhere and no pages to navigate to — try data chat mode
+      if (enrichedCatalog.actions.length === 0 && !manifest) {
+        // No actions and no manifest — try data chat mode
         const pageData = scrapePageData();
         if (pageData) {
           chat.addMessage('system', 'Answering from page data...');
@@ -653,42 +664,53 @@ async function init(): Promise<void> {
       // Build contextual prompt with conversation history
       const contextualMessage = buildContextualMessage(text);
 
-      // Plan — use site-aware prompt when off-page context exists
+      // Plan — use tool-based planning (current-page actions only)
       chat.addMessage('system', 'Planning...');
-      const { result: planResult, debug: planDebug } = hasSiteContext
-        ? await planner.planSiteAware(contextualMessage, enrichedCatalog, otherPageActions, pageSummaries, pageData, dataViews, discoveredLinks)
-        : await planner.plan(contextualMessage, enrichedCatalog, pageData);
+      const { result: planResult, debug: planDebug } = await planner.planWithTools(
+        contextualMessage,
+        enrichedCatalog,
+        pageData,
+      );
 
-      // Compute valid routes (same logic as planner uses)
-      const validRoutes = [
-        ...pageSummaries.filter((p) => !p.route.includes(':')).map((p) => p.route),
-        ...discoveredLinks.map((l) => l.page),
-      ];
-
-      // Emit debug block with planner + widget context
+      // Emit debug block
       chat.addDebugBlock({
         ...planDebug,
         parsedResult: planResult,
-        discoveredActions: catalog.actions.map((a) => a.action),
-        discoveredLinks: discoveredLinks.map((l) => l.page),
-        validRoutes,
+        discoveredActions: currentActionNames,
+        discoveredLinks: [],
+        validRoutes: [],
         pageDataPreview: (pageData ?? '').slice(0, 500),
       });
 
-      // Handle navigation-only responses (route already validated by parseResponse)
+      // Handle informational answers — then try deterministic router for off-page actions
+      if (planResult.kind === 'answer') {
+        // Try deterministic router: does the user want an action on another page?
+        if (manifest) {
+          const routeMatch = matchIntentToPage(text, manifest, currentActionNames);
+          if (routeMatch) {
+            chat.addMessage('system', `Navigating to ${routeMatch.page}...`);
+            persistNavigation(routeMatch.page, text, history, false, routeMatch.action);
+            window.location.href = routeMatch.page;
+            return;
+          }
+        }
+
+        // No off-page match — show text response
+        if (planResult.text) {
+          chat.addMessage('assistant', planResult.text);
+          history.push({ role: 'assistant', text: planResult.text });
+        } else {
+          chat.addMessage('system', 'No matching action found.');
+        }
+        chat.setEnabled(true);
+        return;
+      }
+
+      // Handle navigation-only responses (from prompt-based fallback)
       if (planResult.kind === 'navigate') {
         chat.addMessage('system', `Navigating to ${planResult.page}...`);
         persistNavigation(planResult.page, text, history, true);
         window.location.href = planResult.page;
-        return;
-      }
-
-      // Handle informational answers (no action to execute)
-      if (planResult.kind === 'answer') {
-        chat.addMessage('system', 'Answering from page data...');
-        chat.addMessage('assistant', planResult.text);
-        history.push({ role: 'assistant', text: planResult.text });
-        chat.setEnabled(true);
         return;
       }
 
@@ -697,7 +719,6 @@ async function init(): Promise<void> {
       // Check if the planned action is actually a queryable data view
       if (manifest?.data?.[request.action] && manifest.data[request.action].inputSchema) {
         const dv = manifest.data[request.action];
-        // Find the page for this data view
         let dvPage: string | undefined;
         if (manifest.pages) {
           for (const [route, page] of Object.entries(manifest.pages)) {
@@ -708,7 +729,6 @@ async function init(): Promise<void> {
           }
         }
         if (dvPage) {
-          // Build URL with query params from args
           const url = new URL(dvPage, window.location.origin);
           for (const [key, value] of Object.entries(request.args)) {
             if (value !== undefined && value !== null) {
@@ -720,26 +740,6 @@ async function init(): Promise<void> {
           window.location.href = url.pathname + url.search;
           return;
         }
-      }
-
-      // Check if this is a confirmation of a pending review
-      if (pendingReview && request.confirmed && request.action === pendingReview.action) {
-        chat.addMessage('system', 'Submitting...');
-        const result = await submitPendingAction(request.action);
-        pendingReview = null;
-        lastPlan = null;
-
-        if (result.status === 'completed') {
-          const msg = result.result || 'Action completed successfully.';
-          chat.addMessage('assistant', msg);
-          history.push({ role: 'assistant', text: msg });
-        } else {
-          const msg = `${result.status}: ${result.error || 'Unknown error'}`;
-          chat.addMessage('error', msg);
-          history.push({ role: 'error', text: msg });
-        }
-        chat.setEnabled(true);
-        return;
       }
 
       // New action planned — clear any stale pending review
@@ -762,7 +762,7 @@ async function init(): Promise<void> {
       const isOnCurrentPage = catalog.actions.some((a) => a.action === request.action);
 
       if (!isOnCurrentPage) {
-        // Cross-page navigation needed
+        // Cross-page navigation needed (tool-use fallback path produced an off-page action)
         const targetPage = getPageForAction(manifest, request.action);
         if (!targetPage) {
           chat.addMessage('error', `Action "${request.action}" not mapped to any page in manifest.`);
@@ -772,13 +772,9 @@ async function init(): Promise<void> {
         }
 
         if (hasNavigatedThisSession) {
-          // We already navigated this session. Check if we're on the correct page
-          // but the action has no DOM element (safety net).
           const currentPath = window.location.pathname.replace(/\/$/, '');
           const normalizedTarget = targetPage.replace(/\/$/, '');
           if (currentPath === normalizedTarget) {
-            // We're on the right page — this is a view/read action.
-            // Serve page data as the result.
             const viewData = scrapePageData();
             if (viewData) {
               const answer = await planner.query(text, viewData);
@@ -834,9 +830,6 @@ async function init(): Promise<void> {
       if (result.status === 'completed') {
         const msg = result.result || 'Action completed successfully.';
         chat.addMessage('assistant', msg);
-        // Clear plan and history after successful execution so completed
-        // action details (e.g. login credentials) don't pollute context
-        // for the next unrelated request — small LLMs latch onto stale actions.
         lastPlan = null;
         history.length = 0;
       } else {

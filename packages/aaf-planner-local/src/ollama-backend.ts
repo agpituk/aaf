@@ -1,4 +1,4 @@
-import type { LlmBackend } from './types.js';
+import type { LlmBackend, ToolDefinition, ToolCallResult } from './types.js';
 
 /**
  * LlmBackend implementation for Ollama's local API.
@@ -71,5 +71,48 @@ export class OllamaBackend implements LlmBackend {
   /** Return the currently active model name. */
   currentModel(): string {
     return this.model;
+  }
+
+  /** Generate using native tool-use via Ollama's /api/chat endpoint. */
+  async generateWithTools(
+    userPrompt: string,
+    systemPrompt: string,
+    tools: ToolDefinition[],
+  ): Promise<ToolCallResult> {
+    const body = {
+      model: this.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      tools,
+      stream: false,
+      options: { temperature: 0.1 },
+    };
+
+    const res = await fetch(`${this.baseUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Ollama API error: ${res.status} ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    const msg = data.message;
+
+    if (msg.tool_calls?.length > 0) {
+      const call = msg.tool_calls[0];
+      return {
+        toolCall: {
+          name: call.function.name,
+          arguments: call.function.arguments,
+        },
+      };
+    }
+
+    return { textResponse: msg.content };
   }
 }

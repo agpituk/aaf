@@ -1,4 +1,4 @@
-import type { LlmBackend } from './types.js';
+import type { LlmBackend, ToolDefinition, ToolCallResult } from './types.js';
 
 export interface OpenAiBackendOptions {
   baseUrl: string;
@@ -65,5 +65,53 @@ export class OpenAiCompatibleBackend implements LlmBackend {
 
   name(): string {
     return 'OpenAI';
+  }
+
+  /** Generate using native tool-use via the OpenAI-compatible tools parameter. */
+  async generateWithTools(
+    userPrompt: string,
+    systemPrompt: string,
+    tools: ToolDefinition[],
+  ): Promise<ToolCallResult> {
+    const body: Record<string, unknown> = {
+      model: this.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      tools,
+      temperature: 0.1,
+    };
+
+    const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      throw new Error(`OpenAI API error: ${res.status} ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    const message = data.choices?.[0]?.message;
+
+    if (message?.tool_calls?.length > 0) {
+      const call = message.tool_calls[0];
+      const args = typeof call.function.arguments === 'string'
+        ? JSON.parse(call.function.arguments)
+        : call.function.arguments;
+      return {
+        toolCall: {
+          name: call.function.name,
+          arguments: args,
+        },
+      };
+    }
+
+    return { textResponse: message?.content ?? '' };
   }
 }
