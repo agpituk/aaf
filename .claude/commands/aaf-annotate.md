@@ -1,4 +1,4 @@
-# AAF Annotate — Add Agent Accessibility Framework annotations to a web project
+# AAF Annotate — Linter-Driven Agent Accessibility Annotation
 
 You are annotating a web project with AAF (Agent Accessibility Framework) attributes so that browser agents can reliably operate the UI using semantic names instead of CSS selectors.
 
@@ -20,7 +20,9 @@ When paths are provided:
 
 When no arguments are given, behave exactly as before (full site annotation).
 
-## Step 0: Detect project type
+## Step 0: Detect project type, trace routes, and start dev server
+
+### Framework detection
 
 Read `package.json` and scan for config files to determine the framework:
 
@@ -35,11 +37,11 @@ Note the dev server port (check `vite.config.*`, `package.json` scripts, or `.en
 
 **No packages need to be installed.** All annotations use standard `data-agent-*` HTML attributes that work natively in every framework. JSX, Vue templates, and Svelte all pass `data-*` attributes through to the DOM.
 
-## Step 1: Trace the route tree to find rendered components
+### Route tracing
 
 **Do NOT glob for all UI files and annotate them.** Instead, start from the router and trace which components are actually rendered:
 
-1. Find the router entry point (see Step 2 table below)
+1. Find the router entry point (see routing table below)
 2. For each route, follow the imports to the page/layout component
 3. From each page component, follow imports to the child components that contain forms, tables, buttons, etc.
 4. **Also trace layout/shell components** (root layout, navbar, sidebar, footer) for global actions: logout, theme toggle, notification controls, help menus, etc. These are available on every page and need annotation.
@@ -49,7 +51,7 @@ Note the dev server port (check `vite.config.*`, `package.json` scripts, or `.en
 
 **CRITICAL — Do not annotate dead or legacy components.** Projects often have old components (e.g., `ChangePassword.tsx`) that are no longer imported anywhere in the route tree — a newer component (e.g., `PasswordEditor.tsx`) replaced them. If you annotate the dead component, the annotations are invisible because the component never renders. Always verify a component is imported and used by a route before annotating it.
 
-## Step 2: Understand the routing
+### Routing table
 
 Determine how routes map to pages — this is critical for the manifest `pages` section:
 
@@ -63,273 +65,146 @@ Determine how routes map to pages — this is critical for the manifest `pages` 
 
 List **every navigable route**, including sub-routes. Do NOT group sub-routes under a parent — list each one individually. For example, if settings has tabs for profile, privacy, and appearance, list `/settings/profile`, `/settings/privacy`, `/settings/appearance` as separate pages, not just `/settings`. The manifest `pages` section is the LLM's only source of truth for navigation when sidebar links are collapsed or conditionally rendered.
 
-## Step 3: Add `data-agent-*` attributes
+### Start the dev server
 
-Use raw `data-agent-*` attributes everywhere. They work in HTML, JSX, Vue templates, and Svelte without any imports or dependencies.
+Ensure the dev server is running (or start it with the project's dev command). The linter needs the rendered DOM to audit.
 
-**CRITICAL — `data-agent-kind` is REQUIRED on every annotated element.** The runtime discovers elements via `querySelectorAll('[data-agent-kind="action"]')`, `[data-agent-kind="field"]`, `[data-agent-kind="collection"]`, etc. Without `data-agent-kind`, the element is invisible — `data-agent-action` or `data-agent-field` alone do NOTHING.
+## Step 1: Linter baseline scan
+
+**Run the linter BEFORE touching any source file.** This produces a structured gap report that becomes the work list for all subsequent steps.
+
+```bash
+npx tsx packages/aaf-lint/src/cli.ts \
+  --audit-pages <dev-server-url> \
+  --manifest <project>/public/.well-known/agent-manifest.json \
+  --safety
+```
+
+If running outside the AAF repo, use the installed path to `aaf-lint` instead.
+
+If no manifest exists yet, run with just `--audit-pages <dev-server-url> --safety` (skip `--manifest`). The linter will still report unannotated interactive elements.
+
+### Parse the output into a work list
+
+Each detail string from the linter maps to a work item. **Classify every item as DETERMINISTIC or SEMANTIC** using this decision matrix:
+
+| Linter gap | Deterministic fix | Needs LLM? |
+|---|---|---|
+| `<input name="X"> — no field` | `kind="field" field="X"` (snake_case the name) | No |
+| `<input type="..."> — no field` (no `name` attr) | `kind="field"` only | Yes (needs a name) |
+| `<a href="..."> — no link` | `kind="link"` (target derived from href) | No |
+| `<button> "Text" — no action` | `kind="action"` only | Yes (needs action name) |
+| `N forms missing data-agent-action` | `kind="action"` on `<form>` | Yes (needs action name) |
+| Button "X" dangerous — missing danger/confirm | Nothing deterministic | Yes (risk + policy) |
+| Manifest alignment gap | Depends on gap type | Maybe |
+
+**Rule: if the value can be derived from existing HTML attributes with a fixed algorithm, it's DETERMINISTIC. If it requires understanding what the element DOES, it's SEMANTIC.**
+
+## Step 2: Deterministic pass — mechanical fixes only
+
+Process every DETERMINISTIC work item from Step 1. These fixes require zero judgment:
+
+### Links
+Add `data-agent-kind="link"` to every `<a>` element the linter flagged. The target is derived from the `href` attribute — no naming decision needed.
+
+### Fields with `name` attribute
+For every `<input>`, `<select>`, or `<textarea>` that has a `name` attribute but no `data-agent-field`:
+1. Convert the `name` value to snake_case → use as `data-agent-field`
+2. Add `data-agent-kind="field"`
+
+```tsx
+{/* Before */}
+<Input {...register("customerEmail")} />
+
+{/* After — name "customerEmail" → snake_case "customer_email" */}
+<Input
+  {...register("customerEmail")}
+  data-agent-kind="field"
+  data-agent-field="customer_email"
+/>
+```
+
+### Forms without action annotation
+Add `data-agent-kind="action"` to `<form>` tags that the linter flagged. Do NOT assign an action name yet — that's a semantic decision deferred to Step 4.
+
+### Submit buttons inside named actions
+If a submit button lives inside a form that already has `data-agent-action="X"`, the button gets `data-agent-kind="action"` and `data-agent-action="X.submit"`.
+
+### What NOT to do in this step
+- Do NOT invent action names (`data-agent-action`) — those require semantic understanding
+- Do NOT assign danger/confirm levels — those require risk assessment
+- Do NOT name fields that lack a `name` attribute — those need LLM judgment
+- Do NOT add `data-agent-scope` — that depends on action semantics
+
+## Step 3: Re-run linter — checkpoint
+
+Re-run the exact same linter command from Step 1:
+
+```bash
+npx tsx packages/aaf-lint/src/cli.ts \
+  --audit-pages <dev-server-url> \
+  --manifest <project>/public/.well-known/agent-manifest.json \
+  --safety
+```
+
+**Expected:** The score should have improved — all the mechanical link and named-field gaps should be resolved.
+
+**Parse the remaining gaps.** Everything still reported is the SEMANTIC work list for Step 4. These are the items that genuinely need LLM judgment.
+
+## Step 4: Semantic pass — LLM judgment on remaining gaps
+
+For each remaining gap from Step 3, apply semantic understanding. Refer to the [Reference Appendix](#reference-appendix) for annotation patterns and examples.
+
+### Action naming
+Read the form's fields, submit button text, and surrounding context to choose a `verb.resource` name:
+- Action names use **dot notation**: `<resource>.<verb>` (e.g., `project.create`, `user.update`, `workspace.delete`)
+- Submit sub-actions add a third segment: `project.create.submit`
+- Scope follows `<resource>.<read|write|delete>` convention
+
+### Field naming without `name` attribute
+When an input has no `name` attribute, derive the field name from (in priority order):
+1. `aria-label` text
+2. `placeholder` text
+3. Associated `<label>` text
+4. Positional context (e.g., first input in a "billing address" section → `billing_address_line_1`)
+
+All field names are **snake_case**: `customer_email`, `total_amount`, `due_date`.
+
+### Danger classification
+Assign `data-agent-danger` based on action semantics:
+- **`high`**: delete, destroy, remove, purge, reset, revoke, terminate
+- **`low`**: archive, suspend, disable, update (data mutation)
+- **`none`**: view controls, read-only interactions, navigation
+
+**CRITICAL — HTML attribute is `data-agent-danger`, NOT `data-agent-risk`.** The manifest JSON uses `"risk"` as the key name, but the DOM attribute is `data-agent-danger`. Do NOT use `data-agent-risk` — that attribute does not exist and will be silently ignored.
+
+### Confirmation policy
+Assign `data-agent-confirm` based on danger level:
+- **`required`**: high-danger actions (blocked without user consent)
+- **`review`**: low-danger mutations (fill only, user submits manually)
+- **`optional`**: safe creates/updates (auto-submit allowed)
+- **`never`**: read-only controls, navigation, idempotent toggles
+
+### Interactive controls (non-form actions)
+Scan for `<Select>`, `<Dropdown>`, `<Switch>`, `<Tabs>`, `<RadioGroup>`, `<ToggleGroup>`, date pickers, sort controls, and similar interactive elements that are NOT inside forms. If changing the control changes what data is displayed or how it's rendered, annotate it as an action + field. See [Interactive controls](#interactive-controls-non-form-actions-1) in the Reference Appendix.
+
+### Data views vs. actions
+Tables and lists that display data without mutation:
+- If it's a read-only list/table → data view (manifest `data` section, not DOM annotation)
+- If rows have inline edit/delete controls → collection with action items
+
+### Global actions (layout components)
+Check layout/shell components (root layout, navbar, sidebar, footer) for logout buttons, theme switchers, notification controls, user menu actions. These need action annotations even though they're not form-based. See [Global actions](#global-actions-navbar-layout) in the Reference Appendix.
+
+### `data-agent-kind` is REQUIRED
+
+**CRITICAL — `data-agent-kind` is REQUIRED on every annotated element.** The runtime discovers elements via `querySelectorAll('[data-agent-kind="action"]')`, `[data-agent-kind="field"]`, etc. Without `data-agent-kind`, the element is invisible — `data-agent-action` or `data-agent-field` alone do NOTHING.
 
 Every element you annotate must have BOTH:
 1. `data-agent-kind="<type>"` — where type is `action`, `field`, `status`, `collection`, `item`, `link`, or `dialog`
 2. The type-specific attribute — `data-agent-action`, `data-agent-field`, `data-agent-output`, etc.
 
-**CRITICAL — HTML attribute is `data-agent-danger`, NOT `data-agent-risk`.** The manifest JSON uses `"risk"` as the key name, but the DOM attribute is `data-agent-danger`. Do NOT use `data-agent-risk` — that attribute does not exist and will be silently ignored.
-
-### Actions (forms)
-
-Wrap the outermost form or container with action attributes:
-
-```tsx
-{/* React / JSX */}
-<form
-  data-agent-kind="action"
-  data-agent-action="project.create"
-  data-agent-scope="projects.write"
-  data-agent-danger="low"
-  data-agent-confirm="optional"
-  onSubmit={handleSubmit(onSubmit)}
->
-  {/* fields */}
-  <Button type="submit" data-agent-kind="action" data-agent-action="project.create.submit">
-    Create
-  </Button>
-</form>
-```
-
-**If the form lives inside a modal** (HeroUI Modal, MUI Dialog, Chakra Modal, etc.), put the action attributes on a wrapper `<div>` around the modal body and footer:
-
-```tsx
-<Modal>
-  <ModalContent>
-    <ModalHeader>Create Project</ModalHeader>
-    <div data-agent-kind="action" data-agent-action="project.create" data-agent-scope="projects.write">
-      <ModalBody>
-        {/* fields */}
-      </ModalBody>
-      <ModalFooter>
-        <Button type="submit" data-agent-kind="action" data-agent-action="project.create.submit">
-          Create
-        </Button>
-      </ModalFooter>
-    </div>
-  </ModalContent>
-</Modal>
-```
-
-**Naming rules:**
-- Action names use **dot notation**: `<resource>.<verb>` (e.g., `project.create`, `user.update`, `workspace.delete`)
-- Submit sub-actions add a third segment: `project.create.submit`
-- Scope follows `<resource>.<read|write|delete>` convention
-
-### Fields
-
-The key challenge in React: component libraries wrap `<input>` inside custom components (`<Input>`, `<Select>`, `<Textarea>`).
-
-**Preferred approach: add `data-agent-*` directly to the component library's input.**
-
-Most component libraries (HeroUI, Radix, Headless UI, Chakra) forward `data-*` attributes to the underlying DOM element:
-
-```tsx
-<Input
-  {...register("name", { required: "Name is required" })}
-  data-agent-kind="field"
-  data-agent-field="project_name"
-/>
-```
-
-**If the component strips `data-*` attributes** (check rendered DOM in dev tools), wrap it:
-
-```tsx
-<div data-agent-kind="field" data-agent-field="project_name">
-  <Input {...register("name", { required: "Name is required" })} />
-</div>
-```
-
-**MUI special case**: use `inputProps` to reach the DOM element:
-
-```tsx
-<TextField
-  inputProps={{
-    "data-agent-kind": "field",
-    "data-agent-field": "project_name",
-  }}
-/>
-```
-
-**Naming rules:**
-- Field names are **snake_case**: `customer_email`, `total_amount`, `due_date`
-- Fields inside a `data-agent-kind="action"` element are automatically linked to that action
-- Fields outside the action's DOM subtree need `data-agent-for-action="project.create"`
-- Each (action, field) pair must resolve to exactly **one** DOM element
-
-### Interactive controls (non-form actions)
-
-**Not all actions are form submissions.** Any interactive control that changes what the user sees — dropdowns, toggles, tabs, filters, sort controls — should also be annotated. If a user might ask an agent to interact with it, annotate it.
-
-Wrap the control in an action container and mark the interactive element as a field, just like a form field. The runtime will find the underlying `<select>`, `<input>`, or clickable element and interact with it:
-
-```tsx
-{/* A dropdown that changes page state (no form, no submit button) */}
-<div
-  data-agent-kind="action"
-  data-agent-action="chart.change_metric"
-  data-agent-scope="analytics.read"
-  data-agent-danger="none"
-  data-agent-confirm="never"
->
-  <div data-agent-kind="field" data-agent-field="metric_type">
-    <Select onSelectionChange={handleChange}>
-      <SelectItem key="cost">Cost</SelectItem>
-      <SelectItem key="tokens">Tokens</SelectItem>
-    </Select>
-  </div>
-</div>
-```
-
-**Key differences from form actions:**
-- Use `data-agent-danger="none"` and `data-agent-confirm="never"` for read-only view controls
-- No submit button — the runtime triggers the control's change event directly
-- In the manifest, use `"risk": "none"` and `"confirmation": "never"`, and mark as `"idempotent": true`
-- Use `enum` in `inputSchema` to list valid values so the LLM picks correctly
-
-**What to scan for during annotation:** When tracing a page's components, look for `<Select>`, `<Dropdown>`, `<Switch>`, `<Tabs>`, `<RadioGroup>`, `<ToggleGroup>`, date pickers, sort controls, and similar interactive elements that are NOT inside forms. If changing the control changes what data is displayed or how it's rendered, annotate it.
-
-### Danger and confirmation
-
-For destructive or risky actions, add `data-agent-danger` and `data-agent-confirm`:
-
-```tsx
-{/* Dangerous action — note: HTML attribute is "danger", NOT "risk" */}
-<button
-  data-agent-kind="action"
-  data-agent-action="workspace.delete"
-  data-agent-danger="high"
-  data-agent-confirm="required"
->
-  Delete Workspace
-</button>
-```
-
-- `data-agent-danger`: `"none"` | `"low"` | `"high"`. **The manifest JSON calls this `"risk"` but the HTML attribute is `data-agent-danger`.**
-- `data-agent-confirm`: `"never"` | `"optional"` (auto-submit) | `"review"` (fill only, user submits) | `"required"` (blocked without consent)
-
-### Data tables and lists
-
-Wrap the table or list container with collection attributes. If you can't add attributes to the component library's `<Table>` directly, wrap it in a `<div>`:
-
-```tsx
-<div data-agent-kind="collection" data-agent-action="project.list" data-agent-scope="projects.read">
-  <Table>
-    <TableBody>
-      {projects.map(p => (
-        <TableRow key={p.id} data-agent-kind="item">
-          <TableCell>{p.name}</TableCell>
-          <TableCell>{p.status}</TableCell>
-        </TableRow>
-      ))}
-    </TableBody>
-  </Table>
-</div>
-```
-
-### Status elements
-
-Add a status element near the form that reflects mutation state:
-
-```tsx
-<div
-  data-agent-kind="status"
-  data-agent-output="project.create.status"
-  role="status"
-  aria-live="polite"
->
-  {mutation.isSuccess ? 'Project created successfully' : ''}
-  {mutation.isError ? mutation.error.message : ''}
-</div>
-```
-
-### Global actions (navbar, layout)
-
-Actions that live in persistent layout elements (navbar, sidebar, footer) and are available on every page. Common examples: **logout**, **theme toggle**, **notification dismiss**, **help toggle**.
-
-```tsx
-{/* Logout button in navbar */}
-<Button
-  onPress={logout}
-  data-agent-kind="action"
-  data-agent-action="session.logout"
-  data-agent-scope="session.write"
-  data-agent-confirm="never"
-  data-agent-idempotent="true"
->
-  Logout
-</Button>
-```
-
-**What to scan for:** When tracing the route tree, also check layout/shell components (root layout, navbar, sidebar, footer). Look for logout buttons, theme switchers, notification controls, user menu actions, and any other interactive elements that appear on every page.
-
-**Manifest rules for global actions:**
-- Add the action to the manifest `actions` section like any other action
-- No need to add it to every page's `actions` array — the semantic parser discovers it from the DOM on whatever page the user is currently on
-- Use `"risk": "none"`, `"confirmation": "never"`, `"idempotent": true` for session/toggle actions
-- Use `"additionalProperties": false` with empty `properties` for zero-field actions (like logout)
-
-### Navigation links
-
-```tsx
-{/* Link component — href/to becomes the target */}
-<Link to="/projects" data-agent-kind="link">Projects</Link>
-
-{/* Non-anchor navigation (button that calls navigate()) */}
-<Button
-  onClick={() => navigate({ to: '/settings' })}
-  data-agent-kind="link"
-  data-agent-page="/settings/"
->
-  Settings
-</Button>
-```
-
-For `<a>` tags, the target is derived from `href`. For non-anchor elements, `data-agent-page` is required.
-
-**CRITICAL — Keep link text clean for LLM matching.** Place `data-agent-kind="link"` on the element whose `textContent` is the item's name, NOT on a wrapper that includes extra stats or metadata. The LLM matches user requests like "go to my default project" against the link's text. Noisy text (e.g., "default 1,234 tokens 100% 50 events") makes matching unreliable for small models.
-
-```tsx
-{/* GOOD — link text is just the project name */}
-<Link to={`/projects/${id}`}>
-  <Card>
-    <span data-agent-kind="link" data-agent-page={`/projects/${id}`}>
-      {project.name}
-    </span>
-    <span>{project.stats}</span>  {/* not included in link text */}
-  </Card>
-</Link>
-
-{/* BAD — link text includes all card content */}
-<Link to={`/projects/${id}`} data-agent-kind="link">
-  <Card>
-    <span>{project.name}</span>
-    <span>{project.stats}</span>  {/* pollutes link text */}
-  </Card>
-</Link>
-```
-
-### Plain HTML example (for reference)
-
-```html
-<form data-agent-kind="action" data-agent-action="invoice.create" data-agent-scope="invoices.write">
-  <input data-agent-kind="field" data-agent-field="customer_email" type="email" required aria-label="Customer email" />
-  <input data-agent-kind="field" data-agent-field="amount" type="number" min="0" step="0.01" required />
-  <select data-agent-kind="field" data-agent-field="currency" aria-label="Currency">
-    <option value="EUR">EUR</option>
-    <option value="USD">USD</option>
-  </select>
-  <button data-agent-kind="action" data-agent-action="invoice.create.submit">Create Invoice</button>
-  <div data-agent-kind="status" data-agent-output="invoice.create.status"></div>
-</form>
-```
-
-## Step 4: Generate the manifest
+## Step 5: Generate/update manifest
 
 Create or update `public/.well-known/agent-manifest.json`.
 
@@ -374,7 +249,7 @@ Create or update `public/.well-known/agent-manifest.json`.
 ```
 See `docs/09-multi-agent-handoff.md` for the full protocol and `schemas/agent-manifest.schema.json` for the schema.
 
-## Step 4b: Generate llms.txt (optional but recommended)
+### Generate llms.txt (optional but recommended)
 
 Generate a `llms.txt` file so AI crawlers and agents can discover the site's capabilities:
 
@@ -388,39 +263,28 @@ npx tsx packages/agentgen/src/cli.ts \
 
 This creates `public/llms.txt` with action summaries, data view descriptions, and a link to the manifest. Deploy it at the site root (`/llms.txt`). See `packages/agentgen/src/llms-txt-generator.ts` for the format.
 
-## Step 5: Automated verification loop
+## Step 6: Verification loop
 
-After annotating all files and generating the manifest, verify against the **rendered DOM** using the AAF linter. This catches issues that source-code inspection misses: component libraries stripping `data-*` attributes, unannotated interactive elements, and missing manifest entries.
+Run the linter in a tight loop. **Max 3 iterations.** If all pages pass at 100% with zero alignment warnings, STOP.
 
-1. **Ensure the dev server is running** (or start it with the project's dev command).
-
-2. **Run the per-page audit.** If running inside the AAF repo, use the local linter path. Otherwise, use the path to wherever `aaf-lint` is installed:
+1. **Run the per-page audit:**
    ```bash
    npx tsx packages/aaf-lint/src/cli.ts \
      --audit-pages <dev-server-url> \
      --manifest <project>/public/.well-known/agent-manifest.json \
      --safety
    ```
-   This renders each static page from the manifest with Playwright, runs the accessibility audit on the rendered HTML, and checks that every action/field listed in the manifest for that page actually exists in the DOM.
 
-3. **For each page with issues, fix the root cause:**
-   - **Unannotated fields** (`<select>`, `<input>`, `<textarea>` without `data-agent-field`): Add `data-agent-*` annotations. If the component library strips `data-*` props (the source looks correct but the rendered DOM has nothing), wrap the component in a `<div>` with the attributes instead.
-   - **Missing manifest entries**: Add actions/fields to the manifest's `pages` section, or remove stale entries that reference actions no longer on that page.
-   - **Unannotated links** (`<a>` without `data-agent-kind="link"`): Add `data-agent-kind="link"` and `data-agent-page` where needed.
-   - **Safety issues** (dangerous buttons without `data-agent-danger` + `data-agent-confirm`): Add both attributes.
+2. **Check the result:**
+   - **All pages 100% + zero alignment warnings** → DONE. Skip to final sanity check.
+   - **Gaps remain** → fix them (use the deterministic/semantic classification from Step 1) and re-run.
 
-4. **Re-run step 2.** Repeat until all pages pass (or only parameterized routes remain, which are skipped).
-
-5. **Final sanity check** — grep for common mistakes that the linter may not catch:
+3. **Final sanity check** — grep for common mistakes the linter may not catch:
    - `data-agent-risk` (should be `data-agent-danger`)
    - `data-agent-action` without `data-agent-kind` on the same element
    - Duplicate `data-agent-field` values within the same action scope
 
-## Step 6: Verify the rendered DOM
-
-Step 5's `--audit-pages` mode already renders each page with Playwright and checks the DOM programmatically. If all pages pass, no further manual verification is needed.
-
-For **parameterized routes** (e.g., `/projects/:projectId`) that `--audit-pages` skips, or if you want to spot-check a specific page, you can audit a single rendered URL:
+For **parameterized routes** (e.g., `/projects/:projectId`) that `--audit-pages` skips, or to spot-check a specific page:
 ```bash
 npx tsx packages/aaf-lint/src/cli.ts \
   --audit <url> --render --safety \
@@ -431,6 +295,323 @@ If a `data-agent-*` attribute is present in source but missing from the rendered
 1. Check if the component forwards `data-*` props (most do — HeroUI, Radix, Headless UI all work)
 2. If not, wrap the component in a `<div>` with the agent attributes instead
 3. For MUI, use `inputProps` / `slotProps` to reach the DOM element
+
+## Step 7: Agent widget (optional)
+
+**Ask the user:** "Would you like to embed the AAF agent chat widget? It adds a floating chat panel that lets users (or agents) interact with the annotated UI via natural language. Requires Ollama running locally."
+
+If the user declines, skip this step entirely.
+
+### Build the widget
+
+If running inside the AAF repo:
+```bash
+cd packages/aaf-agent-widget && npm run build
+```
+
+This produces `packages/aaf-agent-widget/dist/aaf-agent.js` — a self-contained IIFE bundle with zero external dependencies.
+
+### Copy the bundle into the project
+
+Copy the built `aaf-agent.js` into the project's public/static asset directory:
+```bash
+cp packages/aaf-agent-widget/dist/aaf-agent.js <project>/public/aaf-agent.js
+```
+
+For projects outside the AAF repo, fetch the pre-built bundle from GitHub or build it separately.
+
+### Add the script tags to `index.html`
+
+Add **two** script blocks at the end of `<body>`, **after** the app's own `<script>` tag:
+
+```html
+<body>
+  <div id="root"></div>
+  <script type="module" src="./src/main.tsx"></script>
+
+  <!-- AAF Agent Widget config -->
+  <script>
+    window.__AAF_CONFIG__ = {
+      llm: {
+        provider: 'ollama',
+        baseUrl: 'http://localhost:11434',
+        model: 'ibm/granite4:micro-h'
+      }
+    };
+  </script>
+  <script src="/aaf-agent.js"></script>
+</body>
+```
+
+Adjust `model` to whatever Ollama model the user has pulled. Common choices: `ibm/granite4:micro-h` (fast, small), `llama3.2` (general), `qwen2.5-coder` (code-focused).
+
+### SPA/React timing — already handled
+
+**Do NOT add any custom "wait for React" logic.** The widget already handles SPA hydration timing internally:
+
+1. On load, it checks for `[data-agent-kind]` elements in the DOM
+2. If none exist yet (React hasn't rendered), it sets up a **MutationObserver** watching `document.body` with `{ childList: true, subtree: true }`
+3. As soon as any `data-agent-kind` element appears, the observer fires and the widget initializes
+4. **15-second timeout** — if no AAF elements appear within 15 seconds, the observer disconnects (prevents memory leaks on pages with no annotations)
+
+This means the widget works correctly even when:
+- React/Vue/Svelte hydrates asynchronously after the script loads
+- Route transitions render new components after navigation
+- Data fetching delays component rendering
+
+For **cross-page navigation**, the widget also uses a MutationObserver (10-second timeout) to wait for specific action elements to appear on the target page before executing pre-planned actions.
+
+### Verification
+
+After adding the widget, reload the dev server and confirm:
+1. The floating chat icon appears in the bottom-right corner
+2. Opening the chat and typing a command (e.g., "what can I do here?") gets a response from Ollama
+3. The widget discovers all annotated actions on the current page
+
+## Reference Appendix
+
+Annotation patterns and examples. The deterministic pass (Step 2) and semantic pass (Step 4) reference these by name.
+
+### Actions (forms)
+
+Wrap the outermost form or container with action attributes:
+
+```tsx
+{/* React / JSX */}
+<form
+  data-agent-kind="action"
+  data-agent-action="project.create"
+  data-agent-scope="projects.write"
+  data-agent-danger="low"
+  data-agent-confirm="optional"
+  onSubmit={handleSubmit(onSubmit)}
+>
+  {/* fields */}
+  <Button type="submit" data-agent-kind="action" data-agent-action="project.create.submit">
+    Create
+  </Button>
+</form>
+```
+
+**If the form lives inside a modal** (HeroUI Modal, MUI Dialog, Chakra Modal, etc.), put the action attributes on a wrapper `<div>` around the modal body and footer:
+
+```tsx
+<Modal>
+  <ModalContent>
+    <ModalHeader>Create Project</ModalHeader>
+    <div data-agent-kind="action" data-agent-action="project.create" data-agent-scope="projects.write">
+      <ModalBody>
+        {/* fields */}
+      </ModalBody>
+      <ModalFooter>
+        <Button type="submit" data-agent-kind="action" data-agent-action="project.create.submit">
+          Create
+        </Button>
+      </ModalFooter>
+    </div>
+  </ModalContent>
+</Modal>
+```
+
+### Fields
+
+The key challenge in React: component libraries wrap `<input>` inside custom components (`<Input>`, `<Select>`, `<Textarea>`).
+
+**Preferred approach: add `data-agent-*` directly to the component library's input.**
+
+Most component libraries (HeroUI, Radix, Headless UI, Chakra) forward `data-*` attributes to the underlying DOM element:
+
+```tsx
+<Input
+  {...register("name", { required: "Name is required" })}
+  data-agent-kind="field"
+  data-agent-field="project_name"
+/>
+```
+
+**If the component strips `data-*` attributes** (check rendered DOM in dev tools), wrap it:
+
+```tsx
+<div data-agent-kind="field" data-agent-field="project_name">
+  <Input {...register("name", { required: "Name is required" })} />
+</div>
+```
+
+**MUI special case**: use `inputProps` to reach the DOM element:
+
+```tsx
+<TextField
+  inputProps={{
+    "data-agent-kind": "field",
+    "data-agent-field": "project_name",
+  }}
+/>
+```
+
+**Naming rules:**
+- Field names are **snake_case**: `customer_email`, `total_amount`, `due_date`
+- Fields inside a `data-agent-kind="action"` element are automatically linked to that action
+- Fields outside the action's DOM subtree need `data-agent-for-action="project.create"`
+- Each (action, field) pair must resolve to exactly **one** DOM element
+
+### Interactive controls (non-form actions)
+
+**Not all actions are form submissions.** Any interactive control that changes what the user sees — dropdowns, toggles, tabs, filters, sort controls — should also be annotated.
+
+Wrap the control in an action container and mark the interactive element as a field:
+
+```tsx
+{/* A dropdown that changes page state (no form, no submit button) */}
+<div
+  data-agent-kind="action"
+  data-agent-action="chart.change_metric"
+  data-agent-scope="analytics.read"
+  data-agent-danger="none"
+  data-agent-confirm="never"
+>
+  <div data-agent-kind="field" data-agent-field="metric_type">
+    <Select onSelectionChange={handleChange}>
+      <SelectItem key="cost">Cost</SelectItem>
+      <SelectItem key="tokens">Tokens</SelectItem>
+    </Select>
+  </div>
+</div>
+```
+
+**Key differences from form actions:**
+- Use `data-agent-danger="none"` and `data-agent-confirm="never"` for read-only view controls
+- No submit button — the runtime triggers the control's change event directly
+- In the manifest, use `"risk": "none"` and `"confirmation": "never"`, and mark as `"idempotent": true`
+- Use `enum` in `inputSchema` to list valid values so the LLM picks correctly
+
+### Danger and confirmation
+
+```tsx
+{/* Dangerous action — note: HTML attribute is "danger", NOT "risk" */}
+<button
+  data-agent-kind="action"
+  data-agent-action="workspace.delete"
+  data-agent-danger="high"
+  data-agent-confirm="required"
+>
+  Delete Workspace
+</button>
+```
+
+- `data-agent-danger`: `"none"` | `"low"` | `"high"`. **The manifest JSON calls this `"risk"` but the HTML attribute is `data-agent-danger`.**
+- `data-agent-confirm`: `"never"` | `"optional"` (auto-submit) | `"review"` (fill only, user submits) | `"required"` (blocked without consent)
+
+### Data tables and lists
+
+Wrap the table or list container with collection attributes:
+
+```tsx
+<div data-agent-kind="collection" data-agent-action="project.list" data-agent-scope="projects.read">
+  <Table>
+    <TableBody>
+      {projects.map(p => (
+        <TableRow key={p.id} data-agent-kind="item">
+          <TableCell>{p.name}</TableCell>
+          <TableCell>{p.status}</TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+</div>
+```
+
+### Status elements
+
+```tsx
+<div
+  data-agent-kind="status"
+  data-agent-output="project.create.status"
+  role="status"
+  aria-live="polite"
+>
+  {mutation.isSuccess ? 'Project created successfully' : ''}
+  {mutation.isError ? mutation.error.message : ''}
+</div>
+```
+
+### Global actions (navbar, layout)
+
+Actions in persistent layout elements (navbar, sidebar, footer) available on every page:
+
+```tsx
+{/* Logout button in navbar */}
+<Button
+  onPress={logout}
+  data-agent-kind="action"
+  data-agent-action="session.logout"
+  data-agent-scope="session.write"
+  data-agent-confirm="never"
+  data-agent-idempotent="true"
+>
+  Logout
+</Button>
+```
+
+**Manifest rules for global actions:**
+- Add the action to the manifest `actions` section like any other action
+- No need to add it to every page's `actions` array — the semantic parser discovers it from the DOM on whatever page the user is currently on
+- Use `"risk": "none"`, `"confirmation": "never"`, `"idempotent": true` for session/toggle actions
+- Use `"additionalProperties": false` with empty `properties` for zero-field actions (like logout)
+
+### Navigation links
+
+```tsx
+{/* Link component — href/to becomes the target */}
+<Link to="/projects" data-agent-kind="link">Projects</Link>
+
+{/* Non-anchor navigation (button that calls navigate()) */}
+<Button
+  onClick={() => navigate({ to: '/settings' })}
+  data-agent-kind="link"
+  data-agent-page="/settings/"
+>
+  Settings
+</Button>
+```
+
+For `<a>` tags, the target is derived from `href`. For non-anchor elements, `data-agent-page` is required.
+
+**CRITICAL — Keep link text clean for LLM matching.** Place `data-agent-kind="link"` on the element whose `textContent` is the item's name, NOT on a wrapper that includes extra stats or metadata:
+
+```tsx
+{/* GOOD — link text is just the project name */}
+<Link to={`/projects/${id}`}>
+  <Card>
+    <span data-agent-kind="link" data-agent-page={`/projects/${id}`}>
+      {project.name}
+    </span>
+    <span>{project.stats}</span>  {/* not included in link text */}
+  </Card>
+</Link>
+
+{/* BAD — link text includes all card content */}
+<Link to={`/projects/${id}`} data-agent-kind="link">
+  <Card>
+    <span>{project.name}</span>
+    <span>{project.stats}</span>  {/* pollutes link text */}
+  </Card>
+</Link>
+```
+
+### Plain HTML example
+
+```html
+<form data-agent-kind="action" data-agent-action="invoice.create" data-agent-scope="invoices.write">
+  <input data-agent-kind="field" data-agent-field="customer_email" type="email" required aria-label="Customer email" />
+  <input data-agent-kind="field" data-agent-field="amount" type="number" min="0" step="0.01" required />
+  <select data-agent-kind="field" data-agent-field="currency" aria-label="Currency">
+    <option value="EUR">EUR</option>
+    <option value="USD">USD</option>
+  </select>
+  <button data-agent-kind="action" data-agent-action="invoice.create.submit">Create Invoice</button>
+  <div data-agent-kind="status" data-agent-output="invoice.create.status"></div>
+</form>
+```
 
 ## Reference
 
@@ -483,4 +664,4 @@ AAF defines three conformance tiers (see `docs/06-security-threat-model.md`):
 2. **Manifested (Level 2)** — Full `/.well-known/agent-manifest.json` with schemas, pages, and risk/confirmation metadata.
 3. **Certified (Level 3)** — Passes `aaf-lint --audit-pages --safety`, has `llms.txt`, origin trust configured.
 
-After completing annotation, the project should be at least Level 2. Run the linter audit (Step 5) to verify.
+After completing annotation, the project should be at least Level 2. Run the linter audit (Step 6) to verify.
