@@ -171,18 +171,70 @@ export function lintHTML(html: string, source?: string): LintResult[] {
     }
 
     // Cross-attribute check: kind="link" on non-<a> needs data-agent-page
-    if (/data-agent-kind="link"/.test(line) && !/<a\b/.test(line) && !/data-agent-page="/.test(line)) {
-      results.push({
-        severity: 'error',
-        message: `data-agent-kind="link" on non-<a> element requires data-agent-page`,
-        source,
-        line: lineNum,
-      });
+    // Exception: SPA router components (<Link to="...">, <RouterLink to="...">, etc.)
+    // render as <a> in the DOM and derive target from the `to` prop.
+    // Exception: HeroUI <Link href="..."> renders as <a> in DOM.
+    // For multi-line JSX tags, look back/forward to find sibling attributes.
+    if (/data-agent-kind="link"/.test(line) && !/<a\b/.test(line) && !/data-agent-page[="{]/.test(line)) {
+      // Check nearby lines for data-agent-page (multi-line JSX attributes)
+      let hasPageAttr = false;
+      const nearby = Math.min(lines.length - 1, i + 5);
+      for (let j = i + 1; j <= nearby; j++) {
+        if (/data-agent-page[="{]/.test(lines[j])) { hasPageAttr = true; break; }
+        // Stop at tag close or new tag open
+        if (/\/>|>/.test(lines[j]) || /^\s*<\w/.test(lines[j])) break;
+      }
+      if (hasPageAttr) continue;
+
+      // Look back for <a>, router Link, or HeroUI <Link href="..."> on preceding lines
+      let isLinkElement = false;
+      const lookback = Math.max(0, i - 10);
+      for (let j = i; j >= lookback; j--) {
+        const checkLine = lines[j];
+        // Direct <a> tag
+        if (/<a\b/.test(checkLine)) { isLinkElement = true; break; }
+        // Router Link with to= prop (renders as <a>)
+        if (/^.*<(?:Link|RouterLink|NavLink|NuxtLink)\b/.test(checkLine) && /\bto[={"\s']/.test(checkLine)) {
+          isLinkElement = true;
+          break;
+        }
+        // HeroUI/component <Link href="..."> (renders as <a>)
+        if (/^.*<Link\b/.test(checkLine) && /\bhref[={"\s']/.test(checkLine)) {
+          isLinkElement = true;
+          break;
+        }
+        // Found a router/Link component — check if any line between it and current has to= or href=
+        if (/^.*<(?:Link|RouterLink|NavLink|NuxtLink)\b/.test(checkLine)) {
+          for (let k = j; k <= i; k++) {
+            if (/\b(?:to|href)[={"\s']/.test(lines[k])) {
+              isLinkElement = true;
+              break;
+            }
+          }
+          break;
+        }
+        // Stop looking back if we hit a self-closing or closing tag (but not on same line)
+        if (j < i && /\/>/.test(checkLine)) break;
+      }
+      if (!isLinkElement) {
+        results.push({
+          severity: 'error',
+          message: `data-agent-kind="link" on non-<a> element requires data-agent-page`,
+          source,
+          line: lineNum,
+        });
+      }
     }
   }
 
   // Structural check: duplicate field identifiers that resolve to the same action
   checkDuplicateFields(html, source, results);
+
+  // SPA router link check: detect <Link to="...">, <RouterLink to="...">, etc. missing data-agent-kind="link"
+  checkRouterLinks(html, source, results);
+
+  // Native form control check: <select>, <input>, <textarea> without data-agent-field
+  checkUnannotatedFormControls(html, source, results);
 
   return results;
 }
@@ -297,4 +349,109 @@ function extractFieldAttr(tag: string, attr: string): string | undefined {
   const re = new RegExp(`${attr}=["']([^"']*)["']`, 'i');
   const m = re.exec(tag);
   return m?.[1];
+}
+
+/**
+ * Detect SPA router link components (<Link to="...">, <RouterLink to="...">, etc.)
+ * that are missing data-agent-kind="link". These components render as <a> tags in the
+ * DOM but the linter cannot audit them on authenticated pages (gets redirected to login).
+ * Source-level detection catches them regardless of auth state.
+ */
+const ROUTER_LINK_COMPONENTS = ['Link', 'RouterLink', 'NavLink', 'NuxtLink'];
+const ROUTER_LINK_RE = new RegExp(`<(${ROUTER_LINK_COMPONENTS.join('|')})\\b`, 'g');
+// JSX expression for data-agent-kind: both "link" and {"link"}
+const AGENT_LINK_KIND_RE = /data-agent-kind=(?:"link"|=?\{"link"\})/;
+
+function checkRouterLinks(html: string, source: string | undefined, results: LintResult[]): void {
+  const isJSX = source ? /\.[jt]sx?$/.test(source) : false;
+  if (!isJSX) return;
+
+  ROUTER_LINK_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = ROUTER_LINK_RE.exec(html)) !== null) {
+    const component = match[1];
+    const startPos = match.index;
+    const lineNum = html.slice(0, startPos).split('\n').length;
+
+    // Extract the full opening tag, handling nested JSX expressions {…}
+    let braceDepth = 0;
+    let tagEnd = startPos + match[0].length;
+
+    while (tagEnd < html.length) {
+      const ch = html[tagEnd];
+      if (ch === '{') braceDepth++;
+      else if (ch === '}') braceDepth--;
+      else if (braceDepth === 0 && ch === '>') break;
+      tagEnd++;
+    }
+
+    if (tagEnd >= html.length) continue;
+
+    const fullTag = html.slice(startPos, tagEnd + 1);
+
+    // Must have a `to` prop — distinguishes router Link from generic <Link href="...">
+    if (!/\bto[={"\s']/.test(fullTag)) continue;
+
+    // Already has data-agent-kind="link" on the tag itself — good
+    if (AGENT_LINK_KIND_RE.test(fullTag)) continue;
+
+    // Check if a child element within the Link has data-agent-kind="link"
+    // (pattern: annotation on inner element for clean textContent)
+    const closeTag = `</${component}>`;
+    const closePos = html.indexOf(closeTag, tagEnd);
+    if (closePos !== -1) {
+      const innerContent = html.slice(tagEnd + 1, closePos);
+      if (AGENT_LINK_KIND_RE.test(innerContent)) continue;
+    }
+
+    results.push({
+      severity: 'warning',
+      message: `<${component} to="..."> missing data-agent-kind="link". SPA router links need explicit annotation for agent navigation — the DOM-level auditor cannot detect these on authenticated pages.`,
+      source,
+      line: lineNum,
+    });
+  }
+}
+
+/**
+ * Detect native HTML form controls (<select>, <input>, <textarea>) that are
+ * missing data-agent-field. Skips hidden, submit, checkbox, radio, and
+ * already-annotated elements. Mirrors the DOM auditor's auditFields logic
+ * but works at source level so it can catch controls on authenticated pages.
+ */
+const NATIVE_CONTROL_RE = /<(?:select|textarea)\b[^>]*>/g;
+const NATIVE_INPUT_RE = /<input\b[^>]*>/g;
+const SKIP_INPUT_TYPES = /type\s*=\s*["'](?:hidden|submit|checkbox|radio|button|reset|image)["']/i;
+const HAS_AGENT_FIELD = /data-agent-(?:field|kind)\s*=\s*["']/i;
+
+function checkUnannotatedFormControls(html: string, source: string | undefined, results: LintResult[]): void {
+  // Check <select> and <textarea>
+  NATIVE_CONTROL_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = NATIVE_CONTROL_RE.exec(html)) !== null) {
+    if (HAS_AGENT_FIELD.test(m[0])) continue;
+    const lineNum = html.slice(0, m.index).split('\n').length;
+    const tagName = m[0].match(/^<(\w+)/)?.[1] ?? 'element';
+    results.push({
+      severity: 'warning',
+      message: `<${tagName}> missing data-agent-field. Native form controls should be annotated so agents can interact with them.`,
+      source,
+      line: lineNum,
+    });
+  }
+
+  // Check <input> (with type filtering)
+  NATIVE_INPUT_RE.lastIndex = 0;
+  while ((m = NATIVE_INPUT_RE.exec(html)) !== null) {
+    if (HAS_AGENT_FIELD.test(m[0])) continue;
+    if (SKIP_INPUT_TYPES.test(m[0])) continue;
+    const lineNum = html.slice(0, m.index).split('\n').length;
+    results.push({
+      severity: 'warning',
+      message: `<input> missing data-agent-field. Native form controls should be annotated so agents can interact with them.`,
+      source,
+      line: lineNum,
+    });
+  }
 }

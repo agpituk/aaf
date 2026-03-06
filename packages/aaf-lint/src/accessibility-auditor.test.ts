@@ -165,6 +165,60 @@ describe('auditHTML', () => {
     expect(navCategory!.score).toBe(50);
   });
 
+  describe('nav region link detection', () => {
+    it('fails when <nav> contains unannotated links', () => {
+      const html = `
+        <nav>
+          <a href="/dashboard">Dashboard</a>
+          <a href="/projects">Projects</a>
+          <a href="/settings">Settings</a>
+        </nav>
+      `;
+      const result = auditHTML(html);
+      const navCategory = result.categories.find((c) => c.category === 'navigation');
+      const navRegionCheck = navCategory!.checks.find((c) => c.check === 'nav_region_links');
+      expect(navRegionCheck).toBeDefined();
+      expect(navRegionCheck!.status).toBe('fail');
+      expect(navRegionCheck!.message).toContain('3 of 3');
+      expect(navRegionCheck!.message).toContain('inside <nav>');
+    });
+
+    it('passes when <nav> links are all annotated', () => {
+      const html = `
+        <nav>
+          <a href="/dashboard" data-agent-kind="link">Dashboard</a>
+          <a href="/projects" data-agent-kind="link">Projects</a>
+        </nav>
+      `;
+      const result = auditHTML(html);
+      const navCategory = result.categories.find((c) => c.category === 'navigation');
+      const navRegionCheck = navCategory!.checks.find((c) => c.check === 'nav_region_links');
+      expect(navRegionCheck).toBeDefined();
+      expect(navRegionCheck!.status).toBe('pass');
+    });
+
+    it('detects unannotated links in role="navigation" elements', () => {
+      const html = `
+        <div role="navigation">
+          <a href="/dashboard">Dashboard</a>
+        </div>
+      `;
+      const result = auditHTML(html);
+      const navCategory = result.categories.find((c) => c.category === 'navigation');
+      const navRegionCheck = navCategory!.checks.find((c) => c.check === 'nav_region_links');
+      expect(navRegionCheck).toBeDefined();
+      expect(navRegionCheck!.status).toBe('fail');
+    });
+
+    it('does not add nav region check when no <nav> elements exist', () => {
+      const html = `<a href="/dashboard" data-agent-kind="link">Dashboard</a>`;
+      const result = auditHTML(html);
+      const navCategory = result.categories.find((c) => c.category === 'navigation');
+      const navRegionCheck = navCategory!.checks.find((c) => c.check === 'nav_region_links');
+      expect(navRegionCheck).toBeUndefined();
+    });
+  });
+
   describe('details reporting', () => {
     it('includes details for unannotated fields with name/label/placeholder', () => {
       const html = `

@@ -125,6 +125,9 @@ async function main() {
   let changedFlag = false;
   let changedRef: string | undefined;
   let stripDevTools = true;
+  let authStorageStatePath = '';
+  const authCookies: Array<{ name: string; value: string; domain: string; path: string }> = [];
+  const authLocalStorage: Record<string, string> = {};
   const excludeSelectors: string[] = [];
   const positionalFiles: string[] = [];
 
@@ -145,6 +148,27 @@ async function main() {
     else if (arg === '--stdin') useStdin = true;
     else if (arg === '--exclude' && hasValue) excludeSelectors.push(args[++i]);
     else if (arg === '--no-strip-devtools') stripDevTools = false;
+    else if (arg === '--auth-storage-state' && hasValue) authStorageStatePath = args[++i];
+    else if (arg === '--auth-cookie' && hasValue) {
+      // Parse name=value; extract domain from --audit-pages URL or --audit URL
+      const cookie = args[++i];
+      const eqIdx = cookie.indexOf('=');
+      if (eqIdx > 0) {
+        authCookies.push({
+          name: cookie.slice(0, eqIdx),
+          value: cookie.slice(eqIdx + 1),
+          domain: '', // filled in after URL is known
+          path: '/',
+        });
+      }
+    }
+    else if (arg === '--auth-local-storage' && hasValue) {
+      const entry = args[++i];
+      const eqIdx = entry.indexOf('=');
+      if (eqIdx > 0) {
+        authLocalStorage[entry.slice(0, eqIdx)] = entry.slice(eqIdx + 1);
+      }
+    }
     else if (arg === '--changed') {
       changedFlag = true;
       if (hasValue) changedRef = args[++i];
@@ -153,9 +177,27 @@ async function main() {
     }
   }
 
+  // Resolve cookie domains from the target URL
+  const authTargetUrl = auditPagesUrl || auditPath;
+  if (authCookies.length > 0 && authTargetUrl && isURL(authTargetUrl)) {
+    const domain = new URL(authTargetUrl).hostname;
+    for (const cookie of authCookies) {
+      if (!cookie.domain) cookie.domain = domain;
+    }
+  }
+
+  const hasAuth = authStorageStatePath || authCookies.length > 0 || Object.keys(authLocalStorage).length > 0;
+
   const renderOpts: RenderOptions = {
     stripDevTools,
     excludeSelectors: excludeSelectors.length > 0 ? excludeSelectors : undefined,
+    ...(hasAuth ? {
+      auth: {
+        ...(authStorageStatePath ? { storageStatePath: authStorageStatePath } : {}),
+        ...(authCookies.length > 0 ? { cookies: authCookies } : {}),
+        ...(Object.keys(authLocalStorage).length > 0 ? { localStorage: authLocalStorage } : {}),
+      },
+    } : {}),
   };
 
   // --changed: get files from git diff
@@ -223,6 +265,10 @@ async function main() {
     console.error('  --exclude <selector>  CSS selector of elements to remove before auditing (repeatable)');
     console.error('  --check-llms-txt      Check that llms.txt exists and is valid (URL audit targets only)');
     console.error('  --no-strip-devtools   Keep dev tools (TanStack, React Query) in the rendered DOM');
+    console.error('\nAuthentication (for --render and --audit-pages):');
+    console.error('  --auth-storage-state <path>   Playwright storage state JSON file (cookies + localStorage)');
+    console.error('  --auth-cookie <name=value>    Cookie to inject before navigation (repeatable)');
+    console.error('  --auth-local-storage <k=v>    localStorage entry to set before navigation (repeatable)');
     process.exit(1);
   }
 

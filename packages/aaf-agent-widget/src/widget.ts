@@ -13,8 +13,8 @@ import { WidgetPlanner, PlannerError } from './widget-planner.js';
 import { readConfig, detectAvailableBackend } from './config.js';
 import { ChatUI } from './ui/chat.js';
 import { showConfirmation } from './ui/confirmation.js';
-import { enrichCatalogWithSchema, persistNavigation, checkPendingNavigation } from './navigation.js';
-import { matchIntentToPage } from './router.js';
+import { enrichCatalogWithSchema, persistNavigation, checkPendingNavigation, buildSiteActions, buildPageSummaries, buildSiteDataViews } from './navigation.js';
+import { matchIntentToPage, matchIntentToNavigation } from './router.js';
 
 const MANIFEST_PATH = '/.well-known/agent-manifest.json';
 
@@ -661,36 +661,77 @@ async function init(): Promise<void> {
       // Scrape page data for context (collections, items, tables)
       const pageData = scrapePageData() || undefined;
 
+      // Discover navigation links on the current page
+      const discoveredLinks = parser.discoverLinks(document.body);
+
       // Build contextual prompt with conversation history
       const contextualMessage = buildContextualMessage(text);
 
-      // Plan — use tool-based planning (current-page actions only)
+      // Plan — use site-aware planning when manifest available (includes other pages + links)
       chat.addMessage('system', 'Planning...');
-      const { result: planResult, debug: planDebug } = await planner.planWithTools(
-        contextualMessage,
-        enrichedCatalog,
-        pageData,
-      );
+      let planResult: import('@agent-accessibility-framework/planner-local').ParsedPlannerResult;
+      let planDebug: import('./widget-planner.js').PlanDebugInfo;
+
+      if (manifest) {
+        const otherPageActions = buildSiteActions(manifest, currentActionNames);
+        const pageSummaries = buildPageSummaries(manifest, window.location.pathname);
+        const dataViews = buildSiteDataViews(manifest);
+        const siteAwareResult = await planner.planSiteAware(
+          contextualMessage,
+          enrichedCatalog,
+          otherPageActions,
+          pageSummaries,
+          pageData,
+          dataViews.length > 0 ? dataViews : undefined,
+          discoveredLinks.length > 0 ? discoveredLinks : undefined,
+        );
+        planResult = siteAwareResult.result;
+        planDebug = siteAwareResult.debug;
+      } else {
+        const toolResult = await planner.planWithTools(
+          contextualMessage,
+          enrichedCatalog,
+          pageData,
+        );
+        planResult = toolResult.result;
+        planDebug = toolResult.debug;
+      }
+
+      const linkNames = discoveredLinks.map((l) => l.textContent || l.page);
+      const validRoutes = manifest?.pages
+        ? Object.entries(manifest.pages)
+            .filter(([r]) => !r.includes(':'))
+            .map(([r, p]) => `${p.title} (${r})`)
+        : [];
 
       // Emit debug block
       chat.addDebugBlock({
         ...planDebug,
         parsedResult: planResult,
         discoveredActions: currentActionNames,
-        discoveredLinks: [],
-        validRoutes: [],
+        discoveredLinks: linkNames,
+        validRoutes,
         pageDataPreview: (pageData ?? '').slice(0, 500),
       });
 
       // Handle informational answers — then try deterministic router for off-page actions
       if (planResult.kind === 'answer') {
-        // Try deterministic router: does the user want an action on another page?
         if (manifest) {
+          // Try action-based router: does the user want an action on another page?
           const routeMatch = matchIntentToPage(text, manifest, currentActionNames);
           if (routeMatch) {
             chat.addMessage('system', `Navigating to ${routeMatch.page}...`);
             persistNavigation(routeMatch.page, text, history, false, routeMatch.action);
             window.location.href = routeMatch.page;
+            return;
+          }
+
+          // Try page/link-based router: does the user want to navigate somewhere?
+          const navMatch = matchIntentToNavigation(text, manifest, discoveredLinks, window.location.pathname);
+          if (navMatch) {
+            chat.addMessage('system', `Navigating to ${navMatch.title}...`);
+            persistNavigation(navMatch.page, text, history, true);
+            window.location.href = navMatch.page;
             return;
           }
         }

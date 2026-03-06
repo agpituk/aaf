@@ -177,4 +177,13 @@ describe('aaf-lint CLI — help text', () => {
     expect(result.stderr).toContain('--stdin');
     expect(result.stderr).toContain('--changed');
   });
+
+  it('shows authentication flags in help text', () => {
+    const result = runCLI('');
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('--auth-storage-state');
+    expect(result.stderr).toContain('--auth-cookie');
+    expect(result.stderr).toContain('--auth-local-storage');
+    expect(result.stderr).toContain('Authentication');
+  });
 });

@@ -102,6 +102,51 @@ describe('lintHTML', () => {
     expect(results).toHaveLength(0);
   });
 
+  it('passes non-<a> with kind="link" and JSX expression data-agent-page={...}', () => {
+    const tsx = `<span data-agent-kind="link" data-agent-page={"/projects/" + id}>Project</span>`;
+    const results = lintHTML(tsx, 'Card.tsx');
+    expect(results.filter((r) => r.message.includes('non-<a>'))).toHaveLength(0);
+  });
+
+  it('passes multi-line JSX with data-agent-page on next line', () => {
+    const tsx = `<TableCell\n  data-agent-kind="link"\n  data-agent-page={\`/projects/\${id}\`}\n>`;
+    const results = lintHTML(tsx, 'List.tsx');
+    expect(results.filter((r) => r.message.includes('non-<a>'))).toHaveLength(0);
+  });
+
+  it('passes HeroUI <Link href="..."> with kind="link"', () => {
+    const tsx = `<Link\n  href="https://github.com/example"\n  isExternal\n  data-agent-kind="link"\n>`;
+    const results = lintHTML(tsx, 'Sidebar.tsx');
+    expect(results.filter((r) => r.message.includes('non-<a>'))).toHaveLength(0);
+  });
+
+  it('passes Button with kind="link" and data-agent-page on next line', () => {
+    const tsx = `<Button\n  onPress={() => navigate({ to: "/login" })}\n  data-agent-kind="link"\n  data-agent-page="/login"\n>`;
+    const results = lintHTML(tsx, 'CheckEmail.tsx');
+    expect(results.filter((r) => r.message.includes('non-<a>'))).toHaveLength(0);
+  });
+
+  it('passes <RouterLink to="..."> with kind="link" without data-agent-page', () => {
+    const html = `<RouterLink to="/dashboard" data-agent-kind="link">Dashboard</RouterLink>`;
+    const results = lintHTML(html, 'Sidebar.tsx');
+    // Should not error about missing data-agent-page (RouterLink renders as <a> in DOM)
+    expect(results.filter((r) => r.message.includes('non-<a>'))).toHaveLength(0);
+    // Should not warn about missing data-agent-kind (it's present)
+    expect(results.filter((r) => r.message.includes('router link'))).toHaveLength(0);
+  });
+
+  it('passes <Link to="..."> with kind="link" without data-agent-page', () => {
+    const html = `<Link to="/settings" data-agent-kind="link">Settings</Link>`;
+    const results = lintHTML(html, 'Nav.tsx');
+    expect(results.filter((r) => r.message.includes('non-<a>'))).toHaveLength(0);
+  });
+
+  it('passes multi-line <RouterLink to="..."> with kind="link" without data-agent-page', () => {
+    const html = `<RouterLink\n  key={item.path}\n  to={item.path}\n  onClick={onClose}\n  data-agent-kind="link"\n>`;
+    const results = lintHTML(html, 'Sidebar.tsx');
+    expect(results.filter((r) => r.message.includes('non-<a>'))).toHaveLength(0);
+  });
+
   it('includes line numbers in results', () => {
     const html = `line1\n<div data-agent-kind="invalid">test</div>\nline3`;
     const results = lintHTML(html, 'test.html');
@@ -174,6 +219,62 @@ describe('lintHTML', () => {
     });
   });
 
+  describe('SPA router link detection', () => {
+    it('warns when <Link to="..."> is missing data-agent-kind="link"', () => {
+      const tsx = `<Link to="/dashboard" onClick={onClose}>Dashboard</Link>`;
+      const results = lintHTML(tsx, 'Sidebar.tsx');
+      expect(results.some((r) => r.severity === 'warning' && r.message.includes('<Link to='))).toBe(true);
+    });
+
+    it('warns when <RouterLink to="..."> is missing data-agent-kind="link"', () => {
+      const tsx = `<RouterLink to="/settings">Settings</RouterLink>`;
+      const results = lintHTML(tsx, 'Nav.tsx');
+      expect(results.some((r) => r.severity === 'warning' && r.message.includes('<RouterLink to='))).toBe(true);
+    });
+
+    it('warns when <NavLink to="..."> is missing data-agent-kind="link"', () => {
+      const tsx = `<NavLink to="/projects">Projects</NavLink>`;
+      const results = lintHTML(tsx, 'Nav.tsx');
+      expect(results.some((r) => r.severity === 'warning' && r.message.includes('<NavLink to='))).toBe(true);
+    });
+
+    it('does not warn when <Link to="..."> has data-agent-kind="link"', () => {
+      const tsx = `<Link to="/dashboard" data-agent-kind="link">Dashboard</Link>`;
+      const results = lintHTML(tsx, 'Sidebar.tsx');
+      expect(results.filter((r) => r.message.includes('router link'))).toHaveLength(0);
+    });
+
+    it('does not warn for <Link href="..."> (non-router, no to prop)', () => {
+      const tsx = `<Link href="https://example.com" isExternal>Example</Link>`;
+      const results = lintHTML(tsx, 'Footer.tsx');
+      expect(results.filter((r) => r.message.includes('router link'))).toHaveLength(0);
+    });
+
+    it('does not check router links in .html files', () => {
+      const html = `<Link to="/dashboard">Dashboard</Link>`;
+      const results = lintHTML(html, 'page.html');
+      expect(results.filter((r) => r.message.includes('router link'))).toHaveLength(0);
+    });
+
+    it('handles multi-line JSX Link tags', () => {
+      const tsx = `<Link\n  to="/dashboard"\n  onClick={onClose}\n>\n  Dashboard\n</Link>`;
+      const results = lintHTML(tsx, 'Sidebar.tsx');
+      expect(results.some((r) => r.severity === 'warning' && r.message.includes('<Link to='))).toBe(true);
+    });
+
+    it('handles JSX expression props in Link tags', () => {
+      const tsx = `<Link to={\`/projects/\${id}\`} data-agent-kind="link">Project</Link>`;
+      const results = lintHTML(tsx, 'List.tsx');
+      expect(results.filter((r) => r.message.includes('router link'))).toHaveLength(0);
+    });
+
+    it('does not warn when child element inside <Link> has data-agent-kind="link"', () => {
+      const tsx = `<Link to="/projects/$projectId" params={{ projectId }}>\n  <Card>\n    <span data-agent-kind="link" data-agent-page={"/projects/" + id}>{name}</span>\n  </Card>\n</Link>`;
+      const results = lintHTML(tsx, 'Dashboard.tsx');
+      expect(results.filter((r) => r.message.includes('missing data-agent-kind'))).toHaveLength(0);
+    });
+  });
+
   describe('JSX/TSX support', () => {
     it('validates data-agent-* attributes in JSX files', () => {
       const tsx = `<input data-agent-kind="field" data-agent-field="customer_email" />`;
@@ -216,6 +317,56 @@ describe('lintHTML', () => {
       const tsx = `<AgentField field="customer_email" />`;
       const results = lintHTML(tsx, 'Form.tsx');
       expect(results).toHaveLength(0);
+    });
+  });
+
+  describe('unannotated native form controls', () => {
+    it('warns on <select> without data-agent-field', () => {
+      const html = `<select name="currency"><option>USD</option></select>`;
+      const results = lintHTML(html);
+      expect(results.some((r) => r.severity === 'warning' && r.message.includes('<select> missing data-agent-field'))).toBe(true);
+    });
+
+    it('warns on <textarea> without data-agent-field', () => {
+      const html = `<textarea name="notes"></textarea>`;
+      const results = lintHTML(html);
+      expect(results.some((r) => r.severity === 'warning' && r.message.includes('<textarea> missing data-agent-field'))).toBe(true);
+    });
+
+    it('warns on <input type="text"> without data-agent-field', () => {
+      const html = `<input type="text" name="email" />`;
+      const results = lintHTML(html);
+      expect(results.some((r) => r.severity === 'warning' && r.message.includes('<input> missing data-agent-field'))).toBe(true);
+    });
+
+    it('does not warn on <input type="hidden">', () => {
+      const html = `<input type="hidden" name="csrf" value="token" />`;
+      const results = lintHTML(html);
+      expect(results.filter((r) => r.message.includes('<input> missing'))).toHaveLength(0);
+    });
+
+    it('does not warn on <input type="submit">', () => {
+      const html = `<input type="submit" value="Go" />`;
+      const results = lintHTML(html);
+      expect(results.filter((r) => r.message.includes('<input> missing'))).toHaveLength(0);
+    });
+
+    it('does not warn on <input type="checkbox">', () => {
+      const html = `<input type="checkbox" name="agree" />`;
+      const results = lintHTML(html);
+      expect(results.filter((r) => r.message.includes('<input> missing'))).toHaveLength(0);
+    });
+
+    it('does not warn on annotated <select>', () => {
+      const html = `<select data-agent-kind="field" data-agent-field="currency"><option>USD</option></select>`;
+      const results = lintHTML(html);
+      expect(results.filter((r) => r.message.includes('<select> missing'))).toHaveLength(0);
+    });
+
+    it('does not warn on annotated <input>', () => {
+      const html = `<input data-agent-kind="field" data-agent-field="email" type="email" />`;
+      const results = lintHTML(html);
+      expect(results.filter((r) => r.message.includes('<input> missing'))).toHaveLength(0);
     });
   });
 });

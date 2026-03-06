@@ -186,6 +186,26 @@ function auditActions(html: string): CategoryScore {
 const ANCHOR_REGEX = /<a\b[^>]*href="[^"]*"[^>]*>/gi;
 const ANCHOR_WITH_LINK_KIND_REGEX = /<a\b[^>]*data-agent-kind="link"[^>]*>/gi;
 
+/**
+ * Extract content inside <nav> or role="navigation" elements.
+ * Returns array of nav region HTML strings.
+ */
+function extractNavRegions(html: string): string[] {
+  const regions: string[] = [];
+  // Match <nav ...>...</nav> (non-greedy, handles nesting poorly but covers most cases)
+  const navRe = /<nav\b[^>]*>([\s\S]*?)<\/nav>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = navRe.exec(html)) !== null) {
+    regions.push(m[0]);
+  }
+  // Match elements with role="navigation"
+  const roleRe = /<(\w+)\b[^>]*role="navigation"[^>]*>([\s\S]*?)<\/\1>/gi;
+  while ((m = roleRe.exec(html)) !== null) {
+    regions.push(m[0]);
+  }
+  return regions;
+}
+
 function auditNavigation(html: string): CategoryScore {
   const checks: AuditCheck[] = [];
   const allAnchors = html.match(ANCHOR_REGEX) || [];
@@ -225,6 +245,39 @@ function auditNavigation(html: string): CategoryScore {
       message: `${missing} of ${allAnchors.length} link(s) missing data-agent-kind="link"`,
       details,
     });
+  }
+
+  // Extra check: links inside <nav> / role="navigation" regions are critical for agent navigation.
+  // Unannotated links in nav regions are a higher-severity issue since they represent primary navigation.
+  const navRegions = extractNavRegions(html);
+  if (navRegions.length > 0) {
+    const navAnchorsAll: string[] = [];
+    const navAnchorsUnannotated: string[] = [];
+    for (const region of navRegions) {
+      const anchors = region.match(ANCHOR_REGEX) || [];
+      for (const tag of anchors) {
+        navAnchorsAll.push(tag);
+        if (!/data-agent-kind="link"/i.test(tag)) {
+          navAnchorsUnannotated.push(tag);
+        }
+      }
+    }
+    if (navAnchorsUnannotated.length > 0) {
+      checks.push({
+        category: 'navigation',
+        check: 'nav_region_links',
+        status: 'fail',
+        message: `${navAnchorsUnannotated.length} of ${navAnchorsAll.length} link(s) inside <nav> / role="navigation" missing data-agent-kind="link" — these are primary navigation and critical for agent page discovery`,
+        details: navAnchorsUnannotated.map((tag) => `${describeAnchor(tag)} (inside nav region)`),
+      });
+    } else if (navAnchorsAll.length > 0) {
+      checks.push({
+        category: 'navigation',
+        check: 'nav_region_links',
+        status: 'pass',
+        message: `All ${navAnchorsAll.length} link(s) inside nav regions are annotated`,
+      });
+    }
   }
 
   return { category: 'navigation', score: Math.round(ratio * 100), checks };

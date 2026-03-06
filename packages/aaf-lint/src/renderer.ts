@@ -1,3 +1,12 @@
+export interface AuthOptions {
+  /** Path to a Playwright storage state JSON file (cookies + localStorage + sessionStorage). */
+  storageStatePath?: string;
+  /** Cookies to inject before navigation (name=value pairs). */
+  cookies?: Array<{ name: string; value: string; domain: string; path?: string }>;
+  /** localStorage entries to set before navigation. */
+  localStorage?: Record<string, string>;
+}
+
 export interface RenderOptions {
   /** Additional CSS selectors of elements to remove before HTML extraction. */
   excludeSelectors?: string[];
@@ -7,6 +16,8 @@ export interface RenderOptions {
    * Defaults to `true`.
    */
   stripDevTools?: boolean;
+  /** Authentication configuration for accessing protected pages. */
+  auth?: AuthOptions;
 }
 
 /**
@@ -48,6 +59,16 @@ const DEV_TOOLS_SELECTORS = [
  * Any `position: fixed` container whose `textContent` includes one of these
  * strings is removed from the DOM before HTML extraction.
  */
+async function loadPlaywright() {
+  try {
+    return await import('playwright');
+  } catch {
+    throw new Error(
+      'playwright is required for --render. Install it with: npm install playwright'
+    );
+  }
+}
+
 const DEV_TOOLS_TEXT_MARKERS = [
   'TanStack Router',
   'TanStack Query',
@@ -60,18 +81,39 @@ const DEV_TOOLS_TEXT_MARKERS = [
 ];
 
 export async function renderURL(url: string, options?: RenderOptions): Promise<string> {
-  let playwright;
-  try {
-    playwright = await import('playwright');
-  } catch {
-    throw new Error(
-      'playwright is required for --render. Install it with: npm install playwright'
-    );
-  }
+  const pw = await loadPlaywright();
 
-  const browser = await playwright.chromium.launch({ headless: true });
+  const browser = await pw.chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage();
+    const contextOptions: Record<string, unknown> = {};
+    const auth = options?.auth;
+
+    // Use Playwright storage state file for full session restoration
+    if (auth?.storageStatePath) {
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      contextOptions.storageState = JSON.parse(readFileSync(resolve(auth.storageStatePath), 'utf-8'));
+    }
+
+    const context = await browser.newContext(contextOptions);
+
+    // Inject cookies
+    if (auth?.cookies && auth.cookies.length > 0) {
+      await context.addCookies(auth.cookies);
+    }
+
+    const page = await context.newPage();
+
+    // Inject localStorage before navigation
+    if (auth?.localStorage && Object.keys(auth.localStorage).length > 0) {
+      const entries = auth.localStorage;
+      await page.addInitScript((items: Record<string, string>) => {
+        for (const [key, value] of Object.entries(items)) {
+          localStorage.setItem(key, value);
+        }
+      }, entries);
+    }
+
     await page.goto(url, { waitUntil: 'networkidle' });
 
     // Strip dev tools and user-specified elements from the DOM

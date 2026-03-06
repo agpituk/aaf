@@ -44,7 +44,7 @@ Note the dev server port (check `vite.config.*`, `package.json` scripts, or `.en
 1. Find the router entry point (see routing table below)
 2. For each route, follow the imports to the page/layout component
 3. From each page component, follow imports to the child components that contain forms, tables, buttons, etc.
-4. **Also trace layout/shell components** (root layout, navbar, sidebar, footer) for global actions: logout, theme toggle, notification controls, help menus, etc. These are available on every page and need annotation.
+4. **Also trace layout/shell components** (root layout, navbar, sidebar, footer) for **global navigation links AND global actions**: sidebar nav items, navbar links, logo links, logout buttons, theme toggles, notification controls, help menus, etc. These are available on every page and need annotation. Navigation links in layout components are **critical** — without them the agent has no way to navigate between pages.
 5. Only annotate components that are reachable from the route tree
 
 **When paths are scoped** (arguments provided): Only trace routes whose page/layout components live under the given paths. For example, if the argument is `src/pages/billing`, find which routes point to components in `src/pages/billing/` and trace only those routes and their child components. Skip all routes outside the scope.
@@ -100,12 +100,82 @@ Each detail string from the linter maps to a work item. **Classify every item as
 
 **Rule: if the value can be derived from existing HTML attributes with a fixed algorithm, it's DETERMINISTIC. If it requires understanding what the element DOES, it's SEMANTIC.**
 
+### Authenticated apps
+
+By default, `--audit-pages` visits each route as an unauthenticated user. If the app redirects to a login page, the linter never sees pages behind auth. Use auth flags to inject session credentials into the headless browser:
+
+```bash
+# Option 1: Playwright storage state file (most complete — cookies + localStorage + sessionStorage)
+npx tsx packages/aaf-lint/src/cli.ts \
+  --audit-pages <dev-server-url> \
+  --manifest <project>/public/.well-known/agent-manifest.json \
+  --auth-storage-state ./auth-state.json \
+  --safety
+
+# Option 2: Individual cookies (e.g., JWT token)
+npx tsx packages/aaf-lint/src/cli.ts \
+  --audit-pages <dev-server-url> \
+  --manifest <project>/public/.well-known/agent-manifest.json \
+  --auth-cookie "access_token=eyJ..." \
+  --safety
+
+# Option 3: localStorage entries (e.g., token-based auth)
+npx tsx packages/aaf-lint/src/cli.ts \
+  --audit-pages <dev-server-url> \
+  --manifest <project>/public/.well-known/agent-manifest.json \
+  --auth-local-storage "token=eyJ..." \
+  --safety
+```
+
+**Generating a Playwright storage state file:**
+1. Log in to the app manually in a Playwright browser
+2. Save the state: `await context.storageState({ path: './auth-state.json' })`
+3. Or capture it from browser dev tools: export cookies + localStorage as JSON
+
+Auth flags also work with `--audit --render` for single-page audits.
+
+**If you cannot obtain auth credentials**, fall back to the source-level linter on layout/shell files (Step 2) and manually check global navigation (Step 4).
+
 ## Step 2: Deterministic pass — mechanical fixes only
 
 Process every DETERMINISTIC work item from Step 1. These fixes require zero judgment:
 
 ### Links
 Add `data-agent-kind="link"` to every `<a>` element the linter flagged. The target is derived from the `href` attribute — no naming decision needed.
+
+### SPA router navigation components
+
+Run the source-level linter on layout/shell component files to detect unannotated router links (`<Link to="...">`, `<RouterLink to="...">`, `<NavLink to="...">`, `<NuxtLink to="...">`):
+
+```bash
+npx tsx packages/aaf-lint/src/cli.ts src/components/Sidebar.tsx src/components/Navbar.tsx
+```
+
+Fix every `<Link to="..."> missing data-agent-kind="link"` warning. Two patterns:
+
+1. **Simple link** — add `data-agent-kind="link"` directly to the `<Link>` component.
+2. **Card/wrapper with mixed content** — if the `<Link>` wraps a Card or container with extra text (stats, metadata), put `data-agent-kind="link"` on the **inner element whose `textContent` is the item's name** and add `data-agent-page` with the target URL. This keeps link text clean for LLM matching. See [Navigation links](#navigation-links) in the Reference Appendix.
+
+```tsx
+{/* Card with mixed content — annotate inner element for clean text */}
+<Link to="/projects/$projectId" params={{ projectId: id }}>
+  <Card>
+    <span data-agent-kind="link" data-agent-page={`/projects/${id}/`}>
+      {project.name}
+    </span>
+    <span>{project.stats}</span>  {/* not included in link text */}
+  </Card>
+</Link>
+```
+
+**Always run this in addition to `--audit-pages`** — the DOM auditor cannot reach authenticated pages and will miss these entirely.
+
+Also manually check for patterns the source linter cannot catch:
+- `<Button as={Link}>` or component wrappers around router links
+- `navigate()` calls on clickable elements (add `data-agent-kind="link"` + `data-agent-page="/target"`)
+- Vue `<router-link>` (lowercase)
+
+Without link annotations on navigation components, the agent widget discovers zero routes and cannot navigate between pages.
 
 ### Fields with `name` attribute
 For every `<input>`, `<select>`, or `<textarea>` that has a `name` attribute but no `data-agent-field`:
@@ -193,6 +263,9 @@ Tables and lists that display data without mutation:
 - If it's a read-only list/table → data view (manifest `data` section, not DOM annotation)
 - If rows have inline edit/delete controls → collection with action items
 
+### Global navigation links (layout components)
+**Before looking at actions, annotate ALL navigation links in layout/shell components.** Scan the sidebar, navbar, and footer for every `<Link>`, `<RouterLink>`, `<NavLink>`, or programmatic `navigate()` call and add `data-agent-kind="link"`. These are the agent's primary way to navigate between pages. See [Navigation links](#navigation-links) in the Reference Appendix.
+
 ### Global actions (layout components)
 Check layout/shell components (root layout, navbar, sidebar, footer) for logout buttons, theme switchers, notification controls, user menu actions. These need action annotations even though they're not form-based. See [Global actions](#global-actions-navbar-layout) in the Reference Appendix.
 
@@ -267,7 +340,7 @@ This creates `public/llms.txt` with action summaries, data view descriptions, an
 
 Run the linter in a tight loop. **Max 3 iterations.** If all pages pass at 100% with zero alignment warnings, STOP.
 
-1. **Run the per-page audit:**
+1. **Run the per-page audit** (add auth flags if the app requires login — see Step 1):
    ```bash
    npx tsx packages/aaf-lint/src/cli.ts \
      --audit-pages <dev-server-url> \
@@ -284,11 +357,20 @@ Run the linter in a tight loop. **Max 3 iterations.** If all pages pass at 100% 
    - `data-agent-action` without `data-agent-kind` on the same element
    - Duplicate `data-agent-field` values within the same action scope
 
+4. **Run the source-level linter on layout/shell files** to check for unannotated router links (these are invisible to `--audit-pages` on authenticated apps):
+   ```bash
+   npx tsx packages/aaf-lint/src/cli.ts \
+     src/components/**/Sidebar*.tsx src/components/**/Navbar*.tsx \
+     src/components/**/Footer*.tsx src/components/**/Layout*.tsx
+   ```
+   Fix any `<Link to="..."> missing data-agent-kind="link"` warnings.
+
 For **parameterized routes** (e.g., `/projects/:projectId`) that `--audit-pages` skips, or to spot-check a specific page:
 ```bash
 npx tsx packages/aaf-lint/src/cli.ts \
   --audit <url> --render --safety \
-  --manifest <project>/public/.well-known/agent-manifest.json
+  --manifest <project>/public/.well-known/agent-manifest.json \
+  --auth-cookie "access_token=eyJ..."  # if auth required
 ```
 
 If a `data-agent-*` attribute is present in source but missing from the rendered DOM:
